@@ -1,0 +1,32 @@
+name: Feature
+description: Thay đổi chức năng hoặc tích hợp
+title: "[Feature] "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Kết quả mong muốn
+      description: Mô tả hành vi người dùng/hệ thống cần chứng minh.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Viết các điều kiện kiểm thử được.
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Dữ liệu, bảo mật và audit
+      description: Role, data scope, PII, secret, audit và rollback liên quan.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Phụ thuộc và quyết định
+      description: Service, ADR, license hoặc issue phải hoàn thành trước.
+

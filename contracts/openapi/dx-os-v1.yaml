@@ -1,0 +1,1508 @@
+openapi: 3.1.0
+info:
+  title: DX-OS API
+  version: 0.8.0
+  description: Contract cho Go API, Procurement, Budget, Attachment và Reporting của DX-OS.
+  contact:
+    name: DX-OS Engineering
+    url: https://docs.dx-os.local
+servers:
+  - url: http://localhost:8081
+    description: Local Docker Compose
+tags:
+  - name: Health
+  - name: Identity
+  - name: Procurement
+  - name: Budgets
+  - name: Documents
+  - name: Reports
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      description: Xác nhận process API đang chạy mà không kiểm tra dependency bên ngoài.
+      tags: [Health]
+      security: []
+      responses:
+        "200":
+          description: Process đang chạy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /health/ready:
+    get:
+      operationId: getReadiness
+      description: Xác nhận API và PostgreSQL đã sẵn sàng nhận request.
+      tags: [Health]
+      security: []
+      responses:
+        "200":
+          description: Dependency bắt buộc sẵn sàng.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          $ref: "#/components/responses/Problem"
+  /api/v1/me:
+    get:
+      operationId: getCurrentUser
+      description: Trả danh tính và realm role đã xác minh từ bearer access token.
+      tags: [Identity]
+      responses:
+        "200":
+          description: Principal được suy ra từ access token hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          $ref: "#/components/responses/Problem"
+  /api/v1/purchase-requests:
+    post:
+      operationId: createPurchaseRequest
+      description: Tạo phiếu mua sắm DRAFT cho user và phòng ban lấy từ access token/profile nghiệp vụ.
+      tags: [Procurement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePurchaseRequest"
+      responses:
+        "201":
+          description: Phiếu mua sắm đã được tạo.
+          headers:
+            Location:
+              description: URI của phiếu vừa tạo.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+    get:
+      operationId: listPurchaseRequests
+      description: Liệt kê phiếu theo scope của user, có phân trang và lọc trạng thái.
+      tags: [Procurement]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: status
+          in: query
+          description: Lọc theo trạng thái workflow.
+          schema:
+            $ref: "#/components/schemas/PurchaseRequestStatus"
+      responses:
+        "200":
+          description: Trang kết quả trong scope được phép.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequestPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+  /api/v1/purchase-requests/{requestId}:
+    get:
+      operationId: getPurchaseRequest
+      description: Trả chi tiết phiếu và các dòng hàng nếu phiếu thuộc data scope của user.
+      tags: [Procurement]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          description: UUID của phiếu mua sắm.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Chi tiết phiếu mua sắm.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updatePurchaseRequest
+      description: Cập nhật nội dung phiếu DRAFT hoặc CHANGES_REQUESTED do chính user tạo, có optimistic locking.
+      tags: [Procurement]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          description: UUID của phiếu mua sắm.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePurchaseRequest"
+      responses:
+        "200":
+          description: Phiếu đã được cập nhật và tăng version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+  /api/v1/purchase-requests/{requestId}/transitions:
+    post:
+      operationId: transitionPurchaseRequest
+      description: Thực hiện một hành động workflow theo role, data scope và trạng thái hiện tại.
+      tags: [Procurement]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          description: UUID của phiếu mua sắm.
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Khóa duy nhất cho một ý định transition; gửi lại cùng khóa sẽ nhận cùng kết quả.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{7,254}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransitionPurchaseRequest"
+      responses:
+        "200":
+          description: Transition đã được áp dụng hoặc phát lại an toàn từ cùng Idempotency-Key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+  /api/v1/purchase-requests/{requestId}/timeline:
+    get:
+      operationId: getPurchaseRequestTimeline
+      description: Trả lịch sử nghiệp vụ append-only nếu phiếu thuộc data scope của user.
+      tags: [Procurement]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          description: UUID của phiếu mua sắm.
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Trang timeline mới nhất trước; không chứa metadata hoặc idempotency key nội bộ.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequestTimelinePage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+  /api/v1/purchase-requests/{requestId}/attachments:
+    get:
+      operationId: listPurchaseRequestAttachments
+      description: Liệt kê metadata tài liệu và quy tắc bắt buộc theo cùng data scope với phiếu.
+      tags: [Documents]
+      parameters:
+        - $ref: "#/components/parameters/PurchaseRequestId"
+      responses:
+        "200":
+          description: Danh sách tài liệu đang hoạt động và kết quả kiểm tra quy tắc.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequestAttachmentList"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: uploadPurchaseRequestAttachment
+      description: Chủ phiếu tải tài liệu lên khi phiếu còn cho phép chỉnh sửa.
+      tags: [Documents]
+      parameters:
+        - $ref: "#/components/parameters/PurchaseRequestId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [documentType, file]
+              properties:
+                documentType:
+                  $ref: "#/components/schemas/AttachmentDocumentType"
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Tệp và metadata đã được lưu thành công.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequestAttachment"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+  /api/v1/purchase-requests/{requestId}/attachments/{attachmentId}:
+    delete:
+      operationId: deletePurchaseRequestAttachment
+      description: Chủ phiếu xóa tài liệu khi phiếu còn DRAFT hoặc CHANGES_REQUESTED.
+      tags: [Documents]
+      parameters:
+        - $ref: "#/components/parameters/PurchaseRequestId"
+        - $ref: "#/components/parameters/AttachmentId"
+      responses:
+        "204":
+          description: Tệp đã được xóa khỏi kho và metadata được đánh dấu DELETED.
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+  /api/v1/purchase-requests/{requestId}/attachments/{attachmentId}/content:
+    get:
+      operationId: downloadPurchaseRequestAttachment
+      description: Tải nội dung sau khi backend kiểm tra data scope và checksum SHA-256.
+      tags: [Documents]
+      parameters:
+        - $ref: "#/components/parameters/PurchaseRequestId"
+        - $ref: "#/components/parameters/AttachmentId"
+      responses:
+        "200":
+          description: Nội dung tệp.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+  /api/v1/purchase-requests/{requestId}/budget-check:
+    get:
+      operationId: checkPurchaseRequestBudget
+      description: Returns the active allocation and reservation result for a purchase request in the caller's data scope.
+      tags: [Budgets]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          description: Purchase request UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Budget availability or reservation state for the purchase request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetCheck"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+  /api/v1/budgets/summary:
+    get:
+      operationId: getBudgetSummary
+      description: Returns an active budget allocation. Finance and audit can inspect their organization; managers are limited to their department cost center.
+      tags: [Budgets]
+      parameters:
+        - name: costCenter
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: currency
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}$"
+      responses:
+        "200":
+          description: Active allocation totals after reservations and commitments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetSummary"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+  /api/v1/budgets/dashboard:
+    get:
+      operationId: getBudgetDashboard
+      description: Returns active allocations, currency totals, reservations and adjustment history for finance or audit in the caller's organization.
+      tags: [Budgets]
+      responses:
+        "200":
+          description: Organization-scoped budget management dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetDashboard"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+  /api/v1/budgets/allocations/{allocationId}:
+    patch:
+      operationId: adjustBudgetAllocation
+      description: Adjusts the total allocation. Finance only; audit remains read-only.
+      tags: [Budgets]
+      parameters:
+        - name: allocationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{7,254}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustBudgetAllocation"
+      responses:
+        "200":
+          description: Updated allocation or an idempotent replay of the adjustment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetAllocation"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+  /api/v1/reports/procurement:
+    get:
+      operationId: getProcurementReport
+      description: Trả dashboard vận hành từ curated reporting views. Chỉ finance, auditor và dx_admin được truy cập.
+      tags: [Reports]
+      parameters:
+        - name: from
+          in: query
+          description: Ngày bắt đầu, mặc định là 29 ngày trước ngày hiện tại.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: Ngày kết thúc, mặc định là ngày hiện tại. Khoảng thời gian tối đa 367 ngày.
+          schema:
+            type: string
+            format: date
+        - name: departmentId
+          in: query
+          description: UUID phòng ban.
+          schema:
+            type: string
+            format: uuid
+        - name: costCenter
+          in: query
+          description: Cost center chuẩn hóa thành chữ hoa.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+            pattern: "^[A-Z0-9][A-Z0-9._-]{1,99}$"
+        - name: currency
+          in: query
+          description: Mã tiền tệ ISO dạng ba chữ cái.
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}$"
+      responses:
+        "200":
+          description: KPI, xu hướng, phân bố trạng thái, phòng ban và sử dụng ngân sách theo bộ lọc.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementReportDashboard"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Problem:
+      description: Lỗi theo RFC 9457 Problem Details.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  parameters:
+    PurchaseRequestId:
+      name: requestId
+      in: path
+      required: true
+      description: UUID của phiếu mua sắm.
+      schema:
+        type: string
+        format: uuid
+    AttachmentId:
+      name: attachmentId
+      in: path
+      required: true
+      description: UUID metadata của tài liệu đính kèm.
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      description: Số trang, bắt đầu từ 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      description: Số phần tử mỗi trang.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required: [subject, username, roles]
+      properties:
+        subject:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        roles:
+          type: array
+          items:
+            type: string
+    PurchaseRequestStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SUBMITTED
+        - MANAGER_APPROVED
+        - CHANGES_REQUESTED
+        - APPROVED
+        - REJECTED
+        - CANCELLED
+    CreatePurchaseRequest:
+      type: object
+      additionalProperties: false
+      required: [title, reason, currency, costCenter, items]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 255
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 5000
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          examples: [VND]
+        costCenter:
+          type: string
+          minLength: 1
+          maxLength: 100
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/CreatePurchaseRequestItem"
+    CreatePurchaseRequestItem:
+      type: object
+      additionalProperties: false
+      required: [description, quantity, unit, unitPrice]
+      properties:
+        description:
+          type: string
+          minLength: 2
+          maxLength: 500
+        quantity:
+          type: string
+          pattern: "^(?:0\\.(?:0{0,3}[1-9]|0{0,2}[1-9][0-9]|0?[1-9][0-9]{2}|[1-9][0-9]{3})|[1-9][0-9]{0,10}(?:\\.[0-9]{1,4})?)$"
+          examples: ["2.0000"]
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 50
+        unitPrice:
+          type: string
+          pattern: "^(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+          examples: ["25000000.0000"]
+    UpdatePurchaseRequest:
+      type: object
+      additionalProperties: false
+      required: [title, reason, currency, costCenter, items, expectedVersion]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 255
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 5000
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          examples: [VND]
+        costCenter:
+          type: string
+          minLength: 1
+          maxLength: 100
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/CreatePurchaseRequestItem"
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+    PurchaseRequestAction:
+      type: string
+      enum:
+        - SUBMIT
+        - RESUBMIT
+        - CANCEL
+        - APPROVE
+        - REJECT
+        - REQUEST_CHANGES
+    TransitionPurchaseRequest:
+      type: object
+      additionalProperties: false
+      required: [action, expectedVersion]
+      properties:
+        action:
+          $ref: "#/components/schemas/PurchaseRequestAction"
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        comment:
+          type: string
+          maxLength: 2000
+          description: Bắt buộc khi action là REJECT hoặc REQUEST_CHANGES.
+    PurchaseRequestItem:
+      type: object
+      additionalProperties: false
+      required: [id, lineNumber, description, quantity, unit, unitPrice, lineTotal]
+      properties:
+        id:
+          type: string
+          format: uuid
+        lineNumber:
+          type: integer
+          minimum: 1
+        description:
+          type: string
+        quantity:
+          type: string
+        unit:
+          type: string
+        unitPrice:
+          type: string
+        lineTotal:
+          type: string
+    PurchaseRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - requestCode
+        - requesterId
+        - requesterName
+        - departmentId
+        - departmentName
+        - title
+        - reason
+        - currency
+        - totalAmount
+        - costCenter
+        - status
+        - version
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestCode:
+          type: string
+          examples: [PR-2026-000001]
+        requesterId:
+          type: string
+          format: uuid
+        requesterName:
+          type: string
+        departmentId:
+          type: string
+          format: uuid
+        departmentName:
+          type: string
+        title:
+          type: string
+        reason:
+          type: string
+        currency:
+          type: string
+        totalAmount:
+          type: string
+        costCenter:
+          type: string
+        status:
+          $ref: "#/components/schemas/PurchaseRequestStatus"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseRequestItem"
+    PurchaseRequestPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, total, pages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseRequest"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        pages:
+          type: integer
+          minimum: 0
+    AttachmentDocumentType:
+      type: string
+      enum: [QUOTATION, SPECIFICATION, CONTRACT, OTHER]
+    PurchaseRequestAttachment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - purchaseRequestId
+        - documentType
+        - fileName
+        - contentType
+        - sizeBytes
+        - checksumSha256
+        - uploadedBy
+        - uploadedByName
+        - uploadedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        purchaseRequestId:
+          type: string
+          format: uuid
+        documentType:
+          $ref: "#/components/schemas/AttachmentDocumentType"
+        fileName:
+          type: string
+          maxLength: 255
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10485760
+        checksumSha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        uploadedBy:
+          type: string
+          format: uuid
+        uploadedByName:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+    PurchaseRequestAttachmentList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - required
+        - requirementMet
+        - maxSizeBytes
+        - allowedContentTypes
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseRequestAttachment"
+        required:
+          type: boolean
+        requirementMet:
+          type: boolean
+        requiredDocumentType:
+          $ref: "#/components/schemas/AttachmentDocumentType"
+        thresholdAmount:
+          type: string
+        maxSizeBytes:
+          type: integer
+          format: int64
+          const: 10485760
+        allowedContentTypes:
+          type: array
+          items:
+            type: string
+    PurchaseRequestTimelineEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - eventType
+        - fromStatus
+        - toStatus
+        - actorName
+        - actorRoles
+        - comment
+        - occurredAt
+        - correlationId
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          examples: [MANAGER_APPROVED]
+        fromStatus:
+          anyOf:
+            - $ref: "#/components/schemas/PurchaseRequestStatus"
+            - type: "null"
+        toStatus:
+          $ref: "#/components/schemas/PurchaseRequestStatus"
+        actorName:
+          type: string
+        actorRoles:
+          type: array
+          items:
+            type: string
+        comment:
+          type: [string, "null"]
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: [string, "null"]
+    PurchaseRequestTimelinePage:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, total, pages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseRequestTimelineEvent"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        pages:
+          type: integer
+          minimum: 0
+    BudgetSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - periodCode
+        - periodStart
+        - periodEnd
+        - costCenter
+        - currency
+        - allocatedAmount
+        - reservedAmount
+        - committedAmount
+        - availableAmount
+      properties:
+        periodCode:
+          type: string
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        costCenter:
+          type: string
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        allocatedAmount:
+          type: string
+        reservedAmount:
+          type: string
+        committedAmount:
+          type: string
+        availableAmount:
+          type: string
+    BudgetCheckResult:
+      type: string
+      enum:
+        - NOT_CONFIGURED
+        - AVAILABLE
+        - INSUFFICIENT
+        - RESERVED
+        - COMMITTED
+    BudgetReservationState:
+      type: string
+      enum:
+        - RESERVED
+        - COMMITTED
+    BudgetCheck:
+      type: object
+      additionalProperties: false
+      required: [configured, result, requestedAmount, reservationState, summary]
+      properties:
+        configured:
+          type: boolean
+        result:
+          $ref: "#/components/schemas/BudgetCheckResult"
+        requestedAmount:
+          type: string
+        reservationState:
+          anyOf:
+            - $ref: "#/components/schemas/BudgetReservationState"
+            - type: "null"
+        summary:
+          anyOf:
+            - $ref: "#/components/schemas/BudgetSummary"
+            - type: "null"
+    BudgetAlertLevel:
+      type: string
+      enum: [HEALTHY, WARNING, CRITICAL]
+    BudgetReservationStatus:
+      type: string
+      enum: [RESERVED, COMMITTED, RELEASED]
+    BudgetAllocation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - periodCode
+        - periodStart
+        - periodEnd
+        - costCenter
+        - currency
+        - allocatedAmount
+        - reservedAmount
+        - committedAmount
+        - availableAmount
+        - utilization
+        - alertLevel
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        periodCode:
+          type: string
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        costCenter:
+          type: string
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        allocatedAmount:
+          type: string
+        reservedAmount:
+          type: string
+        committedAmount:
+          type: string
+        availableAmount:
+          type: string
+        utilization:
+          type: string
+          description: Percentage represented as an exact decimal string.
+        alertLevel:
+          $ref: "#/components/schemas/BudgetAlertLevel"
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    BudgetCurrencyTotal:
+      type: object
+      additionalProperties: false
+      required:
+        - currency
+        - allocatedAmount
+        - reservedAmount
+        - committedAmount
+        - availableAmount
+      properties:
+        currency:
+          type: string
+        allocatedAmount:
+          type: string
+        reservedAmount:
+          type: string
+        committedAmount:
+          type: string
+        availableAmount:
+          type: string
+    BudgetReservation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - purchaseRequestId
+        - requestCode
+        - requestTitle
+        - costCenter
+        - currency
+        - amount
+        - status
+        - reservedBy
+        - reservedAt
+        - committedAt
+        - releasedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        purchaseRequestId:
+          type: string
+          format: uuid
+        requestCode:
+          type: string
+        requestTitle:
+          type: string
+        costCenter:
+          type: string
+        currency:
+          type: string
+        amount:
+          type: string
+        status:
+          $ref: "#/components/schemas/BudgetReservationStatus"
+        reservedBy:
+          type: string
+        reservedAt:
+          type: string
+          format: date-time
+        committedAt:
+          type: [string, "null"]
+          format: date-time
+        releasedAt:
+          type: [string, "null"]
+          format: date-time
+    BudgetAdjustment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - allocationId
+        - costCenter
+        - currency
+        - previousAmount
+        - adjustedAmount
+        - reason
+        - actorName
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        allocationId:
+          type: string
+          format: uuid
+        costCenter:
+          type: string
+        currency:
+          type: string
+        previousAmount:
+          type: string
+        adjustedAmount:
+          type: string
+        reason:
+          type: string
+        actorName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    BudgetDashboard:
+      type: object
+      additionalProperties: false
+      required: [allocations, totals, reservations, adjustments, alertCount, canManage]
+      properties:
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetAllocation"
+        totals:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetCurrencyTotal"
+        reservations:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/BudgetReservation"
+        adjustments:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/BudgetAdjustment"
+        alertCount:
+          type: integer
+          minimum: 0
+        canManage:
+          type: boolean
+    AdjustBudgetAllocation:
+      type: object
+      additionalProperties: false
+      required: [allocatedAmount, expectedVersion, reason]
+      properties:
+        allocatedAmount:
+          type: string
+          pattern: "^(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 1000
+    ReportFilters:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        departmentId:
+          type: string
+          format: uuid
+        costCenter:
+          type: string
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+    ReportSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - totalRequests
+        - approvedCount
+        - rejectedCount
+        - returnedCount
+        - slaBreachedCount
+        - averageLeadTimeHours
+        - attachmentRequiredCount
+        - attachmentCompliantCount
+        - attachmentComplianceRate
+      properties:
+        totalRequests:
+          type: integer
+          format: int64
+          minimum: 0
+        approvedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        rejectedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        returnedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        slaBreachedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        averageLeadTimeHours:
+          type: string
+          description: Số giờ trung bình dưới dạng decimal string.
+        attachmentRequiredCount:
+          type: integer
+          format: int64
+          minimum: 0
+        attachmentCompliantCount:
+          type: integer
+          format: int64
+          minimum: 0
+        attachmentComplianceRate:
+          type: string
+          description: Tỷ lệ phần trăm dưới dạng decimal string.
+    ReportCurrencyTotal:
+      type: object
+      additionalProperties: false
+      required: [currency, requestCount, totalAmount]
+      properties:
+        currency:
+          type: string
+        requestCount:
+          type: integer
+          format: int64
+          minimum: 0
+        totalAmount:
+          type: string
+    ReportStatusBreakdown:
+      type: object
+      additionalProperties: false
+      required: [status, currency, requestCount, totalAmount]
+      properties:
+        status:
+          $ref: "#/components/schemas/PurchaseRequestStatus"
+        currency:
+          type: string
+        requestCount:
+          type: integer
+          format: int64
+          minimum: 0
+        totalAmount:
+          type: string
+    ReportDailyTrend:
+      type: object
+      additionalProperties: false
+      required: [date, currency, requestCount, approvedCount, totalAmount]
+      properties:
+        date:
+          type: string
+          format: date
+        currency:
+          type: string
+        requestCount:
+          type: integer
+          format: int64
+          minimum: 0
+        approvedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        totalAmount:
+          type: string
+    ReportDepartmentBreakdown:
+      type: object
+      additionalProperties: false
+      required: [departmentId, departmentName, currency, requestCount, approvedCount, totalAmount]
+      properties:
+        departmentId:
+          type: string
+          format: uuid
+        departmentName:
+          type: string
+        currency:
+          type: string
+        requestCount:
+          type: integer
+          format: int64
+          minimum: 0
+        approvedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        totalAmount:
+          type: string
+    ReportBudgetUtilization:
+      type: object
+      additionalProperties: false
+      required:
+        - periodCode
+        - periodStart
+        - periodEnd
+        - costCenter
+        - currency
+        - allocatedAmount
+        - reservedAmount
+        - committedAmount
+        - availableAmount
+        - utilizationPercent
+      properties:
+        periodCode:
+          type: string
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        costCenter:
+          type: string
+        currency:
+          type: string
+        allocatedAmount:
+          type: string
+        reservedAmount:
+          type: string
+        committedAmount:
+          type: string
+        availableAmount:
+          type: string
+        utilizationPercent:
+          type: string
+          description: Tỷ lệ phần trăm dưới dạng decimal string.
+    ProcurementReportDashboard:
+      type: object
+      additionalProperties: false
+      required: [filters, summary, currencyTotals, statuses, trends, departments, budgets, generatedAt]
+      properties:
+        filters:
+          $ref: "#/components/schemas/ReportFilters"
+        summary:
+          $ref: "#/components/schemas/ReportSummary"
+        currencyTotals:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportCurrencyTotal"
+        statuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportStatusBreakdown"
+        trends:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportDailyTrend"
+        departments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportDepartmentBreakdown"
+        budgets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportBudgetUtilization"
+        generatedAt:
+          type: string
+          format: date-time
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, detail, instance, code, correlationId]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+        correlationId:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldViolation"
+security:
+  - bearerAuth: []

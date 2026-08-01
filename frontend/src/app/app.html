@@ -1,0 +1,127 @@
+<div class="min-h-screen bg-background text-foreground">
+  <header class="border-b border-border bg-card/90 backdrop-blur">
+    <div class="mx-auto flex h-16 max-w-[1600px] items-center gap-4 px-4 sm:px-6">
+      <a class="flex items-center gap-3" routerLink="/dashboard" aria-label="DX-OS - Trang chủ">
+        <span
+          class="grid size-9 place-items-center rounded-xl bg-primary text-sm font-bold tracking-tight text-primary-foreground shadow-sm"
+          aria-hidden="true"
+        >
+          DX
+        </span>
+        <span>
+          <strong class="block text-sm leading-none">DX-OS</strong>
+          <span class="mt-1 block text-xs text-muted-foreground">Vận hành doanh nghiệp số</span>
+        </span>
+      </a>
+
+      <nav class="ml-4 hidden items-center gap-1 md:flex" aria-label="Điều hướng chính">
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          routerLink="/dashboard"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Tổng quan
+        </a>
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          routerLink="/purchase-requests"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Phiếu mua sắm
+        </a>
+        @if (canReview()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/approvals"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Phê duyệt
+          </a>
+        }
+        @if (canAccessBudgets()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/budgets"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Ngân sách
+          </a>
+        }
+        @if (canAccessReports()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/reports"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Báo cáo
+          </a>
+        }
+      </nav>
+
+      <div class="ml-auto flex items-center gap-3">
+        <span hlmBadge variant="secondary" class="hidden sm:inline-flex">
+          {{ primaryRoleLabel() }}
+        </span>
+        <div class="hidden text-right sm:block">
+          <p class="max-w-40 truncate text-sm font-medium">
+            {{ auth.username() }}
+          </p>
+          <p class="text-xs text-muted-foreground">Realm dx-os</p>
+        </div>
+        <button hlmBtn variant="outline" size="sm" type="button" (click)="logout()">
+          Đăng xuất
+        </button>
+      </div>
+    </div>
+    <nav
+      class="mx-auto flex max-w-[1600px] gap-1 border-t border-border px-4 py-2 md:hidden"
+      aria-label="Điều hướng trên thiết bị di động"
+    >
+      <a
+        class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+        routerLink="/dashboard"
+        routerLinkActive="bg-muted text-foreground"
+      >
+        Tổng quan
+      </a>
+      <a
+        class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+        routerLink="/purchase-requests"
+        routerLinkActive="bg-muted text-foreground"
+      >
+        Phiếu mua sắm
+      </a>
+      @if (canReview()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/approvals"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Phê duyệt
+        </a>
+      }
+      @if (canAccessBudgets()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/budgets"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Ngân sách
+        </a>
+      }
+      @if (canAccessReports()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/reports"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Báo cáo
+        </a>
+      }
+    </nav>
+  </header>
+
+  <main class="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:py-10">
+    <router-outlet />
+  </main>
+</div>

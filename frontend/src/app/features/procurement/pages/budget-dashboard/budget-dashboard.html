@@ -1,0 +1,385 @@
+<section aria-labelledby="budget-heading">
+  <header
+    class="flex flex-col gap-4 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between"
+  >
+    <div>
+      <p class="text-sm font-semibold text-primary">Finance control</p>
+      <h1 id="budget-heading" class="mt-2 text-3xl font-semibold tracking-tight">
+        Quản lý ngân sách
+      </h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+        Theo dõi hạn mức, phần đang giữ, cam kết và lịch sử điều chỉnh trong phạm vi tổ chức.
+      </p>
+    </div>
+    <button hlmBtn type="button" variant="outline" [disabled]="loading()" (click)="retry()">
+      Làm mới
+    </button>
+  </header>
+
+  @if (success()) {
+    <div class="mt-5 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm text-primary">
+      {{ success() }}
+    </div>
+  }
+
+  @if (loading() && !dashboard()) {
+    <div class="mt-7 space-y-6" aria-label="Đang tải dashboard ngân sách" aria-live="polite">
+      <div class="grid gap-4 md:grid-cols-4">
+        @for (placeholder of [1, 2, 3, 4]; track placeholder) {
+          <div class="h-32 animate-pulse rounded-xl bg-muted"></div>
+        }
+      </div>
+      <div class="h-80 animate-pulse rounded-xl bg-muted"></div>
+    </div>
+  } @else if (error()) {
+    <div class="mt-7 grid min-h-80 place-items-center rounded-xl border border-border bg-card p-8">
+      <div class="max-w-lg text-center">
+        <span
+          class="mx-auto grid size-12 place-items-center rounded-full bg-destructive/10 font-semibold text-destructive"
+          >!</span
+        >
+        <h2 class="mt-4 text-xl font-semibold">Không thể mở dashboard ngân sách</h2>
+        <p class="mt-2 text-sm text-muted-foreground">{{ error() }}</p>
+        <button hlmBtn class="mt-5" type="button" (click)="retry()">Thử lại</button>
+      </div>
+    </div>
+  } @else if (dashboard(); as current) {
+    @if (!current.canManage) {
+      <div class="mt-5 rounded-lg border border-border bg-muted/40 p-4 text-sm">
+        <p class="font-medium">Chế độ kiểm toán chỉ đọc</p>
+        <p class="mt-1 text-muted-foreground">
+          Bạn có thể xem hạn mức và bằng chứng biến động nhưng không thể điều chỉnh số tiền.
+        </p>
+      </div>
+    }
+
+    <div class="mt-7 space-y-7">
+      @for (total of current.totals; track total.currency) {
+        <section aria-label="Tổng hợp ngân sách theo tiền tệ">
+          <div class="mb-3 flex items-center gap-2">
+            <h2 class="text-lg font-semibold">{{ total.currency }}</h2>
+            <span hlmBadge variant="outline">Tổng hợp tổ chức</span>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <article hlmCard>
+              <div hlmCardHeader>
+                <p hlmCardDescription>Tổng hạn mức</p>
+                <p hlmCardTitle class="text-2xl tabular-nums">
+                  {{ total.allocatedAmount | dxMoney: total.currency }}
+                </p>
+              </div>
+            </article>
+            <article hlmCard>
+              <div hlmCardHeader>
+                <p hlmCardDescription>Đang giữ</p>
+                <p hlmCardTitle class="text-2xl tabular-nums">
+                  {{ total.reservedAmount | dxMoney: total.currency }}
+                </p>
+              </div>
+            </article>
+            <article hlmCard>
+              <div hlmCardHeader>
+                <p hlmCardDescription>Đã cam kết</p>
+                <p hlmCardTitle class="text-2xl tabular-nums">
+                  {{ total.committedAmount | dxMoney: total.currency }}
+                </p>
+              </div>
+            </article>
+            <article hlmCard>
+              <div hlmCardHeader>
+                <p hlmCardDescription>Còn khả dụng</p>
+                <p hlmCardTitle class="text-2xl tabular-nums text-primary">
+                  {{ total.availableAmount | dxMoney: total.currency }}
+                </p>
+              </div>
+            </article>
+          </div>
+        </section>
+      } @empty {
+        <div class="rounded-xl border border-dashed border-border p-8 text-center">
+          <p class="font-medium">Chưa có kỳ ngân sách hoạt động</p>
+          <p class="mt-1 text-sm text-muted-foreground">
+            Chưa tìm thấy allocation trong phạm vi tổ chức hiện tại.
+          </p>
+        </div>
+      }
+
+      @if (current.alertCount > 0) {
+        <div
+          class="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
+          role="alert"
+        >
+          <p class="font-medium text-destructive">Có {{ current.alertCount }} hạn mức cần chú ý</p>
+          <p class="mt-1 text-muted-foreground">
+            Mức sử dụng đã đạt từ 75% hoặc ngân sách không còn khả dụng.
+          </p>
+        </div>
+      }
+
+      <section hlmCard>
+        <div hlmCardHeader class="border-b">
+          <h2 hlmCardTitle>Phân bổ đang hoạt động</h2>
+          <p hlmCardDescription>Cảnh báo ở mức 75% và chuyển nghiêm trọng từ 90% mức sử dụng.</p>
+        </div>
+        <div hlmCardContent class="overflow-x-auto">
+          <table class="w-full min-w-[980px] text-left text-sm">
+            <thead class="border-b text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th class="px-3 py-3 font-medium">Kỳ / Cost center</th>
+                <th class="px-3 py-3 text-right font-medium">Hạn mức</th>
+                <th class="px-3 py-3 text-right font-medium">Đang giữ</th>
+                <th class="px-3 py-3 text-right font-medium">Cam kết</th>
+                <th class="px-3 py-3 text-right font-medium">Khả dụng</th>
+                <th class="px-3 py-3 text-right font-medium">Sử dụng</th>
+                <th class="px-3 py-3 text-right font-medium">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              @for (allocation of current.allocations; track allocation.id) {
+                <tr>
+                  <td class="px-3 py-4">
+                    <div class="flex items-center gap-2">
+                      <p class="font-medium">{{ allocation.costCenter }}</p>
+                      <span
+                        hlmBadge
+                        [variant]="
+                          allocation.alertLevel === 'CRITICAL'
+                            ? 'destructive'
+                            : allocation.alertLevel === 'WARNING'
+                              ? 'secondary'
+                              : 'outline'
+                        "
+                      >
+                        {{
+                          allocation.alertLevel === 'CRITICAL'
+                            ? 'Nghiêm trọng'
+                            : allocation.alertLevel === 'WARNING'
+                              ? 'Cảnh báo'
+                              : 'Ổn định'
+                        }}
+                      </span>
+                    </div>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      {{ allocation.periodCode }} · {{ allocation.currency }} ·
+                      {{ allocation.periodStart | date: 'dd/MM/yyyy' }} –
+                      {{ allocation.periodEnd | date: 'dd/MM/yyyy' }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4 text-right font-medium tabular-nums">
+                    {{ allocation.allocatedAmount | dxMoney: allocation.currency }}
+                  </td>
+                  <td class="px-3 py-4 text-right tabular-nums">
+                    {{ allocation.reservedAmount | dxMoney: allocation.currency }}
+                  </td>
+                  <td class="px-3 py-4 text-right tabular-nums">
+                    {{ allocation.committedAmount | dxMoney: allocation.currency }}
+                  </td>
+                  <td class="px-3 py-4 text-right font-medium text-primary tabular-nums">
+                    {{ allocation.availableAmount | dxMoney: allocation.currency }}
+                  </td>
+                  <td class="px-3 py-4 text-right tabular-nums">{{ allocation.utilization }}%</td>
+                  <td class="px-3 py-4 text-right">
+                    @if (current.canManage) {
+                      <button
+                        hlmBtn
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        (click)="startAdjustment(allocation)"
+                      >
+                        Điều chỉnh
+                      </button>
+                    } @else {
+                      <span class="text-xs text-muted-foreground">Chỉ đọc</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      @if (adjustingId()) {
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
+            <h2 hlmCardTitle>Điều chỉnh tổng hạn mức</h2>
+            <p hlmCardDescription>Không thể đặt thấp hơn tổng số tiền đang giữ và đã cam kết.</p>
+          </div>
+          <form hlmCardContent class="grid gap-5 pt-6" [formGroup]="adjustmentForm">
+            <div class="grid gap-1.5">
+              <label class="text-sm font-medium" for="allocated-amount">Hạn mức mới</label>
+              <input
+                id="allocated-amount"
+                class="h-10 rounded-md border border-input bg-background px-3 font-mono text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
+                formControlName="allocatedAmount"
+                inputmode="decimal"
+              />
+              @if (
+                adjustmentForm.controls.allocatedAmount.touched &&
+                adjustmentForm.controls.allocatedAmount.invalid
+              ) {
+                <p class="text-xs text-destructive">
+                  Nhập số tiền từ 0, tối đa 4 chữ số thập phân.
+                </p>
+              }
+            </div>
+            <div class="grid gap-1.5">
+              <label class="text-sm font-medium" for="adjustment-reason">Lý do điều chỉnh</label>
+              <textarea
+                id="adjustment-reason"
+                class="min-h-24 resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
+                formControlName="reason"
+                maxlength="1000"
+                placeholder="Ví dụ: Hạn mức bổ sung đã được giám đốc tài chính phê duyệt…"
+              ></textarea>
+              @if (
+                adjustmentForm.controls.reason.touched && adjustmentForm.controls.reason.invalid
+              ) {
+                <p class="text-xs text-destructive">Lý do phải có từ 10 đến 1000 ký tự.</p>
+              }
+            </div>
+            @if (saveError()) {
+              <p class="text-sm text-destructive" role="alert">{{ saveError() }}</p>
+            }
+            <div class="flex gap-2">
+              <button
+                hlmBtn
+                type="button"
+                [disabled]="saving()"
+                [attr.aria-busy]="saving()"
+                (click)="saveAdjustment()"
+              >
+                {{ saving() ? 'Đang lưu…' : 'Lưu điều chỉnh' }}
+              </button>
+              <button
+                hlmBtn
+                type="button"
+                variant="outline"
+                [disabled]="saving()"
+                (click)="cancelAdjustment()"
+              >
+                Hủy
+              </button>
+            </div>
+          </form>
+        </section>
+      }
+
+      <section hlmCard>
+        <div hlmCardHeader class="border-b">
+          <h2 hlmCardTitle>Reservation và commitment gần nhất</h2>
+          <p hlmCardDescription>Tối đa 50 bản ghi mới nhất trong tổ chức.</p>
+        </div>
+        <div hlmCardContent class="overflow-x-auto">
+          <table class="w-full min-w-[900px] text-left text-sm">
+            <thead class="border-b text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th class="px-3 py-3 font-medium">Phiếu</th>
+                <th class="px-3 py-3 font-medium">Cost center</th>
+                <th class="px-3 py-3 text-right font-medium">Số tiền</th>
+                <th class="px-3 py-3 font-medium">Trạng thái</th>
+                <th class="px-3 py-3 font-medium">Người giữ</th>
+                <th class="px-3 py-3 font-medium">Thời điểm</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              @for (reservation of current.reservations; track reservation.id) {
+                <tr>
+                  <td class="px-3 py-4">
+                    <a
+                      class="font-mono text-xs font-medium text-primary hover:underline"
+                      [routerLink]="['/purchase-requests', reservation.purchaseRequestId]"
+                    >
+                      {{ reservation.requestCode }}
+                    </a>
+                    <p class="mt-1 max-w-72 truncate">{{ reservation.requestTitle }}</p>
+                  </td>
+                  <td class="px-3 py-4 font-mono text-xs">{{ reservation.costCenter }}</td>
+                  <td class="px-3 py-4 text-right font-medium tabular-nums">
+                    {{ reservation.amount | dxMoney: reservation.currency }}
+                  </td>
+                  <td class="px-3 py-4">
+                    <span
+                      hlmBadge
+                      [variant]="
+                        reservation.status === 'COMMITTED'
+                          ? 'default'
+                          : reservation.status === 'RELEASED'
+                            ? 'outline'
+                            : 'secondary'
+                      "
+                    >
+                      {{
+                        reservation.status === 'COMMITTED'
+                          ? 'Đã cam kết'
+                          : reservation.status === 'RELEASED'
+                            ? 'Đã hoàn'
+                            : 'Đang giữ'
+                      }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-4">{{ reservation.reservedBy }}</td>
+                  <td class="px-3 py-4 text-muted-foreground">
+                    {{ reservation.reservedAt | date: 'dd/MM/yyyy HH:mm' }}
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td class="px-3 py-10 text-center text-muted-foreground" colspan="6">
+                    Chưa có reservation ngân sách.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section hlmCard>
+        <div hlmCardHeader class="border-b">
+          <h2 hlmCardTitle>Lịch sử điều chỉnh hạn mức</h2>
+          <p hlmCardDescription>Mọi thay đổi đều bắt buộc có lý do và được audit.</p>
+        </div>
+        <div hlmCardContent class="overflow-x-auto">
+          <table class="w-full min-w-[900px] text-left text-sm">
+            <thead class="border-b text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th class="px-3 py-3 font-medium">Thời điểm</th>
+                <th class="px-3 py-3 font-medium">Cost center</th>
+                <th class="px-3 py-3 text-right font-medium">Trước</th>
+                <th class="px-3 py-3 text-right font-medium">Sau</th>
+                <th class="px-3 py-3 font-medium">Người thực hiện</th>
+                <th class="px-3 py-3 font-medium">Lý do</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              @for (adjustment of current.adjustments; track adjustment.id) {
+                <tr>
+                  <td class="px-3 py-4 text-muted-foreground">
+                    {{ adjustment.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                  </td>
+                  <td class="px-3 py-4 font-mono text-xs">{{ adjustment.costCenter }}</td>
+                  <td class="px-3 py-4 text-right tabular-nums">
+                    {{ adjustment.previousAmount | dxMoney: adjustment.currency }}
+                  </td>
+                  <td class="px-3 py-4 text-right font-medium tabular-nums">
+                    {{ adjustment.adjustedAmount | dxMoney: adjustment.currency }}
+                  </td>
+                  <td class="px-3 py-4">{{ adjustment.actorName }}</td>
+                  <td class="max-w-96 px-3 py-4 leading-6">{{ adjustment.reason }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td class="px-3 py-10 text-center text-muted-foreground" colspan="6">
+                    Chưa có lần điều chỉnh hạn mức nào.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  }
+</section>

@@ -1,0 +1,5 @@
+name: dx-os-lab
+
+include:
+  - compose/base.yml
+  - compose/application.yml

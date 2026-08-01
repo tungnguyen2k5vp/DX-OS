@@ -1,0 +1,65 @@
+services:
+  postgres:
+    profiles: ["foundation"]
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      POSTGRES_DB: postgres
+      DXOS_DB: ${DXOS_DB}
+      DXOS_DB_USER: ${DXOS_DB_USER}
+      DXOS_DB_PASSWORD: ${DXOS_DB_PASSWORD}
+      KEYCLOAK_DB: ${KEYCLOAK_DB}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      NEXTCLOUD_DB: ${NEXTCLOUD_DB}
+      NEXTCLOUD_DB_USER: ${NEXTCLOUD_DB_USER}
+      NEXTCLOUD_DB_PASSWORD: ${NEXTCLOUD_DB_PASSWORD}
+      METABASE_DB: ${METABASE_DB}
+      METABASE_DB_USER: ${METABASE_DB_USER}
+      METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ../data/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - dxos_internal
+
+  keycloak:
+    profiles: ["foundation"]
+    image: ${KEYCLOAK_IMAGE}
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_HOST_PORT}:8080"
+    volumes:
+      - ../iam/keycloak/realm:/opt/keycloak/data/import:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dxos_internal
+
+networks:
+  dxos_internal:
+    driver: bridge
+
+volumes:
+  postgres_data:

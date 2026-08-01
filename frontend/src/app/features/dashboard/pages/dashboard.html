@@ -1,0 +1,161 @@
+<section aria-labelledby="dashboard-heading">
+  <div
+    class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
+  >
+    <div>
+      <p class="mb-2 text-sm font-medium text-primary">Không gian vận hành</p>
+      <h1 id="dashboard-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+        Tổng quan hôm nay
+      </h1>
+      <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+        Angular đã kết nối với Procurement API để tạo, theo dõi và xem chi tiết phiếu mua sắm theo
+        phạm vi người dùng.
+      </p>
+    </div>
+    <a class="text-sm font-medium text-primary hover:underline" routerLink="/purchase-requests"
+      >Mở danh sách phiếu →</a
+    >
+  </div>
+
+  <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section hlmCard size="sm">
+      <div hlmCardHeader>
+        <p hlmCardDescription>Phiếu đang xử lý</p>
+        <h2 hlmCardTitle class="text-3xl tabular-nums">0</h2>
+      </div>
+      <div hlmCardContent class="text-xs text-muted-foreground">
+        Xem dữ liệu thật tại Phiếu mua sắm
+      </div>
+    </section>
+
+    <section hlmCard size="sm">
+      <div hlmCardHeader>
+        <p hlmCardDescription>Chờ tôi phê duyệt</p>
+        <h2 hlmCardTitle class="text-3xl tabular-nums">
+          {{ canReview() ? (pendingApprovals() ?? '—') : '—' }}
+        </h2>
+      </div>
+      <div hlmCardContent class="text-xs text-muted-foreground">
+        @if (canReview()) {
+          <a class="font-medium text-primary hover:underline" routerLink="/approvals">
+            Mở hàng đợi phê duyệt →
+          </a>
+        } @else {
+          <span>Tài khoản hiện tại không có vai trò phê duyệt</span>
+        }
+      </div>
+    </section>
+
+    <section hlmCard size="sm">
+      <div hlmCardHeader>
+        <p hlmCardDescription>Hoàn thành tháng này</p>
+        <h2 hlmCardTitle class="text-3xl tabular-nums">0</h2>
+      </div>
+      <div hlmCardContent class="text-xs text-muted-foreground">
+        Dữ liệu sẽ đến từ curated views
+      </div>
+    </section>
+
+    <section hlmCard size="sm">
+      <div hlmCardHeader>
+        <p hlmCardDescription>SLA cần chú ý</p>
+        <h2 hlmCardTitle class="text-3xl tabular-nums">0</h2>
+      </div>
+      <div hlmCardContent class="text-xs text-muted-foreground">Chưa có cảnh báo</div>
+    </section>
+  </div>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+    <section hlmCard>
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Trạng thái kết nối</h2>
+        <p hlmCardDescription>Kiểm tra các lớp nền của ứng dụng.</p>
+      </div>
+      <div hlmCardContent>
+        <ul class="divide-y divide-border" aria-label="Trạng thái dịch vụ">
+          <li class="flex items-center justify-between gap-4 py-4">
+            <div>
+              <p class="font-medium">Angular + Spartan UI</p>
+              <p class="mt-1 text-xs text-muted-foreground">Standalone, Signals, Tailwind CSS v4</p>
+            </div>
+            <span hlmBadge variant="secondary">Sẵn sàng</span>
+          </li>
+          <li class="flex items-center justify-between gap-4 py-4">
+            <div>
+              <p class="font-medium">Keycloak OIDC</p>
+              <p class="mt-1 text-xs text-muted-foreground">Authorization Code + PKCE S256</p>
+            </div>
+            <span hlmBadge variant="secondary">Đã xác thực</span>
+          </li>
+          <li class="flex items-center justify-between gap-4 py-4">
+            <div>
+              <p class="font-medium">Go API</p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                JWT/JWKS, issuer và audience validation
+              </p>
+            </div>
+            @if (currentUser()) {
+              <span hlmBadge variant="secondary">Đã kết nối</span>
+            } @else if (loading()) {
+              <span hlmBadge variant="outline">Đang kiểm tra</span>
+            } @else {
+              <span hlmBadge variant="destructive">Có lỗi</span>
+            }
+          </li>
+          <li class="flex items-center justify-between gap-4 py-4">
+            <div>
+              <p class="font-medium">PostgreSQL</p>
+              <p class="mt-1 text-xs text-muted-foreground">Readiness được Go API kiểm tra</p>
+            </div>
+            <span hlmBadge variant="secondary">Healthy</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section hlmCard>
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Danh tính hiện tại</h2>
+        <p hlmCardDescription>Dữ liệu do Go API đọc từ access token.</p>
+      </div>
+      <div hlmCardContent>
+        @if (loading()) {
+          <p class="text-sm text-muted-foreground">Đang xác minh với Go API…</p>
+        } @else if (error()) {
+          <div
+            class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+          >
+            {{ error() }}
+          </div>
+        } @else if (currentUser(); as user) {
+          <dl class="space-y-4 text-sm">
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Username
+              </dt>
+              <dd class="mt-1 font-medium">{{ user.username }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Subject
+              </dt>
+              <dd class="mt-1 break-all font-mono text-xs">{{ user.subject }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Role
+              </dt>
+              <dd class="mt-2 flex flex-wrap gap-2">
+                @for (role of user.roles; track role) {
+                  <span hlmBadge variant="outline">{{ role }}</span>
+                } @empty {
+                  <span class="text-muted-foreground">Chưa được gán role nghiệp vụ</span>
+                }
+              </dd>
+            </div>
+          </dl>
+        }
+      </div>
+    </section>
+  </div>
+</section>

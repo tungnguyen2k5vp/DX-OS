@@ -1,0 +1,655 @@
+<section aria-labelledby="purchase-request-detail-heading">
+  <a
+    class="text-sm font-medium text-primary hover:underline"
+    routerLink="/purchase-requests"
+    aria-label="Quay lại danh sách phiếu"
+  >
+    ← Phiếu mua sắm
+  </a>
+
+  @if (created()) {
+    <div class="mt-5 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm" role="status">
+      <p class="font-medium text-primary">Đã tạo bản nháp thành công</p>
+      <p class="mt-1 text-muted-foreground">
+        Phiếu đã được lưu và tổng tiền được tính lại phía server.
+      </p>
+    </div>
+  }
+  @if (updated()) {
+    <div class="mt-5 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm" role="status">
+      <p class="font-medium text-primary">Đã cập nhật bản nháp</p>
+      <p class="mt-1 text-muted-foreground">
+        Nội dung và tổng tiền đã được lưu theo phiên bản mới nhất.
+      </p>
+    </div>
+  }
+  @if (loading() && !request()) {
+    <div class="mt-7 space-y-4" aria-live="polite" aria-label="Đang tải chi tiết phiếu">
+      <div class="h-24 animate-pulse rounded-xl bg-muted"></div>
+      <div class="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <div class="h-80 animate-pulse rounded-xl bg-muted"></div>
+        <div class="h-80 animate-pulse rounded-xl bg-muted"></div>
+      </div>
+    </div>
+  } @else if (error()) {
+    <div class="mt-7 grid min-h-80 place-items-center rounded-xl border border-border bg-card p-8">
+      <div class="max-w-lg text-center">
+        <span
+          class="mx-auto grid size-12 place-items-center rounded-full bg-destructive/10 font-semibold text-destructive"
+          aria-hidden="true"
+          >!</span
+        >
+        <h1 id="purchase-request-detail-heading" class="mt-4 text-xl font-semibold">
+          Không thể mở phiếu
+        </h1>
+        <p class="mt-2 text-sm leading-6 text-muted-foreground">{{ error() }}</p>
+        <div class="mt-5 flex justify-center gap-2">
+          <button hlmBtn type="button" (click)="retry()">Thử lại</button>
+          <a hlmBtn variant="outline" routerLink="/purchase-requests">Về danh sách</a>
+        </div>
+      </div>
+    </div>
+  } @else if (request(); as current) {
+    <header
+      class="mt-5 flex flex-col gap-4 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between"
+    >
+      <div>
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <span hlmBadge variant="outline" class="font-mono">{{ current.requestCode }}</span>
+          <app-purchase-request-status-badge [status]="current.status" />
+        </div>
+        <h1 id="purchase-request-detail-heading" class="text-3xl font-semibold tracking-tight">
+          {{ current.title }}
+        </h1>
+        <p class="mt-2 text-sm text-muted-foreground">
+          Tạo lúc {{ current.createdAt | date: 'dd/MM/yyyy HH:mm' }} · phiên bản
+          {{ current.version }}
+        </p>
+      </div>
+      @if (isOwner() && (current.status === 'DRAFT' || current.status === 'CHANGES_REQUESTED')) {
+        <a hlmBtn variant="outline" [routerLink]="['/purchase-requests', current.id, 'edit']"
+          >Sửa nội dung</a
+        >
+      }
+    </header>
+
+    @if (transitionSuccess()) {
+      <div
+        class="mt-5 rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm text-primary"
+        role="status"
+      >
+        {{ transitionSuccess() }}
+      </div>
+    }
+
+    <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_380px]">
+      <div class="space-y-6">
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
+            <h2 hlmCardTitle>Lý do mua sắm</h2>
+          </div>
+          <div hlmCardContent>
+            <p class="whitespace-pre-wrap text-sm leading-7">
+              {{ current.reason }}
+            </p>
+          </div>
+        </section>
+
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
+            <h2 hlmCardTitle>Danh mục hàng hóa</h2>
+            <p hlmCardDescription>{{ current.items?.length ?? 0 }} dòng hàng</p>
+          </div>
+          <div hlmCardContent>
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[680px] text-left text-sm">
+                <thead
+                  class="border-b border-border text-xs uppercase tracking-wide text-muted-foreground"
+                >
+                  <tr>
+                    <th class="px-3 py-3 font-medium">#</th>
+                    <th class="px-3 py-3 font-medium">Mô tả</th>
+                    <th class="px-3 py-3 text-right font-medium">Số lượng</th>
+                    <th class="px-3 py-3 text-right font-medium">Đơn giá</th>
+                    <th class="px-3 py-3 text-right font-medium">Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                  @for (item of current.items ?? []; track item.id) {
+                    <tr>
+                      <td class="px-3 py-4 text-muted-foreground">
+                        {{ item.lineNumber }}
+                      </td>
+                      <td class="px-3 py-4">
+                        <p class="font-medium">{{ item.description }}</p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                          {{ item.unit }}
+                        </p>
+                      </td>
+                      <td class="px-3 py-4 text-right font-mono">
+                        {{ item.quantity | dxMoney }}
+                      </td>
+                      <td class="px-3 py-4 text-right font-mono">
+                        {{ item.unitPrice | dxMoney: current.currency }}
+                      </td>
+                      <td class="px-3 py-4 text-right font-medium tabular-nums">
+                        {{ item.lineTotal | dxMoney: current.currency }}
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td class="px-3 py-8 text-center text-muted-foreground" colspan="5">
+                        Phiếu chưa có dòng hàng.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot class="border-t border-border">
+                  <tr>
+                    <th class="px-3 py-4 text-right text-sm" colspan="4">Tổng cộng</th>
+                    <td class="px-3 py-4 text-right text-lg font-semibold tabular-nums">
+                      {{ current.totalAmount | dxMoney: current.currency }}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 hlmCardTitle>Tài liệu đính kèm</h2>
+                <p hlmCardDescription>Báo giá, đặc tả kỹ thuật và tài liệu liên quan của phiếu.</p>
+              </div>
+              @if (attachments(); as list) {
+                <span
+                  hlmBadge
+                  [variant]="list.required && !list.requirementMet ? 'destructive' : 'outline'"
+                >
+                  {{ list.items.length }} tệp
+                </span>
+              }
+            </div>
+          </div>
+          <div hlmCardContent class="space-y-5">
+            @if (attachmentsLoading() && !attachments()) {
+              <div class="space-y-3" aria-label="Đang tải tài liệu" aria-live="polite">
+                <div class="h-16 animate-pulse rounded-lg bg-muted"></div>
+                <div class="h-16 animate-pulse rounded-lg bg-muted"></div>
+              </div>
+            } @else if (attachments(); as list) {
+              @if (list.required && !list.requirementMet) {
+                <div
+                  class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm"
+                  role="alert"
+                >
+                  <p class="font-medium text-destructive">Phiếu này bắt buộc có báo giá.</p>
+                  <p class="mt-1 text-muted-foreground">
+                    Tổng tiền từ {{ list.thresholdAmount | dxMoney: current.currency }} phải có ít
+                    nhất một tài liệu loại Báo giá trước khi gửi duyệt.
+                  </p>
+                </div>
+              }
+
+              @if (canEditAttachments()) {
+                <div
+                  class="grid gap-3 rounded-lg border border-dashed border-border p-4 sm:grid-cols-[180px_1fr_auto] sm:items-end"
+                >
+                  <label class="grid gap-1.5 text-sm font-medium">
+                    Loại tài liệu
+                    <select
+                      class="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
+                      [value]="selectedDocumentType()"
+                      [disabled]="uploadingAttachment()"
+                      (change)="selectedDocumentType.set($any($event.target).value)"
+                    >
+                      <option value="QUOTATION">Báo giá</option>
+                      <option value="SPECIFICATION">Đặc tả kỹ thuật</option>
+                      <option value="CONTRACT">Hợp đồng</option>
+                      <option value="OTHER">Tài liệu khác</option>
+                    </select>
+                  </label>
+                  <label class="grid gap-1.5 text-sm font-medium">
+                    Chọn tệp (tối đa 10 MB)
+                    <input
+                      #attachmentFile
+                      class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                      type="file"
+                      accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png"
+                      [disabled]="uploadingAttachment()"
+                      (change)="selectAttachmentFile($event)"
+                    />
+                  </label>
+                  <button
+                    hlmBtn
+                    type="button"
+                    [disabled]="!selectedFile() || uploadingAttachment()"
+                    [attr.aria-busy]="uploadingAttachment()"
+                    (click)="uploadAttachment(attachmentFile)"
+                  >
+                    {{ uploadingAttachment() ? 'Đang tải…' : 'Tải lên' }}
+                  </button>
+                </div>
+              }
+
+              <ul class="divide-y divide-border rounded-lg border border-border">
+                @for (attachment of list.items; track attachment.id) {
+                  <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-sm font-medium">{{ attachment.fileName }}</p>
+                      <p class="mt-1 text-xs text-muted-foreground">
+                        {{ documentTypeLabel(attachment.documentType) }} ·
+                        {{ attachmentSize(attachment.sizeBytes) }} ·
+                        {{ attachment.uploadedByName }} ·
+                        {{ attachment.uploadedAt | date: 'dd/MM/yyyy HH:mm' }}
+                      </p>
+                    </div>
+                    <div class="flex gap-2">
+                      <button
+                        hlmBtn
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        (click)="downloadAttachment(attachment.id, attachment.fileName)"
+                      >
+                        Tải xuống
+                      </button>
+                      @if (canEditAttachments()) {
+                        <button
+                          hlmBtn
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          [disabled]="deletingAttachmentId() === attachment.id"
+                          (click)="deleteAttachment(attachment.id)"
+                        >
+                          {{ deletingAttachmentId() === attachment.id ? 'Đang xóa…' : 'Xóa' }}
+                        </button>
+                      }
+                    </div>
+                  </li>
+                } @empty {
+                  <li class="p-6 text-center text-sm text-muted-foreground">
+                    Phiếu chưa có tài liệu đính kèm.
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (attachmentError()) {
+              <div class="text-sm text-destructive" role="alert">
+                <p>{{ attachmentError() }}</p>
+                @if (!attachments()) {
+                  <button
+                    hlmBtn
+                    class="mt-3"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    (click)="retryAttachments()"
+                  >
+                    Thử lại
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        </section>
+      </div>
+
+      <aside class="space-y-6">
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h2 hlmCardTitle>Kiểm tra ngân sách</h2>
+                <p hlmCardDescription>Hạn mức hiện hành cho trung tâm chi phí của phiếu.</p>
+              </div>
+              @if (budget(); as currentBudget) {
+                <span
+                  hlmBadge
+                  [variant]="
+                    currentBudget.result === 'INSUFFICIENT' ||
+                    currentBudget.result === 'NOT_CONFIGURED'
+                      ? 'destructive'
+                      : currentBudget.result === 'AVAILABLE'
+                        ? 'outline'
+                        : 'secondary'
+                  "
+                >
+                  {{ budgetResultLabel() }}
+                </span>
+              }
+            </div>
+          </div>
+          <div hlmCardContent>
+            @if (budgetLoading() && !budget()) {
+              <div class="space-y-3" aria-label="Đang kiểm tra ngân sách" aria-live="polite">
+                <div class="h-5 w-2/3 animate-pulse rounded bg-muted"></div>
+                <div class="h-20 animate-pulse rounded-lg bg-muted"></div>
+              </div>
+            } @else if (budgetError()) {
+              <div class="text-sm text-destructive" role="alert">
+                <p>{{ budgetError() }}</p>
+                <button
+                  hlmBtn
+                  class="mt-3"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  (click)="retryBudget()"
+                >
+                  Thử lại
+                </button>
+              </div>
+            } @else if (budget(); as currentBudget) {
+              @if (!currentBudget.configured || !currentBudget.summary) {
+                <div class="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                  <p class="text-sm font-medium text-destructive">
+                    Chưa có hạn mức {{ current.currency }} cho {{ current.costCenter }}.
+                  </p>
+                  <p class="mt-1 text-xs leading-5 text-muted-foreground">
+                    Quản lý chưa thể phê duyệt cho đến khi tài chính cấu hình ngân sách.
+                  </p>
+                </div>
+              } @else {
+                <div class="space-y-4">
+                  <div>
+                    <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {{ currentBudget.summary.periodCode }} ·
+                      {{ currentBudget.summary.periodStart | date: 'dd/MM/yyyy' }} –
+                      {{ currentBudget.summary.periodEnd | date: 'dd/MM/yyyy' }}
+                    </p>
+                    <p class="mt-2 text-2xl font-semibold tabular-nums">
+                      {{
+                        currentBudget.summary.availableAmount
+                          | dxMoney: currentBudget.summary.currency
+                      }}
+                    </p>
+                    <p class="text-xs text-muted-foreground">Còn khả dụng</p>
+                  </div>
+
+                  <dl class="grid grid-cols-2 gap-3 text-sm">
+                    <div class="rounded-lg bg-muted/50 p-3">
+                      <dt class="text-xs text-muted-foreground">Giá trị phiếu</dt>
+                      <dd class="mt-1 font-medium tabular-nums">
+                        {{ currentBudget.requestedAmount | dxMoney: current.currency }}
+                      </dd>
+                    </div>
+                    <div class="rounded-lg bg-muted/50 p-3">
+                      <dt class="text-xs text-muted-foreground">Tổng hạn mức</dt>
+                      <dd class="mt-1 font-medium tabular-nums">
+                        {{
+                          currentBudget.summary.allocatedAmount
+                            | dxMoney: currentBudget.summary.currency
+                        }}
+                      </dd>
+                    </div>
+                    <div class="rounded-lg bg-muted/50 p-3">
+                      <dt class="text-xs text-muted-foreground">Đang giữ</dt>
+                      <dd class="mt-1 font-medium tabular-nums">
+                        {{
+                          currentBudget.summary.reservedAmount
+                            | dxMoney: currentBudget.summary.currency
+                        }}
+                      </dd>
+                    </div>
+                    <div class="rounded-lg bg-muted/50 p-3">
+                      <dt class="text-xs text-muted-foreground">Đã cam kết</dt>
+                      <dd class="mt-1 font-medium tabular-nums">
+                        {{
+                          currentBudget.summary.committedAmount
+                            | dxMoney: currentBudget.summary.currency
+                        }}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  @if (currentBudget.result === 'INSUFFICIENT') {
+                    <p
+                      class="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+                      role="alert"
+                    >
+                      Giá trị phiếu vượt phần ngân sách còn khả dụng. Backend sẽ chặn phê duyệt.
+                    </p>
+                  }
+                </div>
+              }
+            }
+          </div>
+        </section>
+
+        @if (availableActions().length > 0 || selectedAction()) {
+          <section hlmCard>
+            <div hlmCardHeader class="border-b">
+              <h2 hlmCardTitle>Hành động</h2>
+              <p hlmCardDescription>Các lựa chọn phù hợp với vai trò và trạng thái hiện tại.</p>
+            </div>
+            <div hlmCardContent class="space-y-4">
+              @if (!selectedAction()) {
+                <div class="grid gap-2">
+                  @for (action of availableActions(); track action) {
+                    <button
+                      hlmBtn
+                      type="button"
+                      [variant]="
+                        action === 'REJECT' || action === 'CANCEL'
+                          ? 'destructive'
+                          : action === 'APPROVE' || action === 'SUBMIT' || action === 'RESUBMIT'
+                            ? 'default'
+                            : 'outline'
+                      "
+                      [disabled]="transitioning()"
+                      (click)="chooseAction(action)"
+                    >
+                      {{ actionLabel(action) }}
+                    </button>
+                  }
+                </div>
+              } @else if (selectedAction(); as action) {
+                <div>
+                  <h3 class="font-medium">{{ actionLabel(action) }}</h3>
+                  <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                    {{ actionDescription(action) }}
+                  </p>
+                </div>
+
+                <div class="grid gap-1.5">
+                  <label class="text-sm font-medium" for="transition-comment">
+                    Lý do/ghi chú
+                    @if (requiresComment(action)) {
+                      <span class="text-destructive">*</span>
+                    }
+                  </label>
+                  <textarea
+                    id="transition-comment"
+                    class="min-h-24 resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
+                    maxlength="2000"
+                    [value]="transitionComment()"
+                    [disabled]="transitioning()"
+                    (input)="transitionComment.set($any($event.target).value)"
+                    placeholder="Nhập giải thích để người liên quan hiểu quyết định…"
+                  ></textarea>
+                </div>
+
+                @if (transitionError()) {
+                  <p class="text-sm text-destructive" role="alert">
+                    {{ transitionError() }}
+                  </p>
+                }
+
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    hlmBtn
+                    type="button"
+                    [variant]="
+                      action === 'REJECT' || action === 'CANCEL' ? 'destructive' : 'default'
+                    "
+                    [disabled]="transitioning()"
+                    [attr.aria-busy]="transitioning()"
+                    (click)="performTransition()"
+                  >
+                    @if (transitioning()) {
+                      Đang xử lý…
+                    } @else {
+                      Xác nhận
+                    }
+                  </button>
+                  <button
+                    hlmBtn
+                    type="button"
+                    variant="outline"
+                    [disabled]="transitioning()"
+                    (click)="cancelAction()"
+                  >
+                    Quay lại
+                  </button>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
+            <h2 hlmCardTitle>Thông tin phiếu</h2>
+          </div>
+          <div hlmCardContent>
+            <dl class="space-y-4 text-sm">
+              <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Người yêu cầu
+                </dt>
+                <dd class="mt-1 font-medium">{{ current.requesterName }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Phòng ban
+                </dt>
+                <dd class="mt-1 font-medium">{{ current.departmentName }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Trung tâm chi phí
+                </dt>
+                <dd class="mt-1 font-mono text-xs">{{ current.costCenter }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Cập nhật lần cuối
+                </dt>
+                <dd class="mt-1">
+                  {{ current.updatedAt | date: 'dd/MM/yyyy HH:mm:ss' }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
+            <h2 hlmCardTitle>Timeline</h2>
+            <p hlmCardDescription>{{ timelineTotal() }} sự kiện nghiệp vụ được ghi nhận.</p>
+          </div>
+          <div hlmCardContent class="space-y-4">
+            @if (timelineLoading() && timelineItems().length === 0) {
+              <div class="space-y-3" aria-label="Đang tải timeline" aria-live="polite">
+                @for (placeholder of [1, 2, 3]; track placeholder) {
+                  <div class="h-16 animate-pulse rounded-lg bg-muted"></div>
+                }
+              </div>
+            } @else if (timelineError()) {
+              <div
+                class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+                role="alert"
+              >
+                <p>{{ timelineError() }}</p>
+                <button
+                  hlmBtn
+                  class="mt-3"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  (click)="retryTimeline()"
+                >
+                  Thử lại
+                </button>
+              </div>
+            } @else {
+              <ol class="space-y-5" aria-label="Lịch sử xử lý phiếu">
+                @for (event of timelineItems(); track event.id) {
+                  <li class="relative flex gap-3">
+                    <span
+                      class="mt-1.5 size-2 shrink-0 rounded-full bg-primary ring-4 ring-primary/5"
+                      aria-hidden="true"
+                    ></span>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium">{{ event.label }}</p>
+                      <p class="mt-1 text-xs leading-5 text-muted-foreground">
+                        {{ event.actorName }} · {{ event.actorRoleLabel }} ·
+                        {{ event.occurredAt | date: 'dd/MM/yyyy HH:mm:ss' }}
+                      </p>
+                      @if (event.fromStatus) {
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                          <span hlmBadge variant="outline">{{ event.fromStatus }}</span>
+                          <span class="text-xs text-muted-foreground" aria-hidden="true">→</span>
+                          <span hlmBadge variant="secondary">{{ event.toStatus }}</span>
+                        </div>
+                      } @else {
+                        <div class="mt-2">
+                          <span hlmBadge variant="secondary">{{ event.toStatus }}</span>
+                        </div>
+                      }
+                      @if (event.comment) {
+                        <blockquote
+                          class="mt-3 whitespace-pre-wrap rounded-md border-l-2 border-primary bg-muted/40 px-3 py-2 text-sm leading-6"
+                        >
+                          {{ event.comment }}
+                        </blockquote>
+                      }
+                    </div>
+                  </li>
+                } @empty {
+                  <li class="text-sm text-muted-foreground">Chưa có sự kiện nào được ghi nhận.</li>
+                }
+              </ol>
+
+              @if (timelinePages() > 1) {
+                <div class="flex items-center justify-between gap-2 border-t border-border pt-4">
+                  <p class="text-xs text-muted-foreground">
+                    Trang {{ timelinePage() }} / {{ timelinePages() }}
+                  </p>
+                  <div class="flex gap-2">
+                    <button
+                      hlmBtn
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      [disabled]="timelinePage() <= 1 || timelineLoading()"
+                      (click)="goToTimelinePage(timelinePage() - 1)"
+                    >
+                      Trước
+                    </button>
+                    <button
+                      hlmBtn
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      [disabled]="timelinePage() >= timelinePages() || timelineLoading()"
+                      (click)="goToTimelinePage(timelinePage() + 1)"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        </section>
+      </aside>
+    </div>
+  }
+</section>

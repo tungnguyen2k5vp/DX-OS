@@ -1,0 +1,355 @@
+<section aria-labelledby="create-purchase-request-heading">
+  <div class="border-b border-border pb-7">
+    <a
+      class="text-sm font-medium text-primary hover:underline"
+      [routerLink]="requestId ? ['/purchase-requests', requestId] : ['/purchase-requests']"
+      aria-label="Quay lại danh sách phiếu"
+    >
+      ← Phiếu mua sắm
+    </a>
+    <h1
+      id="create-purchase-request-heading"
+      class="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl"
+    >
+      {{ editing ? 'Sửa phiếu mua sắm' : 'Tạo phiếu mua sắm' }}
+    </h1>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+      @if (editing) {
+        Nội dung chỉ được sửa khi phiếu là bản nháp hoặc đang được yêu cầu chỉnh sửa.
+      } @else {
+        Phiếu được lưu ở trạng thái bản nháp. Người yêu cầu và phòng ban được xác định từ tài khoản
+        đăng nhập.
+      }
+    </p>
+  </div>
+
+  <form
+    #requestForm
+    class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    novalidate
+  >
+    <div class="space-y-6">
+      @if (loading()) {
+        <div
+          class="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground"
+          role="status"
+        >
+          Đang tải nội dung phiếu để chỉnh sửa…
+        </div>
+      }
+      @if (submitError()) {
+        <div
+          #submitErrorBanner
+          class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+          role="alert"
+          tabindex="-1"
+        >
+          <p class="font-medium">
+            {{ editing ? 'Chưa thể cập nhật phiếu' : 'Chưa thể tạo phiếu' }}
+          </p>
+          <p class="mt-1">{{ submitError() }}</p>
+        </div>
+      }
+
+      <section hlmCard>
+        <div hlmCardHeader class="border-b">
+          <h2 hlmCardTitle>Thông tin chung</h2>
+          <p hlmCardDescription>Mô tả rõ nhu cầu và trung tâm chi phí sử dụng.</p>
+        </div>
+        <div hlmCardContent class="grid gap-5">
+          <div class="grid gap-1.5">
+            <label class="text-sm font-medium" for="request-title">Tiêu đề</label>
+            <input
+              id="request-title"
+              class="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+              formControlName="title"
+              maxlength="255"
+              autocomplete="off"
+              [attr.aria-invalid]="
+                form.controls.title.invalid && form.controls.title.touched ? true : null
+              "
+              aria-describedby="request-title-error"
+              placeholder="Ví dụ: Mua laptop cho nhóm thiết kế"
+            />
+            @if (form.controls.title.invalid && form.controls.title.touched) {
+              <p id="request-title-error" class="text-xs text-destructive">
+                Tiêu đề phải có từ 3 đến 255 ký tự.
+              </p>
+            } @else if (serverErrors()['title']; as message) {
+              <p id="request-title-error" class="text-xs text-destructive">
+                {{ message }}
+              </p>
+            }
+          </div>
+
+          <div class="grid gap-1.5">
+            <label class="text-sm font-medium" for="request-reason">Lý do mua sắm</label>
+            <textarea
+              id="request-reason"
+              class="min-h-32 resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+              formControlName="reason"
+              maxlength="5000"
+              [attr.aria-invalid]="
+                form.controls.reason.invalid && form.controls.reason.touched ? true : null
+              "
+              aria-describedby="request-reason-error"
+              placeholder="Mục đích sử dụng, thiết bị thay thế hoặc căn cứ của nhu cầu…"
+            ></textarea>
+            @if (form.controls.reason.invalid && form.controls.reason.touched) {
+              <p id="request-reason-error" class="text-xs text-destructive">
+                Lý do phải có từ 10 đến 5.000 ký tự.
+              </p>
+            } @else if (serverErrors()['reason']; as message) {
+              <p id="request-reason-error" class="text-xs text-destructive">
+                {{ message }}
+              </p>
+            }
+          </div>
+
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div class="grid gap-1.5">
+              <label class="text-sm font-medium" for="request-cost-center">Trung tâm chi phí</label>
+              <input
+                id="request-cost-center"
+                class="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20 aria-invalid:border-destructive"
+                formControlName="costCenter"
+                maxlength="100"
+                [attr.aria-invalid]="
+                  form.controls.costCenter.invalid && form.controls.costCenter.touched ? true : null
+                "
+                aria-describedby="request-cost-center-error"
+              />
+              @if (form.controls.costCenter.invalid && form.controls.costCenter.touched) {
+                <p id="request-cost-center-error" class="text-xs text-destructive">
+                  Trung tâm chi phí là bắt buộc.
+                </p>
+              } @else if (serverErrors()['costCenter']; as message) {
+                <p id="request-cost-center-error" class="text-xs text-destructive">
+                  {{ message }}
+                </p>
+              }
+            </div>
+            <div class="grid gap-1.5">
+              <label class="text-sm font-medium" for="request-currency">Tiền tệ</label>
+              <input
+                id="request-currency"
+                class="h-10 rounded-md border border-input bg-background px-3 font-mono text-sm uppercase shadow-xs outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20 aria-invalid:border-destructive"
+                formControlName="currency"
+                maxlength="3"
+                [attr.aria-invalid]="
+                  form.controls.currency.invalid && form.controls.currency.touched ? true : null
+                "
+                aria-describedby="request-currency-error"
+              />
+              @if (form.controls.currency.invalid && form.controls.currency.touched) {
+                <p id="request-currency-error" class="text-xs text-destructive">
+                  Dùng mã tiền tệ ba chữ cái, ví dụ VND.
+                </p>
+              } @else if (serverErrors()['currency']; as message) {
+                <p id="request-currency-error" class="text-xs text-destructive">
+                  {{ message }}
+                </p>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section hlmCard>
+        <div hlmCardHeader class="border-b sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 hlmCardTitle>Danh mục hàng hóa</h2>
+            <p hlmCardDescription>Tổng chính thức sẽ được Go API tính lại phía server.</p>
+            @if (serverErrors()['items']; as message) {
+              <p class="mt-2 text-xs text-destructive">{{ message }}</p>
+            }
+          </div>
+          <button
+            hlmBtn
+            type="button"
+            variant="outline"
+            size="sm"
+            [disabled]="items.length >= 100 || submitting() || loading()"
+            (click)="addItem()"
+          >
+            Thêm dòng
+          </button>
+        </div>
+        <div hlmCardContent formArrayName="items" class="space-y-5">
+          @for (item of items.controls; track item; let index = $index) {
+            <fieldset
+              class="rounded-lg border border-border p-4"
+              [formGroupName]="index"
+              [attr.aria-labelledby]="'item-heading-' + index"
+            >
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <legend [id]="'item-heading-' + index" class="font-medium">
+                  Dòng {{ index + 1 }}
+                </legend>
+                <button
+                  hlmBtn
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  [disabled]="items.length <= 1 || submitting() || loading()"
+                  (click)="removeItem(index)"
+                >
+                  Xóa
+                </button>
+              </div>
+
+              <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_130px_130px_190px]">
+                <div class="grid gap-1.5">
+                  <label class="text-xs font-medium" [for]="'item-description-' + index"
+                    >Mô tả</label
+                  >
+                  <input
+                    [id]="'item-description-' + index"
+                    class="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20 aria-invalid:border-destructive"
+                    formControlName="description"
+                    maxlength="500"
+                    [attr.aria-describedby]="'item-description-error-' + index"
+                    [attr.aria-invalid]="
+                      item.controls.description.invalid && item.controls.description.touched
+                        ? true
+                        : null
+                    "
+                  />
+                  @if (item.controls.description.invalid && item.controls.description.touched) {
+                    <p [id]="'item-description-error-' + index" class="text-xs text-destructive">
+                      Mô tả phải có từ 2 đến 500 ký tự.
+                    </p>
+                  } @else if (serverErrors()['items[' + index + '].description']; as message) {
+                    <p [id]="'item-description-error-' + index" class="text-xs text-destructive">
+                      {{ message }}
+                    </p>
+                  }
+                </div>
+                <div class="grid gap-1.5">
+                  <label class="text-xs font-medium" [for]="'item-quantity-' + index"
+                    >Số lượng</label
+                  >
+                  <input
+                    [id]="'item-quantity-' + index"
+                    class="h-10 rounded-md border border-input bg-background px-3 text-right font-mono text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20 aria-invalid:border-destructive"
+                    formControlName="quantity"
+                    inputmode="decimal"
+                    [attr.aria-describedby]="'item-quantity-error-' + index"
+                    [attr.aria-invalid]="
+                      item.controls.quantity.invalid && item.controls.quantity.touched ? true : null
+                    "
+                  />
+                  @if (item.controls.quantity.invalid && item.controls.quantity.touched) {
+                    <p [id]="'item-quantity-error-' + index" class="text-xs text-destructive">
+                      Nhập số lượng lớn hơn 0, tối đa 4 chữ số thập phân.
+                    </p>
+                  } @else if (serverErrors()['items[' + index + '].quantity']; as message) {
+                    <p [id]="'item-quantity-error-' + index" class="text-xs text-destructive">
+                      {{ message }}
+                    </p>
+                  }
+                </div>
+                <div class="grid gap-1.5">
+                  <label class="text-xs font-medium" [for]="'item-unit-' + index">Đơn vị</label>
+                  <input
+                    [id]="'item-unit-' + index"
+                    class="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20 aria-invalid:border-destructive"
+                    formControlName="unit"
+                    maxlength="50"
+                    [attr.aria-describedby]="'item-unit-error-' + index"
+                    [attr.aria-invalid]="
+                      item.controls.unit.invalid && item.controls.unit.touched ? true : null
+                    "
+                  />
+                  @if (item.controls.unit.invalid && item.controls.unit.touched) {
+                    <p [id]="'item-unit-error-' + index" class="text-xs text-destructive">
+                      Đơn vị là bắt buộc và tối đa 50 ký tự.
+                    </p>
+                  } @else if (serverErrors()['items[' + index + '].unit']; as message) {
+                    <p [id]="'item-unit-error-' + index" class="text-xs text-destructive">
+                      {{ message }}
+                    </p>
+                  }
+                </div>
+                <div class="grid gap-1.5">
+                  <label class="text-xs font-medium" [for]="'item-unit-price-' + index"
+                    >Đơn giá</label
+                  >
+                  <input
+                    [id]="'item-unit-price-' + index"
+                    class="h-10 rounded-md border border-input bg-background px-3 text-right font-mono text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20 aria-invalid:border-destructive"
+                    formControlName="unitPrice"
+                    inputmode="decimal"
+                    [attr.aria-describedby]="'item-unit-price-error-' + index"
+                    [attr.aria-invalid]="
+                      item.controls.unitPrice.invalid && item.controls.unitPrice.touched
+                        ? true
+                        : null
+                    "
+                  />
+                  @if (item.controls.unitPrice.invalid && item.controls.unitPrice.touched) {
+                    <p [id]="'item-unit-price-error-' + index" class="text-xs text-destructive">
+                      Nhập đơn giá không âm, tối đa 4 chữ số thập phân.
+                    </p>
+                  } @else if (serverErrors()['items[' + index + '].unitPrice']; as message) {
+                    <p [id]="'item-unit-price-error-' + index" class="text-xs text-destructive">
+                      {{ message }}
+                    </p>
+                  }
+                </div>
+              </div>
+            </fieldset>
+          }
+        </div>
+      </section>
+    </div>
+
+    <aside class="space-y-4 xl:sticky xl:top-6 xl:self-start">
+      <section hlmCard>
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Tóm tắt bản nháp</h2>
+          <p hlmCardDescription>Kiểm tra trước khi lưu.</p>
+        </div>
+        <div hlmCardContent>
+          <dl class="space-y-4 text-sm">
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-muted-foreground">Số dòng</dt>
+              <dd class="font-medium tabular-nums">{{ items.length }}</dd>
+            </div>
+            <div class="flex items-start justify-between gap-4 border-t border-border pt-4">
+              <dt class="text-muted-foreground">Tạm tính</dt>
+              <dd class="text-right text-lg font-semibold tabular-nums">
+                {{ estimatedTotal() | dxMoney: form.controls.currency.value }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+        <div hlmCardFooter class="grid gap-2 border-t">
+          <button
+            hlmBtn
+            type="submit"
+            size="lg"
+            [disabled]="submitting() || loading() || (editing && expectedVersion() === null)"
+            [attr.aria-busy]="submitting()"
+          >
+            @if (submitting()) {
+              Đang lưu…
+            } @else if (editing) {
+              Lưu thay đổi
+            } @else {
+              Lưu bản nháp
+            }
+          </button>
+          <a
+            hlmBtn
+            variant="ghost"
+            [routerLink]="requestId ? ['/purchase-requests', requestId] : ['/purchase-requests']"
+            >Hủy</a
+          >
+        </div>
+      </section>
+    </aside>
+  </form>
+</section>

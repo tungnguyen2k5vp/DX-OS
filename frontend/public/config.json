@@ -1,0 +1,9 @@
+{
+  "apiBaseUrl": "http://localhost:8081",
+  "metabaseUrl": "http://localhost:3000",
+  "oidc": {
+    "url": "http://localhost:8080",
+    "realm": "dx-os",
+    "clientId": "dx-web"
+  }
+}
