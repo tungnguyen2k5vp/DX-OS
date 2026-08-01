@@ -1,0 +1,11 @@
+{
+  "label": "Architecture Decision Records",
+  "position": 2,
+  "collapsible": true,
+  "collapsed": true,
+  "link": {
+    "type": "generated-index",
+    "title": "Architecture Decision Records",
+    "slug": "/architecture/adr"
+  }
+}

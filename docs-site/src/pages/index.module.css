@@ -1,0 +1,339 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+  background:
+    radial-gradient(
+      circle at 82% 22%,
+      rgb(13 148 136 / 18%),
+      transparent 28rem
+    ),
+    linear-gradient(145deg, #f0fdfa 0%, #f8fafc 52%, #ecfeff 100%);
+}
+
+[data-theme="dark"] .hero {
+  background:
+    radial-gradient(
+      circle at 82% 22%,
+      rgb(45 212 191 / 15%),
+      transparent 28rem
+    ),
+    linear-gradient(145deg, #071b1d 0%, #0f172a 58%, #082f49 100%);
+}
+
+.heroInner {
+  display: grid;
+  max-width: 1180px;
+  min-height: 560px;
+  margin: 0 auto;
+  padding: 6rem 1.5rem;
+  align-items: center;
+  gap: 4rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+}
+
+.kicker,
+.eyebrow {
+  margin-bottom: 0.75rem;
+  color: var(--ifm-color-primary-dark);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.hero h1 {
+  max-width: 760px;
+  margin-bottom: 1.25rem;
+  font-size: clamp(2.6rem, 6vw, 4.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.hero h1 span {
+  color: var(--ifm-color-primary);
+}
+
+.lead {
+  max-width: 680px;
+  margin-bottom: 2rem;
+  color: var(--ifm-color-emphasis-700);
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  line-height: 1.7;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.primaryAction,
+.secondaryAction {
+  border-radius: 0.75rem;
+}
+
+.systemCard {
+  padding: 1.5rem;
+  border: 1px solid rgb(15 118 110 / 24%);
+  border-radius: 1.25rem;
+  background: rgb(255 255 255 / 84%);
+  box-shadow: 0 24px 70px rgb(15 23 42 / 12%);
+}
+
+[data-theme="dark"] .systemCard {
+  border-color: rgb(94 234 212 / 18%);
+  background: rgb(15 23 42 / 82%);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 30%);
+}
+
+.systemCardHeader {
+  display: flex;
+  padding-bottom: 1rem;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.statusDot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgb(16 185 129 / 14%);
+}
+
+.metrics {
+  display: grid;
+  margin: 1.5rem 0;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.metrics div {
+  min-width: 0;
+  padding: 1rem 0.75rem;
+  border-radius: 0.8rem;
+  background: var(--ifm-color-emphasis-100);
+  text-align: center;
+}
+
+.metrics dt {
+  overflow: hidden;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metrics dd {
+  margin: 0.25rem 0 0;
+  color: var(--ifm-color-primary-dark);
+  font-size: 1.65rem;
+  font-weight: 800;
+}
+
+.flow {
+  display: flex;
+  padding: 0.9rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border-radius: 0.8rem;
+  background: var(--ifm-color-primary-contrast-background);
+  color: var(--ifm-color-primary-darkest);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.section {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem;
+}
+
+.sectionHeading {
+  max-width: 680px;
+  margin-bottom: 2rem;
+}
+
+.sectionHeading h2,
+.capabilitySection h2,
+.cta h2 {
+  margin-bottom: 0.7rem;
+  font-size: clamp(1.8rem, 4vw, 2.65rem);
+  letter-spacing: -0.035em;
+}
+
+.sectionHeading > p:last-child,
+.scopeCopy,
+.cta p {
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.75;
+}
+
+.pathGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.pathCard {
+  display: flex;
+  min-height: 270px;
+  padding: 1.6rem;
+  flex-direction: column;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 1rem;
+  background: var(--ifm-background-surface-color);
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.pathCard:hover {
+  border-color: var(--ifm-color-primary-light);
+  box-shadow: 0 16px 40px rgb(15 23 42 / 8%);
+  transform: translateY(-3px);
+}
+
+.pathCard h3 {
+  font-size: 1.35rem;
+}
+
+.pathCard > p:not(.eyebrow) {
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.65;
+}
+
+.cardLink {
+  margin-top: auto;
+  font-weight: 750;
+}
+
+.capabilitySection {
+  display: grid;
+  align-items: start;
+  gap: 4rem;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+}
+
+.capabilityList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, 1fr);
+  list-style: none;
+}
+
+.capabilityList li {
+  display: flex;
+  min-height: 72px;
+  padding: 1rem;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 0.8rem;
+  background: var(--ifm-color-emphasis-100);
+  font-weight: 650;
+}
+
+.capabilityList span {
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ifm-color-primary);
+  color: white;
+}
+
+.cta {
+  display: flex;
+  max-width: 1132px;
+  margin: 0 auto 5rem;
+  padding: 2rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  border: 1px solid rgb(13 148 136 / 30%);
+  border-radius: 1.25rem;
+  background: var(--ifm-color-primary-contrast-background);
+}
+
+.cta p {
+  max-width: 720px;
+  margin-bottom: 0;
+}
+
+@media (max-width: 996px) {
+  .heroInner,
+  .capabilitySection {
+    grid-template-columns: 1fr;
+  }
+
+  .heroInner {
+    min-height: auto;
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+
+  .systemCard {
+    max-width: 640px;
+  }
+
+  .pathGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pathCard {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .heroInner,
+  .section {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+
+  .hero h1 {
+    font-size: 2.7rem;
+  }
+
+  .metrics,
+  .capabilityList {
+    grid-template-columns: 1fr;
+  }
+
+  .flow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .flow span[aria-hidden="true"] {
+    transform: rotate(90deg);
+  }
+
+  .cta {
+    margin-right: 1rem;
+    margin-left: 1rem;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pathCard {
+    transition: none;
+  }
+
+  .pathCard:hover {
+    transform: none;
+  }
+}

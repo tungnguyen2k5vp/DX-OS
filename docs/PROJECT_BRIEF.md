@@ -1,3 +1,8 @@
+---
+title: Project Brief
+sidebar_position: 6
+---
+
 # Project Brief
 
 ## Bài toán

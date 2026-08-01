@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#042f2e"/>
+      <stop offset=".55" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#164e63"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1050" cy="80" r="300" fill="#14b8a6" opacity=".13"/>
+  <rect x="90" y="92" width="88" height="88" rx="24" fill="#14b8a6"/>
+  <text x="134" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="white">DX</text>
+  <text x="90" y="300" font-family="Arial, sans-serif" font-size="78" font-weight="700" fill="white">DX-OS Docs</text>
+  <text x="90" y="380" font-family="Arial, sans-serif" font-size="34" fill="#ccfbf1">Tài liệu sử dụng, phát triển và vận hành</text>
+  <text x="90" y="515" font-family="Arial, sans-serif" font-size="25" fill="#94a3b8">Go · Angular · Keycloak · PostgreSQL · Nextcloud · Metabase</text>
+</svg>

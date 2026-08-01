@@ -1,3 +1,8 @@
+---
+title: Backlog triển khai
+sidebar_position: 90
+---
+
 # Backlog triển khai Go + Angular
 
 ## Giai đoạn 0 — Chuẩn bị

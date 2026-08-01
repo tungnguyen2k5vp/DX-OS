@@ -1,3 +1,8 @@
+---
+title: Các quyết định còn mở
+sidebar_position: 91
+---
+
 # Các quyết định còn mở
 
 Go + Angular, modular monolith, PostgreSQL và Keycloak đã được chốt. Các quyết định sau không chặn
@@ -33,4 +38,3 @@ việc dựng skeleton nhưng phải chốt trước giai đoạn tương ứng.
 3. Domain, TLS, secret manager và nơi đặt server?
 4. Retention cho business data, audit, log và AI trace?
 5. Ai là data owner, security owner và on-call owner?
-

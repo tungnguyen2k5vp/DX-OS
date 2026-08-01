@@ -1,3 +1,8 @@
+---
+title: Hướng dẫn triển khai Go + Angular
+sidebar_position: 5
+---
+
 # DX-OS — Hướng dẫn triển khai Go + Angular
 
 ## 1. Mục tiêu
@@ -38,21 +43,21 @@ thương mại và giúp đồ án thể hiện rõ năng lực lập trình Go 
 
 ## 3. Baseline công nghệ
 
-| Thành phần | Baseline phát triển |
-|---|---|
-| Go | 1.26.5 |
-| Angular | 22.0.x |
-| Angular CLI | 22.0.x |
-| Spartan UI | 1.1.2 |
-| Angular CDK | 22.0.6 |
-| Tailwind CSS | 4.3.3 |
-| Node.js | 24.15+ |
-| TypeScript | phiên bản 6.0.x tương thích Angular 22 |
-| PostgreSQL | 18.4 |
-| Keycloak | 26.7.0 |
-| Nextcloud | 34.0.2 |
-| Metabase OSS | 0.63.1 |
-| RAGFlow | 0.26.4 |
+| Thành phần   | Baseline phát triển                    |
+| ------------ | -------------------------------------- |
+| Go           | 1.26.5                                 |
+| Angular      | 22.0.x                                 |
+| Angular CLI  | 22.0.x                                 |
+| Spartan UI   | 1.1.2                                  |
+| Angular CDK  | 22.0.6                                 |
+| Tailwind CSS | 4.3.3                                  |
+| Node.js      | 24.15+                                 |
+| TypeScript   | phiên bản 6.0.x tương thích Angular 22 |
+| PostgreSQL   | 18.4                                   |
+| Keycloak     | 26.7.0                                 |
+| Nextcloud    | 34.0.2                                 |
+| Metabase OSS | 0.63.1                                 |
+| RAGFlow      | 0.26.4                                 |
 
 Version chính xác được khóa trong `go.mod`, lockfile frontend và `.env.example`. Không dùng tag
 `latest` cho bản demo/UAT hoặc production pilot.
@@ -94,17 +99,17 @@ Version chính xác được khóa trong `go.mod`, lockfile frontend và `.env.e
 
 ## 6. Các giai đoạn
 
-| Giai đoạn | Kết quả bắt buộc |
-|---|---|
-| 0. Chuẩn bị | tài liệu, ADR, repo, baseline, backlog |
-| 1. Foundation | PostgreSQL + Keycloak healthy; role có trong token |
-| 2. Skeleton | Go `/health`, Angular shell, OIDC login, CI build |
-| 3. Process MVP | tạo/gửi/duyệt/từ chối/yêu cầu sửa đúng quyền |
-| 4. Documents | file Nextcloud gắn đúng hồ sơ |
-| 5. Data/BI | curated data và dashboard khớp dữ liệu gốc |
-| 6. RAG | bộ câu hỏi chuẩn, trả lời có citation |
-| 7. Agent | recommendation -> approval -> execute -> audit |
-| 8. Hardening | security, observability, restore và demo ổn định |
+| Giai đoạn      | Kết quả bắt buộc                                   |
+| -------------- | -------------------------------------------------- |
+| 0. Chuẩn bị    | tài liệu, ADR, repo, baseline, backlog             |
+| 1. Foundation  | PostgreSQL + Keycloak healthy; role có trong token |
+| 2. Skeleton    | Go `/health`, Angular shell, OIDC login, CI build  |
+| 3. Process MVP | tạo/gửi/duyệt/từ chối/yêu cầu sửa đúng quyền       |
+| 4. Documents   | file Nextcloud gắn đúng hồ sơ                      |
+| 5. Data/BI     | curated data và dashboard khớp dữ liệu gốc         |
+| 6. RAG         | bộ câu hỏi chuẩn, trả lời có citation              |
+| 7. Agent       | recommendation -> approval -> execute -> audit     |
+| 8. Hardening   | security, observability, restore và demo ổn định   |
 
 Chi tiết công việc nằm tại [BACKLOG.md](BACKLOG.md).
 

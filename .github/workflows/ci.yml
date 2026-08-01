@@ -67,3 +67,24 @@ jobs:
           package-manager-cache: false
       - name: Lint OpenAPI
         run: npx --yes @stoplight/spectral-cli@6.15.0 lint contracts/openapi/dx-os-v1.yaml
+
+  documentation:
+    name: Docusaurus documentation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs-site
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Build and validate links
+        run: npm run build
+      - name: Audit dependencies
+        run: npm audit --audit-level=high

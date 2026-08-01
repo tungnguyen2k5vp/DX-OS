@@ -74,6 +74,7 @@ dx-os-lab/
 ├── contracts/openapi/    OpenAPI contract
 ├── compose/              Foundation, application và reporting services
 ├── data/postgres/        Bootstrap PostgreSQL/reporting
+├── docs-site/            Docusaurus documentation portal
 ├── iam/keycloak/realm/   Realm export, clients và sáu realm role
 ├── scripts/              Provisioning và smoke tests PowerShell
 ├── docs/                 Kiến trúc, triển khai, runbook và hướng dẫn
@@ -192,9 +193,16 @@ read-only và các card của Metabase.
 | PostgreSQL    | 127.0.0.1:5432        | Chỉ bind loopback cho local                       |
 | Nextcloud     | http://localhost:8082 | Dịch vụ nội bộ, không cần user đăng nhập          |
 | Metabase      | http://localhost:3000 | Credential trong data/runtime/metabase-admin.txt  |
+| DX-OS Docs    | http://localhost:4300 | Website tài liệu Docusaurus                       |
 
 Luôn mở ứng dụng bằng **http://localhost:4200**. Không đổi thành 127.0.0.1 nếu chưa cập nhật
 Keycloak, vì client dx-web chỉ cho phép redirect URI http://localhost:4200/*.
+
+Website tài liệu chạy bằng profile độc lập:
+
+```powershell
+docker compose --profile documentation up -d --build docs
+```
 
 ## Chạy source ngoài Docker
 
@@ -240,6 +248,19 @@ npm run build
 # OpenAPI, chạy từ repository root
 Set-Location ..
 npx --yes @stoplight/spectral-cli@6.15.0 lint contracts/openapi/dx-os-v1.yaml
+
+# Website tài liệu
+Set-Location docs-site
+npm ci
+npm run typecheck
+npm run build
+npm audit --audit-level=high
+```
+
+Khi container tài liệu đang chạy:
+
+```powershell
+.\scripts\Test-Documentation.ps1
 ```
 
 API contract hiện hành: [contracts/openapi/dx-os-v1.yaml](contracts/openapi/dx-os-v1.yaml).
@@ -323,6 +344,7 @@ Chi tiết thao tác cho từng role nằm trong [Hướng dẫn sử dụng](do
 
 ## Tài liệu
 
+- [Website tài liệu DX-OS](https://vanvuong2005827.github.io/DX-OS/)
 - [Hướng dẫn sử dụng và role](docs/USER_GUIDE.md)
 - [Chỉ mục tài liệu](docs/INDEX.md)
 - [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md)

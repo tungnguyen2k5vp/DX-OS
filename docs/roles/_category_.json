@@ -1,0 +1,11 @@
+{
+  "label": "Hướng dẫn theo vai trò",
+  "position": 2,
+  "collapsible": true,
+  "collapsed": false,
+  "link": {
+    "type": "generated-index",
+    "title": "Hướng dẫn theo vai trò",
+    "description": "Chọn đúng vai trò để chỉ xem các tác vụ và giới hạn quyền liên quan."
+  }
+}

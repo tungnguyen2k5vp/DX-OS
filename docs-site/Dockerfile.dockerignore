@@ -1,0 +1,10 @@
+**
+!docs-site/
+!docs-site/**
+!docs/
+!docs/**
+
+docs-site/node_modules/
+docs-site/build/
+docs-site/.docusaurus/
+docs-site/npm-debug.log

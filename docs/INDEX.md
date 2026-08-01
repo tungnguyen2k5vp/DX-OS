@@ -1,3 +1,11 @@
+---
+id: docs-index
+title: Chỉ mục tài liệu DX-OS
+description: Bản đồ toàn bộ tài liệu kỹ thuật và nghiệp vụ của DX-OS.
+slug: /tai-lieu
+sidebar_position: 4
+---
+
 # Chỉ mục tài liệu DX-OS
 
 Tài liệu này là điểm bắt đầu cho nhóm phát triển. Kiến trúc hiện tại đã chốt **Go + Angular** cho
@@ -38,6 +46,7 @@ phẩm độc lập. RAGFlow/Agent thuộc lộ trình tiếp theo và chưa đ�
 
 ## Nguồn yêu cầu
 
-- Tài liệu đầu vào: [`../../DX_OS_Implementation_Guide.pdf`](../../DX_OS_Implementation_Guide.pdf)
+- Tài liệu đầu vào nằm ngoài repository: `../DX_OS_Implementation_Guide.pdf` tính từ thư mục
+  `dx-os-lab`.
 - Các quyết định còn mở: [DECISIONS_NEEDED.md](DECISIONS_NEEDED.md)
 - Phiên bản phần mềm: [THIRD_PARTY_BASELINE.md](THIRD_PARTY_BASELINE.md)

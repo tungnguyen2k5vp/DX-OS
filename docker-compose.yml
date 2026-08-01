@@ -3,3 +3,4 @@ name: dx-os-lab
 include:
   - compose/base.yml
   - compose/application.yml
+  - compose/documentation.yml

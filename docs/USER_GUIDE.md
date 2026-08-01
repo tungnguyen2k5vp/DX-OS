@@ -1,3 +1,11 @@
+---
+id: user-guide
+title: Hướng dẫn sử dụng DX-OS Lab
+description: Hướng dẫn toàn bộ quy trình nghiệp vụ và quyền của sáu role.
+slug: /huong-dan-su-dung
+sidebar_position: 3
+---
+
 # Hướng dẫn sử dụng DX-OS Lab
 
 Tài liệu này hướng dẫn sử dụng phiên bản hiện tại của DX-OS Lab từ lúc đăng nhập đến khi một phiếu
@@ -48,7 +56,7 @@ tài khoản và gán role phù hợp. Bộ account demo nên tách riêng như 
 | ai.operator.demo | ai_operator        | Dành cho giai đoạn AI sau này         |
 | admin.demo       | dx_admin           | Truy cập báo cáo và cấu hình được cấp |
 
-Cách tạo tài khoản và vị trí file mật khẩu được mô tả trong [README](../README.md). Sau khi role
+Cách tạo tài khoản và vị trí file mật khẩu được mô tả trong [Bắt đầu với DX-OS](GETTING_STARTED.md). Sau khi role
 của một user thay đổi, user phải đăng xuất rồi đăng nhập lại để access token chứa role mới.
 
 ## 3. Role và quyền hiện hành
@@ -354,9 +362,9 @@ URL, thao tác vừa làm và nội dung thông báo. Không chụp hoặc gửi
 
 ## 16. Tài liệu liên quan
 
-- [README và cài đặt](../README.md)
+- [Bắt đầu và cài đặt](GETTING_STARTED.md)
 - [Authentication và Authorization](implementation/AUTHORIZATION.md)
 - [Procurement MVP runbook](runbooks/PROCUREMENT_MVP.md)
 - [Attachment runbook](runbooks/ATTACHMENTS.md)
 - [Reporting runbook](runbooks/REPORTING.md)
-- [OpenAPI contract](../contracts/openapi/dx-os-v1.yaml)
+- OpenAPI contract trong source: `contracts/openapi/dx-os-v1.yaml`.
