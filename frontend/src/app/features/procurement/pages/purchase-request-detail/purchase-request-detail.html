@@ -551,6 +551,89 @@
 
         <section hlmCard>
           <div hlmCardHeader class="border-b">
+            <h2 hlmCardTitle>Trao đổi</h2>
+            <p hlmCardDescription>
+              Hỏi đáp và bổ sung thông tin mà không cần thay đổi trạng thái phiếu.
+            </p>
+          </div>
+          <div hlmCardContent class="space-y-4">
+            @if (canComment()) {
+              <div class="space-y-2">
+                <label class="text-sm font-medium" for="request-comment">Nội dung mới</label>
+                <textarea
+                  id="request-comment"
+                  class="min-h-24 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
+                  maxlength="2000"
+                  [value]="commentBody()"
+                  [disabled]="submittingComment()"
+                  (input)="commentBody.set($any($event.target).value)"
+                  placeholder="Ví dụ: Vui lòng xác nhận thời gian giao hàng dự kiến…"
+                ></textarea>
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-xs text-muted-foreground"
+                    >{{ commentBody().length }} / 2.000</span
+                  >
+                  <button
+                    hlmBtn
+                    type="button"
+                    size="sm"
+                    [disabled]="!commentBody().trim() || submittingComment()"
+                    [attr.aria-busy]="submittingComment()"
+                    (click)="addComment()"
+                  >
+                    {{ submittingComment() ? 'Đang gửi…' : 'Gửi trao đổi' }}
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <p class="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+                Vai trò kiểm toán chỉ được đọc nội dung trao đổi.
+              </p>
+            }
+
+            @if (commentsError()) {
+              <div class="text-sm text-destructive" role="alert">
+                <p>{{ commentsError() }}</p>
+                <button
+                  hlmBtn
+                  class="mt-2"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  (click)="retryComments()"
+                >
+                  Tải lại
+                </button>
+              </div>
+            }
+
+            @if (commentsLoading() && comments().length === 0) {
+              <div
+                class="h-16 animate-pulse rounded-lg bg-muted"
+                aria-label="Đang tải trao đổi"
+              ></div>
+            } @else {
+              <ol class="space-y-3" aria-label="Nội dung trao đổi trên phiếu">
+                @for (comment of comments(); track comment.id) {
+                  <li class="rounded-lg border border-border bg-muted/30 p-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <strong class="text-sm">{{ comment.authorName }}</strong>
+                      <time class="text-xs text-muted-foreground">
+                        {{ comment.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                      </time>
+                    </div>
+                    <p class="mt-2 whitespace-pre-wrap text-sm leading-6">{{ comment.body }}</p>
+                  </li>
+                } @empty {
+                  <li class="text-sm text-muted-foreground">Chưa có trao đổi độc lập nào.</li>
+                }
+              </ol>
+            }
+          </div>
+        </section>
+
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
             <h2 hlmCardTitle>Timeline</h2>
             <p hlmCardDescription>{{ timelineTotal() }} sự kiện nghiệp vụ được ghi nhận.</p>
           </div>

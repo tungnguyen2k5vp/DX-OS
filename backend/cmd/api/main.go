@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dx-os-lab/dx-os/backend/internal/notifications"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/config"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/documentstore"
@@ -66,6 +67,7 @@ func main() {
 		AllowedOrigin: cfg.AllowedOrigin,
 		Database:      database,
 		Logger:        logger,
+		Notifications: notifications.NewStore(database),
 		Procurement:   procurement.NewStore(database, documents),
 		Reporting:     reporting.NewStore(database),
 		TokenVerifier: tokenVerifier,

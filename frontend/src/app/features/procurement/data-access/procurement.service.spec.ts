@@ -142,6 +142,73 @@ describe('ProcurementService', () => {
     });
   });
 
+  it('lists and posts independent purchase request comments', () => {
+    service.comments('request-id').subscribe();
+    const listRequest = http.expectOne(
+      'http://api.test/api/v1/purchase-requests/request-id/comments',
+    );
+    expect(listRequest.request.method).toBe('GET');
+    listRequest.flush({ items: [], total: 0 });
+
+    service.addComment('request-id', 'Please confirm delivery.').subscribe();
+    const createRequest = http.expectOne(
+      'http://api.test/api/v1/purchase-requests/request-id/comments',
+    );
+    expect(createRequest.request.method).toBe('POST');
+    expect(createRequest.request.body).toEqual({ body: 'Please confirm delivery.' });
+    createRequest.flush({ id: 'comment-id', body: 'Please confirm delivery.' });
+  });
+
+  it('gets the role-aware work summary', () => {
+    service.taskSummary().subscribe((result) => expect(result.total).toBe(1));
+    const request = http.expectOne('http://api.test/api/v1/me/tasks-summary');
+    expect(request.request.method).toBe('GET');
+    request.flush({ items: [{}], total: 1, overdueCount: 0, dueSoonCount: 0 });
+  });
+
+  it('manages suppliers and the fulfillment lifecycle', () => {
+    const supplier = {
+      code: 'VEN-01',
+      name: 'Demo Vendor',
+      taxCode: '',
+      contactName: '',
+      email: '',
+      phone: '',
+      status: 'ACTIVE' as const,
+      riskLevel: 'LOW' as const,
+    };
+    service.createSupplier(supplier).subscribe();
+    const supplierRequest = http.expectOne('http://api.test/api/v1/suppliers');
+    expect(supplierRequest.request.method).toBe('POST');
+    supplierRequest.flush({ id: 'supplier-id', ...supplier });
+
+    service
+      .createPurchaseOrder(
+        {
+          purchaseRequestId: 'request-id',
+          supplierId: 'supplier-id',
+          externalReference: 'ERP-01',
+          expectedDeliveryOn: '2026-12-30',
+          note: 'Deliver to reception.',
+        },
+        'purchase-order-0001',
+      )
+      .subscribe();
+    const orderRequest = http.expectOne('http://api.test/api/v1/procurement-operations/orders');
+    expect(orderRequest.request.headers.get('Idempotency-Key')).toBe('purchase-order-0001');
+    orderRequest.flush({ status: 'ORDERED' });
+
+    service.confirmReceipt('request-id', 1, '2026-08-14').subscribe();
+    const receiptRequest = http.expectOne(
+      'http://api.test/api/v1/procurement-operations/orders/request-id/receipt',
+    );
+    expect(receiptRequest.request.body).toEqual({
+      expectedVersion: 1,
+      actualDeliveryOn: '2026-08-14',
+    });
+    receiptRequest.flush({ status: 'RECEIVED' });
+  });
+
   it('gets the budget check for a purchase request', () => {
     service.budgetCheck('request-id').subscribe();
 
@@ -262,5 +329,66 @@ describe('ProcurementService', () => {
     );
     expect(request.request.method).toBe('DELETE');
     request.flush(null);
+  });
+
+  it('loads the invoice reconciliation board', () => {
+    service.invoiceBoard().subscribe();
+    const request = http.expectOne('http://api.test/api/v1/invoices');
+    expect(request.request.method).toBe('GET');
+    request.flush({ items: [], total: 0, canManage: true });
+  });
+
+  it('creates an invoice with an idempotency key', () => {
+    const input = {
+      purchaseOrderId: 'order-id',
+      invoiceNumber: 'INV-2026-001',
+      issuedOn: '2026-08-15',
+      dueOn: '2026-09-15',
+      amount: '1250000.0000',
+      currency: 'VND',
+      note: '',
+    };
+    service.createInvoice(input, 'invoice-create-0001').subscribe();
+    const request = http.expectOne('http://api.test/api/v1/invoices');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(input);
+    expect(request.request.headers.get('Idempotency-Key')).toBe('invoice-create-0001');
+    request.flush({ invoiceId: 'invoice-id' });
+  });
+
+  it('records payment using version and idempotency', () => {
+    service
+      .transitionInvoice(
+        'invoice-id',
+        {
+          action: 'MARK_PAID',
+          expectedVersion: 3,
+          paymentReference: 'BANK-2026-001',
+          paidOn: '2026-08-15',
+        },
+        'invoice-payment-0001',
+      )
+      .subscribe();
+    const request = http.expectOne('http://api.test/api/v1/invoices/invoice-id/transitions');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.expectedVersion).toBe(3);
+    expect(request.request.headers.get('Idempotency-Key')).toBe('invoice-payment-0001');
+    request.flush({ invoiceId: 'invoice-id', invoiceStatus: 'PAID' });
+  });
+
+  it('loads and updates versioned operating policies', () => {
+    service.policyCenter().subscribe();
+    const list = http.expectOne('http://api.test/api/v1/admin/policies');
+    expect(list.request.method).toBe('GET');
+    list.flush({ slaPolicies: [], attachmentRules: [], canManage: true });
+
+    const input = { targetHours: 48, active: true, expectedVersion: 2 };
+    service.updateSLAPolicy('PURCHASE_REQUEST_APPROVAL', input).subscribe();
+    const update = http.expectOne(
+      'http://api.test/api/v1/admin/policies/sla/PURCHASE_REQUEST_APPROVAL',
+    );
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual(input);
+    update.flush({ processName: 'PURCHASE_REQUEST_APPROVAL', version: 3 });
   });
 });

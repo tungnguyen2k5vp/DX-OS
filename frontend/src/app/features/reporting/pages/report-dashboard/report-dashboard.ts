@@ -13,6 +13,7 @@ import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { APP_CONFIG } from '../../../../core/config/app-config';
+import { CsvValue, downloadCsv } from '../../../../shared/utils/csv-export';
 import { problemMessage } from '../../../procurement/data-access/problem-details';
 import { MoneyPipe } from '../../../procurement/ui/money.pipe';
 import {
@@ -111,6 +112,61 @@ export class ReportDashboardPage {
 
   retry(): void {
     this.load();
+  }
+
+  exportCsv(): void {
+    const dashboard = this.dashboard();
+    if (!dashboard) {
+      return;
+    }
+
+    const rows: CsvValue[][] = [
+      ['BÁO CÁO VẬN HÀNH MUA SẮM DX-OS'],
+      ['Từ ngày', dashboard.filters.from],
+      ['Đến ngày', dashboard.filters.to],
+      ['Cost center', dashboard.filters.costCenter ?? 'Tất cả'],
+      ['Tiền tệ', dashboard.filters.currency ?? 'Tất cả'],
+      [],
+      ['KPI', 'Giá trị'],
+      ['Tổng số phiếu', dashboard.summary.totalRequests],
+      ['Đã phê duyệt', dashboard.summary.approvedCount],
+      ['Bị từ chối', dashboard.summary.rejectedCount],
+      ['Yêu cầu chỉnh sửa', dashboard.summary.returnedCount],
+      ['Quá SLA', dashboard.summary.slaBreachedCount],
+      ['Lead time trung bình (giờ)', dashboard.summary.averageLeadTimeHours],
+      ['Tỷ lệ tuân thủ tài liệu (%)', dashboard.summary.attachmentComplianceRate],
+      [],
+      ['TRẠNG THÁI', 'Tiền tệ', 'Số phiếu', 'Tổng giá trị'],
+      ...dashboard.statuses.map((item) => [
+        statusLabels[item.status] ?? item.status,
+        item.currency,
+        item.requestCount,
+        item.totalAmount,
+      ]),
+      [],
+      ['PHÒNG BAN', 'Tiền tệ', 'Số phiếu', 'Đã duyệt', 'Tổng giá trị'],
+      ...dashboard.departments.map((item) => [
+        item.departmentName,
+        item.currency,
+        item.requestCount,
+        item.approvedCount,
+        item.totalAmount,
+      ]),
+      [],
+      ['NGÂN SÁCH', 'Kỳ', 'Tiền tệ', 'Hạn mức', 'Đang giữ', 'Cam kết', 'Khả dụng', 'Sử dụng (%)'],
+      ...dashboard.budgets.map((item) => [
+        item.costCenter,
+        item.periodCode,
+        item.currency,
+        item.allocatedAmount,
+        item.reservedAmount,
+        item.committedAmount,
+        item.availableAmount,
+        item.utilizationPercent,
+      ]),
+    ];
+
+    downloadCsv(`dx-os-procurement-${dashboard.filters.from}-${dashboard.filters.to}.csv`, rows);
   }
 
   private load(): void {

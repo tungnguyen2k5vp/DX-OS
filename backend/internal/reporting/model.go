@@ -114,6 +114,39 @@ type Dashboard struct {
 	GeneratedAt    time.Time             `json:"generatedAt"`
 }
 
+type AuditInput struct {
+	Page         int
+	PageSize     int
+	ResourceType string
+	Action       string
+	From         *time.Time
+	To           *time.Time
+}
+
+type AuditEvent struct {
+	ID            string    `json:"id"`
+	ResourceType  string    `json:"resourceType"`
+	ResourceID    string    `json:"resourceId"`
+	Action        string    `json:"action"`
+	ActorName     string    `json:"actorName"`
+	ActorRoles    []string  `json:"actorRoles"`
+	FromStatus    *string   `json:"fromStatus"`
+	ToStatus      *string   `json:"toStatus"`
+	CorrelationID *string   `json:"correlationId"`
+	OccurredAt    time.Time `json:"occurredAt"`
+}
+
+type AuditCenter struct {
+	Items                   []AuditEvent `json:"items"`
+	Page                    int          `json:"page"`
+	PageSize                int          `json:"pageSize"`
+	Total                   int64        `json:"total"`
+	Pages                   int          `json:"pages"`
+	TodayCount              int64        `json:"todayCount"`
+	SupplierChangeCount     int64        `json:"supplierChangeCount"`
+	PurchaseOrderEventCount int64        `json:"purchaseOrderEventCount"`
+}
+
 func DefaultDashboardInput(now time.Time) DashboardInput {
 	to := dateOnly(now.UTC())
 	return DashboardInput{
@@ -171,6 +204,35 @@ func CanAccess(principal auth.Principal) bool {
 	return slices.Contains(principal.Roles, "finance") ||
 		slices.Contains(principal.Roles, "auditor") ||
 		slices.Contains(principal.Roles, "dx_admin")
+}
+
+func CanAccessAudit(principal auth.Principal) bool {
+	return slices.Contains(principal.Roles, "auditor") || slices.Contains(principal.Roles, "dx_admin")
+}
+
+func ValidateAuditInput(input *AuditInput) error {
+	input.ResourceType = strings.TrimSpace(input.ResourceType)
+	input.Action = strings.ToUpper(strings.TrimSpace(input.Action))
+	var violations []FieldViolation
+	if input.Page < 1 {
+		violations = append(violations, FieldViolation{Field: "page", Message: "must be greater than or equal to 1"})
+	}
+	if input.PageSize < 1 || input.PageSize > 100 {
+		violations = append(violations, FieldViolation{Field: "pageSize", Message: "must be between 1 and 100"})
+	}
+	if len(input.ResourceType) > 80 {
+		violations = append(violations, FieldViolation{Field: "resourceType", Message: "must contain at most 80 characters"})
+	}
+	if len(input.Action) > 80 {
+		violations = append(violations, FieldViolation{Field: "action", Message: "must contain at most 80 characters"})
+	}
+	if input.From != nil && input.To != nil && input.To.Before(*input.From) {
+		violations = append(violations, FieldViolation{Field: "to", Message: "must not be before from"})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
 }
 
 func isFinanceOnly(principal auth.Principal) bool {

@@ -1,0 +1,202 @@
+<section aria-labelledby="supplier-heading">
+  <header
+    class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
+  >
+    <div>
+      <p class="mb-2 text-sm font-medium text-primary">Nguồn cung và rủi ro</p>
+      <h1 id="supplier-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+        Nhà cung cấp
+      </h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+        Quản lý thông tin liên hệ, mã số thuế, trạng thái hợp tác và mức rủi ro trước khi đặt hàng.
+      </p>
+    </div>
+    @if (canManage()) {
+      <button hlmBtn type="button" (click)="openCreate()">Thêm nhà cung cấp</button>
+    }
+  </header>
+
+  @if (formOpen()) {
+    <section hlmCard class="mt-6">
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>{{ editing() ? 'Cập nhật nhà cung cấp' : 'Nhà cung cấp mới' }}</h2>
+        <p hlmCardDescription>Mã và mã số thuế không được trùng trong cùng tổ chức.</p>
+      </div>
+      <div hlmCardContent class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Mã nhà cung cấp
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="code()"
+            (input)="code.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium md:col-span-2"
+          >Tên nhà cung cấp
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="name()"
+            (input)="name.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Mã số thuế
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="taxCode()"
+            (input)="taxCode.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Người liên hệ
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="contactName()"
+            (input)="contactName.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Email
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            type="email"
+            [value]="email()"
+            (input)="email.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Điện thoại
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="phone()"
+            (input)="phone.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Trạng thái
+          <select
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="status()"
+            (change)="status.set($any($event.target).value)"
+          >
+            <option value="ACTIVE">Đang hợp tác</option>
+            <option value="INACTIVE">Ngừng hợp tác</option>
+          </select>
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Mức rủi ro
+          <select
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="riskLevel()"
+            (change)="riskLevel.set($any($event.target).value)"
+          >
+            <option value="LOW">Thấp</option>
+            <option value="MEDIUM">Trung bình</option>
+            <option value="HIGH">Cao</option>
+          </select>
+        </label>
+        <div class="flex items-end gap-2 lg:col-span-3">
+          <button hlmBtn type="button" [disabled]="saving()" (click)="save()">
+            {{ saving() ? 'Đang lưu…' : 'Lưu' }}
+          </button>
+          <button
+            hlmBtn
+            type="button"
+            variant="outline"
+            [disabled]="saving()"
+            (click)="cancelForm()"
+          >
+            Hủy
+          </button>
+        </div>
+      </div>
+    </section>
+  }
+
+  @if (error()) {
+    <p
+      class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+      role="alert"
+    >
+      {{ error() }}
+    </p>
+  }
+
+  <section hlmCard class="mt-6">
+    <div hlmCardHeader class="border-b">
+      <h2 hlmCardTitle>Danh mục hiện hành</h2>
+      <p hlmCardDescription>{{ items().length }} nhà cung cấp</p>
+    </div>
+    <div hlmCardContent>
+      @if (loading()) {
+        <div
+          class="h-24 animate-pulse rounded-lg bg-muted"
+          aria-label="Đang tải nhà cung cấp"
+        ></div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[900px] text-left text-sm">
+            <thead class="border-b border-border text-xs uppercase text-muted-foreground">
+              <tr>
+                <th class="px-3 py-3">Nhà cung cấp</th>
+                <th class="px-3 py-3">Liên hệ</th>
+                <th class="px-3 py-3">Rủi ro</th>
+                <th class="px-3 py-3">Trạng thái</th>
+                <th class="px-3 py-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              @for (supplier of items(); track supplier.id) {
+                <tr class="hover:bg-muted/40">
+                  <td class="px-3 py-4">
+                    <p class="font-medium">{{ supplier.name }}</p>
+                    <p class="mt-1 font-mono text-xs text-primary">
+                      {{ supplier.code }} · MST {{ supplier.taxCode || '—' }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <p>{{ supplier.contactName || 'Chưa có' }}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      {{ supplier.email || supplier.phone || 'Chưa có thông tin liên hệ' }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <span hlmBadge [variant]="riskVariant(supplier.riskLevel)">{{
+                      supplier.riskLevel
+                    }}</span>
+                  </td>
+                  <td class="px-3 py-4">
+                    <span
+                      hlmBadge
+                      [variant]="supplier.status === 'ACTIVE' ? 'outline' : 'secondary'"
+                      >{{ supplier.status === 'ACTIVE' ? 'Đang hợp tác' : 'Ngừng hợp tác' }}</span
+                    >
+                  </td>
+                  <td class="px-3 py-4 text-right">
+                    @if (canManage()) {
+                      <button
+                        hlmBtn
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        (click)="openEdit(supplier)"
+                      >
+                        Chỉnh sửa
+                      </button>
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td class="px-3 py-10 text-center text-muted-foreground" colspan="5">
+                    Chưa có nhà cung cấp. Finance hãy tạo bản ghi đầu tiên.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </section>
+</section>

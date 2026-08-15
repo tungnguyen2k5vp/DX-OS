@@ -11,9 +11,14 @@
         Theo dõi hạn mức, phần đang giữ, cam kết và lịch sử điều chỉnh trong phạm vi tổ chức.
       </p>
     </div>
-    <button hlmBtn type="button" variant="outline" [disabled]="loading()" (click)="retry()">
-      Làm mới
-    </button>
+    <div class="flex flex-wrap gap-2">
+      <button hlmBtn type="button" [disabled]="loading() || !dashboard()" (click)="exportCsv()">
+        Xuất CSV
+      </button>
+      <button hlmBtn type="button" variant="outline" [disabled]="loading()" (click)="retry()">
+        Làm mới
+      </button>
+    </div>
   </header>
 
   @if (success()) {

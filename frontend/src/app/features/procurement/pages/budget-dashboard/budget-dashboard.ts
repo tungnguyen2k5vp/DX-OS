@@ -7,6 +7,7 @@ import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { firstValueFrom } from 'rxjs';
+import { CsvValue, downloadCsv } from '../../../../shared/utils/csv-export';
 import { problemMessage } from '../../data-access/problem-details';
 import { BudgetAllocation, BudgetDashboard } from '../../data-access/procurement.models';
 import { ProcurementService } from '../../data-access/procurement.service';
@@ -54,6 +55,65 @@ export class BudgetDashboardPage {
 
   retry(): void {
     this.load();
+  }
+
+  exportCsv(): void {
+    const dashboard = this.dashboard();
+    if (!dashboard) {
+      return;
+    }
+
+    const rows: CsvValue[][] = [
+      ['BÁO CÁO NGÂN SÁCH DX-OS'],
+      ['Thời điểm xuất', new Date().toISOString()],
+      ['Số cảnh báo', dashboard.alertCount],
+      [],
+      [
+        'COST CENTER',
+        'Kỳ',
+        'Tiền tệ',
+        'Hạn mức',
+        'Đang giữ',
+        'Cam kết',
+        'Khả dụng',
+        'Sử dụng (%)',
+        'Mức cảnh báo',
+      ],
+      ...dashboard.allocations.map((item) => [
+        item.costCenter,
+        item.periodCode,
+        item.currency,
+        item.allocatedAmount,
+        item.reservedAmount,
+        item.committedAmount,
+        item.availableAmount,
+        item.utilization,
+        item.alertLevel,
+      ]),
+      [],
+      ['RESERVATION', 'Mã phiếu', 'Cost center', 'Tiền tệ', 'Số tiền', 'Trạng thái'],
+      ...dashboard.reservations.map((item) => [
+        item.requestTitle,
+        item.requestCode,
+        item.costCenter,
+        item.currency,
+        item.amount,
+        item.status,
+      ]),
+      [],
+      ['LỊCH SỬ ĐIỀU CHỈNH', 'Cost center', 'Tiền tệ', 'Trước', 'Sau', 'Người thực hiện', 'Lý do'],
+      ...dashboard.adjustments.map((item) => [
+        item.createdAt,
+        item.costCenter,
+        item.currency,
+        item.previousAmount,
+        item.adjustedAmount,
+        item.actorName,
+        item.reason,
+      ]),
+    ];
+
+    downloadCsv(`dx-os-budget-${dateInput()}.csv`, rows);
   }
 
   startAdjustment(allocation: BudgetAllocation): void {
@@ -131,4 +191,12 @@ export class BudgetDashboardPage {
         },
       });
   }
+}
+
+function dateInput(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dx-os-lab/dx-os/backend/internal/notifications"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
 	"github.com/dx-os-lab/dx-os/backend/internal/procurement"
 	"github.com/dx-os-lab/dx-os/backend/internal/reporting"
@@ -27,6 +28,22 @@ type purchaseRequestService interface {
 	List(context.Context, auth.Principal, procurement.ListInput) (procurement.ListResult, error)
 	Get(context.Context, auth.Principal, string) (procurement.PurchaseRequest, error)
 	Timeline(context.Context, auth.Principal, string, procurement.TimelineInput) (procurement.TimelineResult, error)
+	ListComments(context.Context, auth.Principal, string) (procurement.CommentList, error)
+	AddComment(context.Context, auth.Principal, string, procurement.CommentInput) (procurement.Comment, error)
+	TaskSummary(context.Context, auth.Principal) (procurement.WorkSummary, error)
+	ListSuppliers(context.Context, auth.Principal) (procurement.SupplierList, error)
+	CreateSupplier(context.Context, auth.Principal, procurement.SupplierInput, string) (procurement.Supplier, error)
+	UpdateSupplier(context.Context, auth.Principal, string, procurement.UpdateSupplierInput, string) (procurement.Supplier, error)
+	OperationsBoard(context.Context, auth.Principal) (procurement.OperationsBoard, error)
+	CreatePurchaseOrder(context.Context, auth.Principal, procurement.CreatePurchaseOrderInput) (procurement.PurchaseOrder, error)
+	ConfirmReceipt(context.Context, auth.Principal, string, procurement.ConfirmReceiptInput) (procurement.PurchaseOrder, error)
+	InvoiceBoard(context.Context, auth.Principal) (procurement.InvoiceBoard, error)
+	CreateInvoice(context.Context, auth.Principal, procurement.InvoiceInput) (procurement.InvoiceBoardItem, error)
+	UpdateInvoice(context.Context, auth.Principal, string, procurement.UpdateInvoiceInput) (procurement.InvoiceBoardItem, error)
+	TransitionInvoice(context.Context, auth.Principal, string, procurement.InvoiceActionInput) (procurement.InvoiceBoardItem, error)
+	PolicyCenter(context.Context, auth.Principal) (procurement.PolicyCenter, error)
+	UpdateSLAPolicy(context.Context, auth.Principal, string, procurement.UpdateSLAPolicyInput) (procurement.SLAPolicy, error)
+	UpdateAttachmentPolicy(context.Context, auth.Principal, string, procurement.UpdateAttachmentPolicyInput) (procurement.AttachmentPolicy, error)
 	GetBudgetSummary(context.Context, auth.Principal, procurement.BudgetSummaryInput) (procurement.BudgetSummary, error)
 	BudgetCheck(context.Context, auth.Principal, string) (procurement.BudgetCheck, error)
 	BudgetDashboard(context.Context, auth.Principal) (procurement.BudgetDashboard, error)
@@ -41,34 +58,56 @@ type purchaseRequestService interface {
 
 type reportingService interface {
 	Dashboard(context.Context, auth.Principal, reporting.DashboardInput) (reporting.Dashboard, error)
+	AuditCenter(context.Context, auth.Principal, reporting.AuditInput) (reporting.AuditCenter, error)
+}
+
+type notificationService interface {
+	List(context.Context, auth.Principal, notifications.ListInput) (notifications.ListResult, error)
+	MarkRead(context.Context, auth.Principal, string) error
+	MarkAllRead(context.Context, auth.Principal) (int64, error)
 }
 
 type Dependencies struct {
 	AllowedOrigin string
 	Database      *pgxpool.Pool
 	Logger        *slog.Logger
+	Notifications notificationService
 	Procurement   purchaseRequestService
 	Reporting     reportingService
 	TokenVerifier tokenVerifier
+	RateLimit     int
+	RateWindow    time.Duration
 }
 
 type api struct {
 	allowedOrigin string
 	database      *pgxpool.Pool
 	logger        *slog.Logger
+	notifications notificationService
 	procurement   purchaseRequestService
 	reporting     reportingService
 	tokenVerifier tokenVerifier
+	rateLimiter   *principalRateLimiter
 }
 
 func New(deps Dependencies) http.Handler {
+	rateLimit := deps.RateLimit
+	if rateLimit <= 0 {
+		rateLimit = 120
+	}
+	rateWindow := deps.RateWindow
+	if rateWindow <= 0 {
+		rateWindow = time.Minute
+	}
 	server := &api{
 		allowedOrigin: deps.AllowedOrigin,
 		database:      deps.Database,
 		logger:        deps.Logger,
+		notifications: deps.Notifications,
 		procurement:   deps.Procurement,
 		reporting:     deps.Reporting,
 		tokenVerifier: deps.TokenVerifier,
+		rateLimiter:   newPrincipalRateLimiter(rateLimit, rateWindow),
 	}
 
 	router := chi.NewRouter()
@@ -82,12 +121,19 @@ func New(deps Dependencies) http.Handler {
 	router.Get("/health/ready", server.ready)
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Use(server.authenticate)
+		r.Use(server.principalRateLimit)
 		r.Get("/me", server.me)
+		r.Get("/me/tasks-summary", server.getTaskSummary)
+		r.Get("/me/notifications", server.listNotifications)
+		r.Post("/me/notifications/read-all", server.markAllNotificationsRead)
+		r.Post("/me/notifications/{notificationID}/read", server.markNotificationRead)
 		r.Post("/purchase-requests", server.createPurchaseRequest)
 		r.Get("/purchase-requests", server.listPurchaseRequests)
 		r.Get("/purchase-requests/{requestID}", server.getPurchaseRequest)
 		r.Get("/purchase-requests/{requestID}/budget-check", server.getPurchaseRequestBudgetCheck)
 		r.Get("/purchase-requests/{requestID}/timeline", server.getPurchaseRequestTimeline)
+		r.Get("/purchase-requests/{requestID}/comments", server.listPurchaseRequestComments)
+		r.Post("/purchase-requests/{requestID}/comments", server.addPurchaseRequestComment)
 		r.Patch("/purchase-requests/{requestID}", server.updatePurchaseRequest)
 		r.Post("/purchase-requests/{requestID}/transitions", server.transitionPurchaseRequest)
 		r.Get("/purchase-requests/{requestID}/attachments", server.listPurchaseRequestAttachments)
@@ -98,6 +144,20 @@ func New(deps Dependencies) http.Handler {
 		r.Get("/budgets/dashboard", server.getBudgetDashboard)
 		r.Patch("/budgets/allocations/{allocationID}", server.adjustBudgetAllocation)
 		r.Get("/reports/procurement", server.getProcurementReport)
+		r.Get("/suppliers", server.listSuppliers)
+		r.Post("/suppliers", server.createSupplier)
+		r.Patch("/suppliers/{supplierID}", server.updateSupplier)
+		r.Get("/procurement-operations", server.getOperationsBoard)
+		r.Post("/procurement-operations/orders", server.createPurchaseOrder)
+		r.Post("/procurement-operations/orders/{requestID}/receipt", server.confirmPurchaseOrderReceipt)
+		r.Get("/invoices", server.getInvoiceBoard)
+		r.Post("/invoices", server.createInvoice)
+		r.Patch("/invoices/{invoiceID}", server.updateInvoice)
+		r.Post("/invoices/{invoiceID}/transitions", server.transitionInvoice)
+		r.Get("/admin/policies", server.getPolicyCenter)
+		r.Patch("/admin/policies/sla/{processName}", server.updateSLAPolicy)
+		r.Patch("/admin/policies/attachments/{ruleID}", server.updateAttachmentPolicy)
+		r.Get("/audit/events", server.getAuditEvents)
 	})
 
 	return router

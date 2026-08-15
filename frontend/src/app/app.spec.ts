@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AuthService } from './core/auth/auth.service';
+import { NotificationService } from './core/notifications/notification.service';
 import { App } from './app';
 
 describe('App', () => {
@@ -16,6 +17,13 @@ describe('App', () => {
             username: signal('employee.demo').asReadonly(),
             roles: signal(['employee']).asReadonly(),
             logout: vi.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: NotificationService,
+          useValue: {
+            unreadCount: signal(2).asReadonly(),
+            refreshUnreadCount: vi.fn(),
           },
         },
       ],

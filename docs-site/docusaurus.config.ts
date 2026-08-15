@@ -13,7 +13,7 @@ const config: Config = {
   favicon: "img/favicon.svg",
   url: siteUrl,
   baseUrl,
-  organizationName: "Vanvuong2005827",
+  organizationName: "tungnguyen2k5vp",
   projectName: "DX-OS",
   trailingSlash: false,
   onBrokenLinks: "throw",

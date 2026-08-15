@@ -79,3 +79,36 @@ export interface ProcurementReportQuery {
   costCenter?: string;
   currency?: string;
 }
+
+export interface AuditEvent {
+  id: string;
+  resourceType: string;
+  resourceId: string;
+  action: string;
+  actorName: string;
+  actorRoles: string[];
+  fromStatus: string | null;
+  toStatus: string | null;
+  correlationId: string | null;
+  occurredAt: string;
+}
+
+export interface AuditCenter {
+  items: AuditEvent[];
+  page: number;
+  pageSize: number;
+  total: number;
+  pages: number;
+  todayCount: number;
+  supplierChangeCount: number;
+  purchaseOrderEventCount: number;
+}
+
+export interface AuditQuery {
+  page?: number;
+  pageSize?: number;
+  resourceType?: string;
+  action?: string;
+  from?: string;
+  to?: string;
+}

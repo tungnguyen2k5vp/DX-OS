@@ -1,0 +1,344 @@
+<section aria-labelledby="invoice-heading">
+  <header class="border-b border-border pb-7">
+    <p class="mb-2 text-sm font-medium text-primary">Mua hàng đến thanh toán</p>
+    <h1 id="invoice-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+      Hóa đơn và thanh toán
+    </h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+      Đối soát ba bên giữa đơn đặt hàng, biên nhận và hóa đơn trước khi thanh toán. Mọi thay đổi đều
+      lưu dấu vết kiểm toán.
+    </p>
+  </header>
+
+  @if (board(); as current) {
+    <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Chờ hóa đơn</p>
+          <p class="text-3xl font-semibold">{{ current.awaitingInvoiceCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Cần xử lý</p>
+          <p class="text-3xl font-semibold text-destructive">{{ current.needsReviewCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Sẵn sàng trả</p>
+          <p class="text-3xl font-semibold text-primary">{{ current.readyToPayCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Quá hạn</p>
+          <p class="text-3xl font-semibold text-destructive">{{ current.overdueCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Đã thanh toán</p>
+          <p class="text-3xl font-semibold">{{ current.paidCount }}</p>
+        </div>
+      </section>
+    </div>
+  }
+
+  @if (selected(); as item) {
+    <section hlmCard class="mt-6" aria-labelledby="invoice-form-heading">
+      <div hlmCardHeader class="border-b">
+        <h2 id="invoice-form-heading" hlmCardTitle>
+          @if (mode() === 'PAY') {
+            Ghi nhận thanh toán
+          } @else if (mode() === 'DISPUTE') {
+            Đánh dấu tranh chấp
+          } @else {
+            {{ item.invoiceId ? 'Sửa hóa đơn' : 'Ghi nhận hóa đơn' }}
+          }
+        </h2>
+        <p hlmCardDescription>{{ item.orderCode }} · {{ item.supplierName }}</p>
+      </div>
+      <div hlmCardContent class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        @if (mode() === 'CREATE' || mode() === 'EDIT') {
+          <label class="grid gap-1.5 text-sm font-medium"
+            >Số hóa đơn<input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              maxlength="100"
+              [value]="invoiceNumber()"
+              (input)="invoiceNumber.set($any($event.target).value)"
+          /></label>
+          <label class="grid gap-1.5 text-sm font-medium"
+            >Ngày phát hành<input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              type="date"
+              [value]="issuedOn()"
+              (input)="issuedOn.set($any($event.target).value)"
+          /></label>
+          <label class="grid gap-1.5 text-sm font-medium"
+            >Hạn thanh toán<input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              type="date"
+              [value]="dueOn()"
+              (input)="dueOn.set($any($event.target).value)"
+          /></label>
+          <label class="grid gap-1.5 text-sm font-medium"
+            >Số tiền<input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              inputmode="decimal"
+              [value]="amount()"
+              (input)="amount.set($any($event.target).value)"
+          /></label>
+          <label class="grid gap-1.5 text-sm font-medium"
+            >Tiền tệ<input
+              class="h-10 rounded-md border border-input bg-background px-3 uppercase"
+              maxlength="3"
+              [value]="currency()"
+              (input)="currency.set($any($event.target).value)"
+          /></label>
+          <label class="grid gap-1.5 text-sm font-medium md:col-span-2 lg:col-span-3"
+            >Ghi chú<textarea
+              class="min-h-20 rounded-md border border-input bg-background px-3 py-2"
+              maxlength="2000"
+              [value]="note()"
+              (input)="note.set($any($event.target).value)"
+            ></textarea>
+          </label>
+        } @else if (mode() === 'PAY') {
+          <label class="grid gap-1.5 text-sm font-medium md:col-span-2"
+            >Mã tham chiếu thanh toán<input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              maxlength="100"
+              [value]="paymentReference()"
+              (input)="paymentReference.set($any($event.target).value)"
+          /></label>
+          <label class="grid gap-1.5 text-sm font-medium"
+            >Ngày thanh toán<input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              type="date"
+              [value]="paidOn()"
+              (input)="paidOn.set($any($event.target).value)"
+          /></label>
+        } @else {
+          <label class="grid gap-1.5 text-sm font-medium md:col-span-2 lg:col-span-4"
+            >Lý do tranh chấp<textarea
+              class="min-h-20 rounded-md border border-input bg-background px-3 py-2"
+              maxlength="2000"
+              [value]="comment()"
+              (input)="comment.set($any($event.target).value)"
+            ></textarea>
+          </label>
+        }
+        <div class="flex gap-2 md:col-span-2 lg:col-span-4">
+          @if (mode() === 'CREATE' || mode() === 'EDIT') {
+            <button hlmBtn type="button" [disabled]="saving()" (click)="saveInvoice()">
+              {{ saving() ? 'Đang lưu…' : 'Lưu hóa đơn' }}
+            </button>
+          } @else if (mode() === 'PAY') {
+            <button
+              hlmBtn
+              type="button"
+              [disabled]="saving()"
+              (click)="transition(item, 'MARK_PAID')"
+            >
+              Xác nhận đã thanh toán
+            </button>
+          } @else {
+            <button
+              hlmBtn
+              type="button"
+              variant="destructive"
+              [disabled]="saving()"
+              (click)="transition(item, 'DISPUTE')"
+            >
+              Xác nhận tranh chấp
+            </button>
+          }
+          <button hlmBtn type="button" variant="outline" [disabled]="saving()" (click)="close()">
+            Hủy
+          </button>
+        </div>
+      </div>
+    </section>
+  }
+
+  @if (success()) {
+    <p
+      class="mt-5 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-primary"
+      role="status"
+    >
+      {{ success() }}
+    </p>
+  }
+  @if (error()) {
+    <p
+      class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+      role="alert"
+    >
+      {{ error() }}
+    </p>
+  }
+
+  <section hlmCard class="mt-6">
+    <div hlmCardHeader class="border-b">
+      <h2 hlmCardTitle>Hàng đợi đối soát</h2>
+      <p hlmCardDescription>Hóa đơn có sai lệch hoặc quá hạn được ưu tiên lên đầu.</p>
+    </div>
+    <div hlmCardContent>
+      @if (loading()) {
+        <div class="h-28 animate-pulse rounded-lg bg-muted" aria-label="Đang tải hóa đơn"></div>
+      } @else if (board(); as current) {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[1200px] text-left text-sm">
+            <thead class="border-b border-border text-xs uppercase text-muted-foreground">
+              <tr>
+                <th class="px-3 py-3">Phiếu / đơn hàng</th>
+                <th class="px-3 py-3">Nhà cung cấp</th>
+                <th class="px-3 py-3">Hóa đơn</th>
+                <th class="px-3 py-3">Đối soát</th>
+                <th class="px-3 py-3">Hạn trả</th>
+                <th class="px-3 py-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              @for (item of current.items; track item.purchaseOrderId) {
+                <tr class="hover:bg-muted/40">
+                  <td class="px-3 py-4">
+                    <a
+                      class="font-mono text-xs font-semibold text-primary hover:underline"
+                      [routerLink]="['/purchase-requests', item.purchaseRequestId]"
+                      >{{ item.requestCode }}</a
+                    >
+                    <p class="mt-1 font-medium">{{ item.orderCode }}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      {{ item.orderAmount | dxMoney: item.orderCurrency }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <p class="font-medium">{{ item.supplierName }}</p>
+                    <p class="mt-1 font-mono text-xs text-muted-foreground">
+                      {{ item.supplierCode }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <p class="font-medium">{{ item.invoiceNumber || 'Chưa ghi nhận' }}</p>
+                    @if (item.invoiceAmount && item.invoiceCurrency) {
+                      <p class="mt-1 text-xs text-muted-foreground">
+                        {{ item.invoiceAmount | dxMoney: item.invoiceCurrency }}
+                      </p>
+                    }
+                    <span hlmBadge class="mt-2" [variant]="statusVariant(item.invoiceStatus)">{{
+                      statusLabel(item.invoiceStatus)
+                    }}</span>
+                  </td>
+                  <td class="px-3 py-4">
+                    <span
+                      hlmBadge
+                      [variant]="item.matchStatus === 'MATCHED' ? 'secondary' : 'outline'"
+                      >{{ matchLabel(item.matchStatus) }}</span
+                    >
+                    @if (item.matchStatus === 'WAITING_RECEIPT') {
+                      <p class="mt-2 text-xs text-muted-foreground">Chưa có biên nhận hàng</p>
+                    }
+                  </td>
+                  <td class="px-3 py-4">
+                    <p [class.text-destructive]="item.paymentOverdue" class="font-medium">
+                      {{ item.dueOn ? (item.dueOn | date: 'dd/MM/yyyy') : '—' }}
+                    </p>
+                    @if (item.paidOn) {
+                      <p class="mt-1 text-xs text-muted-foreground">
+                        Đã trả {{ item.paidOn | date: 'dd/MM/yyyy' }}
+                      </p>
+                    }
+                  </td>
+                  <td class="px-3 py-4">
+                    <div class="flex justify-end gap-2">
+                      @if (current.canManage && !item.invoiceId) {
+                        <button hlmBtn size="sm" type="button" (click)="open(item, 'CREATE')">
+                          Ghi hóa đơn
+                        </button>
+                      }
+                      @if (
+                        current.canManage &&
+                        item.invoiceId &&
+                        (item.invoiceStatus === 'RECORDED' || item.invoiceStatus === 'DISPUTED')
+                      ) {
+                        <button
+                          hlmBtn
+                          size="sm"
+                          variant="outline"
+                          type="button"
+                          (click)="open(item, 'EDIT')"
+                        >
+                          Sửa
+                        </button>
+                      }
+                      @if (
+                        current.canManage &&
+                        item.invoiceId &&
+                        item.invoiceStatus === 'RECORDED' &&
+                        item.matchStatus === 'MATCHED'
+                      ) {
+                        <button
+                          hlmBtn
+                          size="sm"
+                          type="button"
+                          [disabled]="saving()"
+                          (click)="transition(item, 'VERIFY')"
+                        >
+                          Xác minh
+                        </button>
+                      }
+                      @if (
+                        current.canManage &&
+                        item.invoiceId &&
+                        item.invoiceStatus === 'RECORDED' &&
+                        item.matchStatus !== 'MATCHED'
+                      ) {
+                        <button
+                          hlmBtn
+                          size="sm"
+                          variant="outline"
+                          type="button"
+                          (click)="open(item, 'DISPUTE')"
+                        >
+                          Tranh chấp
+                        </button>
+                      }
+                      @if (
+                        current.canManage && item.invoiceId && item.invoiceStatus === 'DISPUTED'
+                      ) {
+                        <button
+                          hlmBtn
+                          size="sm"
+                          type="button"
+                          [disabled]="saving()"
+                          (click)="transition(item, 'REOPEN')"
+                        >
+                          Mở lại
+                        </button>
+                      }
+                      @if (
+                        current.canManage && item.invoiceId && item.invoiceStatus === 'VERIFIED'
+                      ) {
+                        <button hlmBtn size="sm" type="button" (click)="open(item, 'PAY')">
+                          Thanh toán
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6" class="px-3 py-10 text-center text-muted-foreground">
+                    Chưa có đơn đặt hàng để xử lý hóa đơn.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </section>
+</section>

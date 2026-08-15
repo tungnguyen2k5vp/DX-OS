@@ -2,7 +2,9 @@ package procurement
 
 import (
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
 )
@@ -314,5 +316,108 @@ func TestValidateAttachmentRejectsUnsafeFile(t *testing.T) {
 	}
 	if len(validationError.Violations) != 4 {
 		t.Fatalf("expected four violations, got %#v", validationError.Violations)
+	}
+}
+
+func TestValidateCommentNormalizesBody(t *testing.T) {
+	input := CommentInput{Body: "  Please check the quotation.  "}
+	if err := ValidateComment(&input); err != nil {
+		t.Fatalf("expected valid comment, got %v", err)
+	}
+	if input.Body != "Please check the quotation." {
+		t.Fatalf("comment was not normalized: %q", input.Body)
+	}
+}
+
+func TestValidateCommentRejectsEmptyAndOversizedBody(t *testing.T) {
+	for _, body := range []string{"   ", strings.Repeat("a", 2001)} {
+		input := CommentInput{Body: body}
+		var validationError *ValidationError
+		if err := ValidateComment(&input); !errors.As(err, &validationError) {
+			t.Fatalf("expected ValidationError for length %d, got %v", len(body), err)
+		}
+	}
+}
+
+func TestValidateSupplierInputNormalizesValues(t *testing.T) {
+	input := SupplierInput{
+		Code: "  vendor-01 ", Name: "  Demo Vendor  ", TaxCode: " TAX-01 ",
+		Email: " SALES@EXAMPLE.COM ", Status: "active", RiskLevel: "medium",
+	}
+	if err := ValidateSupplierInput(&input); err != nil {
+		t.Fatalf("expected valid supplier, got %v", err)
+	}
+	if input.Code != "VENDOR-01" || input.Name != "Demo Vendor" ||
+		input.Email != "sales@example.com" || input.RiskLevel != "MEDIUM" {
+		t.Fatalf("supplier was not normalized: %#v", input)
+	}
+}
+
+func TestValidateSupplierInputRejectsUnsafeValues(t *testing.T) {
+	input := SupplierInput{Code: "!", Name: "x", Email: "invalid", Status: "UNKNOWN", RiskLevel: "NONE"}
+	var validationError *ValidationError
+	if err := ValidateSupplierInput(&input); !errors.As(err, &validationError) {
+		t.Fatalf("expected ValidationError, got %v", err)
+	}
+	if len(validationError.Violations) != 5 {
+		t.Fatalf("expected five supplier violations, got %#v", validationError.Violations)
+	}
+}
+
+func TestValidateCreatePurchaseOrder(t *testing.T) {
+	input := CreatePurchaseOrderInput{
+		SupplierID:         "00000000-0000-4000-8000-000000000801",
+		ExpectedDeliveryOn: time.Now().UTC().AddDate(0, 0, 2).Format(time.DateOnly),
+		IdempotencyKey:     "purchase-order-0001",
+	}
+	if err := ValidateCreatePurchaseOrder(&input); err != nil {
+		t.Fatalf("expected valid purchase order, got %v", err)
+	}
+}
+
+func TestValidateInvoiceInputs(t *testing.T) {
+	create := InvoiceInput{
+		PurchaseOrderID: "00000000-0000-4000-8000-000000000802",
+		InvoiceNumber: " inv-2026/001 ", IssuedOn: time.Now().UTC().Format(time.DateOnly),
+		DueOn: time.Now().UTC().AddDate(0, 1, 0).Format(time.DateOnly),
+		Amount: "27000000", Currency: "vnd", IdempotencyKey: "invoice-create-0001",
+	}
+	if err := ValidateInvoiceInput(&create); err != nil {
+		t.Fatalf("valid invoice rejected: %v", err)
+	}
+	if create.InvoiceNumber != "INV-2026/001" || create.Currency != "VND" {
+		t.Fatalf("invoice fields were not normalized: %+v", create)
+	}
+
+	action := InvoiceActionInput{
+		Action: "mark_paid", ExpectedVersion: 2, PaymentReference: "BANK-001",
+		PaidOn: time.Now().UTC().Format(time.DateOnly), IdempotencyKey: "invoice-payment-0001",
+	}
+	if err := ValidateInvoiceActionInput(&action); err != nil {
+		t.Fatalf("valid payment action rejected: %v", err)
+	}
+
+	invalid := InvoiceActionInput{Action: "DISPUTE", ExpectedVersion: 1, IdempotencyKey: "invoice-dispute-0001"}
+	if err := ValidateInvoiceActionInput(&invalid); err == nil {
+		t.Fatal("dispute without a comment must be rejected")
+	}
+}
+
+func TestInvoiceMatchStatus(t *testing.T) {
+	cases := []struct {
+		name, orderStatus, invoiceAmount, invoiceCurrency, orderAmount, orderCurrency, expected string
+	}{
+		{"waiting receipt", "ORDERED", "100.0000", "VND", "100.0000", "VND", "WAITING_RECEIPT"},
+		{"currency mismatch", "RECEIVED", "100.0000", "USD", "100.0000", "VND", "CURRENCY_MISMATCH"},
+		{"amount mismatch", "RECEIVED", "99.0000", "VND", "100.0000", "VND", "AMOUNT_MISMATCH"},
+		{"matched decimal representations", "RECEIVED", "100", "VND", "100.0000", "VND", "MATCHED"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			actual := invoiceMatchStatus(test.orderStatus, test.invoiceAmount, test.invoiceCurrency, test.orderAmount, test.orderCurrency)
+			if actual != test.expected {
+				t.Fatalf("expected %s, got %s", test.expected, actual)
+			}
+		})
 	}
 }

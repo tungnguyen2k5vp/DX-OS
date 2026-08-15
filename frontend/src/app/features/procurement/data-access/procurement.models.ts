@@ -67,6 +67,235 @@ export interface PurchaseRequestTimelinePage {
   pages: number;
 }
 
+export interface PurchaseRequestComment {
+  id: string;
+  body: string;
+  authorId: string;
+  authorName: string;
+  authorRoles: string[];
+  createdAt: string;
+}
+
+export interface PurchaseRequestCommentList {
+  items: PurchaseRequestComment[];
+  total: number;
+}
+
+export type WorkTaskType = 'COMPLETE_REQUEST' | 'MANAGER_REVIEW' | 'FINANCE_REVIEW' | 'SLA_MONITOR';
+
+export type WorkTaskUrgency = 'NORMAL' | 'DUE_SOON' | 'OVERDUE';
+
+export interface WorkTask {
+  purchaseRequestId: string;
+  requestCode: string;
+  title: string;
+  requesterName: string;
+  departmentName: string;
+  status: PurchaseRequestStatus;
+  taskType: WorkTaskType;
+  currency: string;
+  totalAmount: string;
+  dueAt: string | null;
+  overdue: boolean;
+  urgency: WorkTaskUrgency;
+  updatedAt: string;
+}
+
+export interface WorkSummary {
+  items: WorkTask[];
+  total: number;
+  overdueCount: number;
+  dueSoonCount: number;
+}
+
+export type SupplierStatus = 'ACTIVE' | 'INACTIVE';
+export type SupplierRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface Supplier {
+  id: string;
+  code: string;
+  name: string;
+  taxCode?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  status: SupplierStatus;
+  riskLevel: SupplierRiskLevel;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupplierInput {
+  code: string;
+  name: string;
+  taxCode: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  status: SupplierStatus;
+  riskLevel: SupplierRiskLevel;
+  expectedVersion?: number;
+}
+
+export interface SupplierList {
+  items: Supplier[];
+  total: number;
+  canManage: boolean;
+}
+
+export type FulfillmentStatus = 'AWAITING_ORDER' | 'ORDERED' | 'RECEIVED';
+
+export interface PurchaseOrder {
+  id: string;
+  purchaseRequestId: string;
+  requestCode: string;
+  requestTitle: string;
+  requesterName: string;
+  departmentName: string;
+  currency: string;
+  totalAmount: string;
+  orderCode: string | null;
+  supplierId: string | null;
+  supplierCode: string | null;
+  supplierName: string | null;
+  externalReference: string | null;
+  expectedDeliveryOn: string | null;
+  actualDeliveryOn: string | null;
+  status: FulfillmentStatus;
+  note: string | null;
+  version: number;
+  orderedAt: string | null;
+  receivedAt: string | null;
+  deliveryOverdue: boolean;
+  canPlaceOrder: boolean;
+  canConfirmReceipt: boolean;
+}
+
+export interface OperationsBoard {
+  items: PurchaseOrder[];
+  total: number;
+  awaitingOrderCount: number;
+  inDeliveryCount: number;
+  overdueDeliveryCount: number;
+  receivedCount: number;
+}
+
+export interface CreatePurchaseOrder {
+  purchaseRequestId: string;
+  supplierId: string;
+  externalReference: string;
+  expectedDeliveryOn: string;
+  note: string;
+}
+
+export type InvoiceStatus = 'RECORDED' | 'VERIFIED' | 'DISPUTED' | 'PAID';
+export type InvoiceMatchStatus =
+  'NOT_RECORDED' | 'WAITING_RECEIPT' | 'CURRENCY_MISMATCH' | 'AMOUNT_MISMATCH' | 'MATCHED';
+
+export interface InvoiceBoardItem {
+  purchaseOrderId: string;
+  purchaseRequestId: string;
+  requestCode: string;
+  requestTitle: string;
+  requesterName: string;
+  departmentName: string;
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  orderCode: string;
+  orderStatus: FulfillmentStatus;
+  orderAmount: string;
+  orderCurrency: string;
+  actualDeliveryOn: string | null;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+  issuedOn: string | null;
+  dueOn: string | null;
+  invoiceAmount: string | null;
+  invoiceCurrency: string | null;
+  invoiceStatus: InvoiceStatus | null;
+  matchStatus: InvoiceMatchStatus;
+  note: string | null;
+  version: number;
+  paymentReference: string | null;
+  paidOn: string | null;
+  invoiceCreatedAt: string | null;
+  invoiceUpdatedAt: string | null;
+  paymentOverdue: boolean;
+  canManage: boolean;
+}
+
+export interface InvoiceBoard {
+  items: InvoiceBoardItem[];
+  total: number;
+  awaitingInvoiceCount: number;
+  needsReviewCount: number;
+  readyToPayCount: number;
+  overdueCount: number;
+  paidCount: number;
+  canManage: boolean;
+}
+
+export interface CreateInvoice {
+  purchaseOrderId: string;
+  invoiceNumber: string;
+  issuedOn: string;
+  dueOn: string;
+  amount: string;
+  currency: string;
+  note: string;
+}
+
+export interface UpdateInvoice extends Omit<CreateInvoice, 'purchaseOrderId'> {
+  expectedVersion: number;
+}
+
+export type InvoiceAction = 'VERIFY' | 'DISPUTE' | 'REOPEN' | 'MARK_PAID';
+
+export interface TransitionInvoice {
+  action: InvoiceAction;
+  expectedVersion: number;
+  comment?: string;
+  paymentReference?: string;
+  paidOn?: string;
+}
+
+export interface SLAPolicy {
+  processName: string;
+  targetHours: number;
+  active: boolean;
+  version: number;
+}
+
+export interface AttachmentPolicy {
+  id: string;
+  currency: string;
+  thresholdAmount: string;
+  requiredDocumentType: AttachmentDocumentType;
+  active: boolean;
+  version: number;
+}
+
+export interface PolicyCenter {
+  slaPolicies: SLAPolicy[];
+  attachmentRules: AttachmentPolicy[];
+  canManage: boolean;
+}
+
+export interface UpdateSLAPolicy {
+  targetHours: number;
+  active: boolean;
+  expectedVersion: number;
+}
+
+export interface UpdateAttachmentPolicy {
+  thresholdAmount: string;
+  requiredDocumentType: AttachmentDocumentType;
+  active: boolean;
+  expectedVersion: number;
+}
+
 export const attachmentDocumentTypes = ['QUOTATION', 'SPECIFICATION', 'CONTRACT', 'OTHER'] as const;
 
 export type AttachmentDocumentType = (typeof attachmentDocumentTypes)[number];
@@ -222,6 +451,10 @@ export interface TransitionPurchaseRequest {
   action: PurchaseRequestAction;
   expectedVersion: number;
   comment?: string;
+}
+
+export interface AddPurchaseRequestComment {
+  body: string;
 }
 
 export interface ProblemFieldViolation {

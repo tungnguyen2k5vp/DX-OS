@@ -21,6 +21,7 @@ import {
   PurchaseRequest,
   PurchaseRequestAttachmentList,
   PurchaseRequestAction,
+  PurchaseRequestComment,
   PurchaseRequestTimelineEvent,
 } from '../../data-access/procurement.models';
 import { ProcurementService } from '../../data-access/procurement.service';
@@ -78,6 +79,7 @@ export class PurchaseRequestDetail {
   private timelineGeneration = 0;
   private budgetGeneration = 0;
   private attachmentGeneration = 0;
+  private commentGeneration = 0;
 
   readonly request = signal<PurchaseRequest | null>(null);
   readonly requestId = signal('');
@@ -107,6 +109,20 @@ export class PurchaseRequestDetail {
   readonly selectedFile = signal<File | null>(null);
   readonly uploadingAttachment = signal(false);
   readonly deletingAttachmentId = signal<string | null>(null);
+  readonly comments = signal<PurchaseRequestComment[]>([]);
+  readonly commentsLoading = signal(true);
+  readonly commentsError = signal<string | null>(null);
+  readonly commentBody = signal('');
+  readonly submittingComment = signal(false);
+  readonly canComment = computed(() => {
+    const roles = this.auth.roles();
+    return (
+      !roles.includes('auditor') &&
+      (roles.includes('employee') ||
+        roles.includes('department_manager') ||
+        roles.includes('finance'))
+    );
+  });
   readonly canEditAttachments = computed(() => {
     const request = this.request();
     return (
@@ -166,6 +182,7 @@ export class PurchaseRequestDetail {
       this.loadTimeline(1);
       this.loadBudgetCheck();
       this.loadAttachments();
+      this.loadComments();
     });
   }
 
@@ -180,6 +197,31 @@ export class PurchaseRequestDetail {
 
   retryAttachments(): void {
     this.loadAttachments();
+  }
+
+  retryComments(): void {
+    this.loadComments();
+  }
+
+  async addComment(): Promise<void> {
+    const body = this.commentBody().trim();
+    const requestId = this.requestId();
+    if (!body || !requestId || body.length > 2000) {
+      this.commentsError.set('Nội dung trao đổi phải có từ 1 đến 2.000 ký tự.');
+      return;
+    }
+    this.submittingComment.set(true);
+    this.commentsError.set(null);
+    try {
+      const comment = await firstValueFrom(this.procurement.addComment(requestId, body));
+      this.comments.update((items) => [...items, comment]);
+      this.commentBody.set('');
+      this.loadTimeline(1);
+    } catch (error: unknown) {
+      this.commentsError.set(problemMessage(error, 'Không gửi được trao đổi. Hãy thử lại.'));
+    } finally {
+      this.submittingComment.set(false);
+    }
   }
 
   selectAttachmentFile(event: Event): void {
@@ -491,6 +533,35 @@ export class PurchaseRequestDetail {
           }
           this.attachmentError.set(problemMessage(error, 'Không tải được danh sách tài liệu.'));
           this.attachmentsLoading.set(false);
+        },
+      });
+  }
+
+  private loadComments(): void {
+    const requestId = this.requestId();
+    if (!requestId) {
+      return;
+    }
+    const generation = ++this.commentGeneration;
+    this.commentsLoading.set(true);
+    this.commentsError.set(null);
+    this.procurement
+      .comments(requestId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          if (generation !== this.commentGeneration) {
+            return;
+          }
+          this.comments.set(result.items);
+          this.commentsLoading.set(false);
+        },
+        error: (error: unknown) => {
+          if (generation !== this.commentGeneration) {
+            return;
+          }
+          this.commentsError.set(problemMessage(error, 'Không tải được nội dung trao đổi.'));
+          this.commentsLoading.set(false);
         },
       });
   }

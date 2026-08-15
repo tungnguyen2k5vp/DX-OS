@@ -1,115 +1,153 @@
 <section aria-labelledby="dashboard-heading">
-  <div
+  <header
     class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
   >
     <div>
-      <p class="mb-2 text-sm font-medium text-primary">Không gian vận hành</p>
+      <p class="mb-2 text-sm font-medium text-primary">Không gian vận hành theo vai trò</p>
       <h1 id="dashboard-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
-        Tổng quan hôm nay
+        {{ workspace().name }}
       </h1>
-      <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Angular đã kết nối với Procurement API để tạo, theo dõi và xem chi tiết phiếu mua sắm theo
-        phạm vi người dùng.
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+        {{ workspace().mission }}
       </p>
     </div>
-    <a class="text-sm font-medium text-primary hover:underline" routerLink="/purchase-requests"
-      >Mở danh sách phiếu →</a
-    >
-  </div>
+    <div class="flex flex-wrap gap-2">
+      @if (canCreate()) {
+        <a hlmBtn routerLink="/purchase-requests/new">Tạo phiếu mới</a>
+      }
+      @if (canBrowseRequests()) {
+        <a hlmBtn variant="outline" routerLink="/purchase-requests">Mở danh sách phiếu</a>
+      }
+    </div>
+  </header>
+
+  @if (metricsPartialFailure()) {
+    <div class="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+      Một phần số liệu chưa tải được. Bạn vẫn có thể tiếp tục nghiệp vụ bằng các lối tắt bên dưới.
+    </div>
+  }
 
   <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <section hlmCard size="sm">
+    <article hlmCard size="sm">
       <div hlmCardHeader>
-        <p hlmCardDescription>Phiếu đang xử lý</p>
-        <h2 hlmCardTitle class="text-3xl tabular-nums">0</h2>
+        <p hlmCardDescription>Phiếu trong phạm vi</p>
+        <p hlmCardTitle class="text-3xl tabular-nums">
+          {{ metricsLoading() ? '…' : (requestTotal() ?? '—') }}
+        </p>
       </div>
       <div hlmCardContent class="text-xs text-muted-foreground">
-        Xem dữ liệu thật tại Phiếu mua sắm
+        {{
+          canBrowseRequests()
+            ? 'Theo quyền xem của tài khoản hiện tại'
+            : 'Vai trò này không đọc danh sách phiếu'
+        }}
       </div>
-    </section>
+    </article>
 
-    <section hlmCard size="sm">
+    <article hlmCard size="sm">
       <div hlmCardHeader>
-        <p hlmCardDescription>Chờ tôi phê duyệt</p>
-        <h2 hlmCardTitle class="text-3xl tabular-nums">
-          {{ canReview() ? (pendingApprovals() ?? '—') : '—' }}
-        </h2>
+        <p hlmCardDescription>{{ actionLabel() }}</p>
+        <p hlmCardTitle class="text-3xl tabular-nums">
+          {{ metricsLoading() ? '…' : (actionRequired() ?? '—') }}
+        </p>
       </div>
       <div hlmCardContent class="text-xs text-muted-foreground">
         @if (canReview()) {
           <a class="font-medium text-primary hover:underline" routerLink="/approvals">
             Mở hàng đợi phê duyệt →
           </a>
+        } @else if (canBrowseRequests()) {
+          <a class="font-medium text-primary hover:underline" routerLink="/purchase-requests">
+            Mở danh sách cần xử lý →
+          </a>
         } @else {
-          <span>Tài khoản hiện tại không có vai trò phê duyệt</span>
+          Không áp dụng cho vai trò hiện tại
         }
       </div>
-    </section>
+    </article>
 
-    <section hlmCard size="sm">
+    <article hlmCard size="sm">
       <div hlmCardHeader>
-        <p hlmCardDescription>Hoàn thành tháng này</p>
-        <h2 hlmCardTitle class="text-3xl tabular-nums">0</h2>
+        <p hlmCardDescription>Đã duyệt{{ canAccessReports() ? ' (30 ngày)' : '' }}</p>
+        <p hlmCardTitle class="text-3xl tabular-nums">
+          {{ metricsLoading() ? '…' : (completedValue() ?? '—') }}
+        </p>
       </div>
       <div hlmCardContent class="text-xs text-muted-foreground">
-        Dữ liệu sẽ đến từ curated views
+        @if (canAccessReports()) {
+          <a class="font-medium text-primary hover:underline" routerLink="/reports"
+            >Xem báo cáo →</a
+          >
+        } @else {
+          Tổng phiếu đã duyệt trong phạm vi được xem
+        }
       </div>
-    </section>
+    </article>
 
-    <section hlmCard size="sm">
+    <article hlmCard size="sm">
       <div hlmCardHeader>
-        <p hlmCardDescription>SLA cần chú ý</p>
-        <h2 hlmCardTitle class="text-3xl tabular-nums">0</h2>
+        <p hlmCardDescription>{{ attentionLabel() }}</p>
+        <p
+          hlmCardTitle
+          class="text-3xl tabular-nums"
+          [class.text-destructive]="(attentionValue() ?? 0) > 0"
+        >
+          {{ metricsLoading() ? '…' : (attentionValue() ?? '—') }}
+        </p>
       </div>
-      <div hlmCardContent class="text-xs text-muted-foreground">Chưa có cảnh báo</div>
-    </section>
+      <div hlmCardContent class="text-xs text-muted-foreground">
+        @if (canAccessBudgets()) {
+          <a class="font-medium text-primary hover:underline" routerLink="/budgets"
+            >Kiểm tra ngân sách →</a
+          >
+        } @else if (canAccessReports()) {
+          <a class="font-medium text-primary hover:underline" routerLink="/reports"
+            >Kiểm tra SLA →</a
+          >
+        } @else {
+          Không có màn hình kiểm soát cho vai trò này
+        }
+      </div>
+    </article>
   </div>
 
-  <div class="mt-6 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+  <div class="mt-6 grid gap-6 xl:grid-cols-[1.35fr_1fr]">
     <section hlmCard>
       <div hlmCardHeader class="border-b">
-        <h2 hlmCardTitle>Trạng thái kết nối</h2>
-        <p hlmCardDescription>Kiểm tra các lớp nền của ứng dụng.</p>
+        <h2 hlmCardTitle>Việc chính của bạn</h2>
+        <p hlmCardDescription>Các bước nên thực hiện khi đăng nhập bằng vai trò này.</p>
       </div>
-      <div hlmCardContent>
-        <ul class="divide-y divide-border" aria-label="Trạng thái dịch vụ">
-          <li class="flex items-center justify-between gap-4 py-4">
-            <div>
-              <p class="font-medium">Angular + Spartan UI</p>
-              <p class="mt-1 text-xs text-muted-foreground">Standalone, Signals, Tailwind CSS v4</p>
-            </div>
-            <span hlmBadge variant="secondary">Sẵn sàng</span>
-          </li>
-          <li class="flex items-center justify-between gap-4 py-4">
-            <div>
-              <p class="font-medium">Keycloak OIDC</p>
-              <p class="mt-1 text-xs text-muted-foreground">Authorization Code + PKCE S256</p>
-            </div>
-            <span hlmBadge variant="secondary">Đã xác thực</span>
-          </li>
-          <li class="flex items-center justify-between gap-4 py-4">
-            <div>
-              <p class="font-medium">Go API</p>
-              <p class="mt-1 text-xs text-muted-foreground">
-                JWT/JWKS, issuer và audience validation
-              </p>
-            </div>
-            @if (currentUser()) {
-              <span hlmBadge variant="secondary">Đã kết nối</span>
-            } @else if (loading()) {
-              <span hlmBadge variant="outline">Đang kiểm tra</span>
-            } @else {
-              <span hlmBadge variant="destructive">Có lỗi</span>
-            }
-          </li>
-          <li class="flex items-center justify-between gap-4 py-4">
-            <div>
-              <p class="font-medium">PostgreSQL</p>
-              <p class="mt-1 text-xs text-muted-foreground">Readiness được Go API kiểm tra</p>
-            </div>
-            <span hlmBadge variant="secondary">Healthy</span>
-          </li>
-        </ul>
+      <div hlmCardContent class="grid gap-5 pt-6 md:grid-cols-[1fr_auto]">
+        <ol class="space-y-3 text-sm">
+          @for (
+            responsibility of workspace().responsibilities;
+            track responsibility;
+            let index = $index
+          ) {
+            <li class="flex gap-3">
+              <span
+                class="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+              >
+                {{ index + 1 }}
+              </span>
+              <span class="pt-0.5">{{ responsibility }}</span>
+            </li>
+          }
+        </ol>
+        <div class="flex flex-col items-start gap-2 md:min-w-48">
+          @if (canReview()) {
+            <a hlmBtn class="w-full" routerLink="/approvals">Phê duyệt phiếu</a>
+          }
+          @if (canAccessBudgets()) {
+            <a hlmBtn class="w-full" variant="outline" routerLink="/budgets">Ngân sách</a>
+          }
+          @if (canAccessReports()) {
+            <a hlmBtn class="w-full" variant="outline" routerLink="/reports">Báo cáo</a>
+          }
+          @if (!canReview() && !canAccessBudgets() && !canAccessReports() && canBrowseRequests()) {
+            <a hlmBtn class="w-full" routerLink="/purchase-requests">Phiếu của tôi</a>
+          }
+        </div>
       </div>
     </section>
 
@@ -118,7 +156,7 @@
         <h2 hlmCardTitle>Danh tính hiện tại</h2>
         <p hlmCardDescription>Dữ liệu do Go API đọc từ access token.</p>
       </div>
-      <div hlmCardContent>
+      <div hlmCardContent class="pt-6">
         @if (loading()) {
           <p class="text-sm text-muted-foreground">Đang xác minh với Go API…</p>
         } @else if (error()) {
@@ -137,12 +175,6 @@
             </div>
             <div>
               <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Subject
-              </dt>
-              <dd class="mt-1 break-all font-mono text-xs">{{ user.subject }}</dd>
-            </div>
-            <div>
-              <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Role
               </dt>
               <dd class="mt-2 flex flex-wrap gap-2">
@@ -158,4 +190,99 @@
       </div>
     </section>
   </div>
+
+  @if (canBrowseRequests()) {
+    <section hlmCard class="mt-6">
+      <div hlmCardHeader class="border-b sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 hlmCardTitle>Phiếu cập nhật gần đây</h2>
+          <p hlmCardDescription>Tối đa 5 phiếu theo đúng phạm vi dữ liệu của vai trò.</p>
+        </div>
+        <a class="text-sm font-medium text-primary hover:underline" routerLink="/purchase-requests">
+          Xem tất cả →
+        </a>
+      </div>
+      <div hlmCardContent class="overflow-x-auto">
+        <table class="w-full min-w-[760px] text-left text-sm">
+          <thead class="border-b text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th class="px-3 py-3 font-medium">Mã phiếu</th>
+              <th class="px-3 py-3 font-medium">Nội dung</th>
+              <th class="px-3 py-3 font-medium">Trạng thái</th>
+              <th class="px-3 py-3 text-right font-medium">Giá trị</th>
+              <th class="px-3 py-3 font-medium">Cập nhật</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            @for (request of recentRequests(); track request.id) {
+              <tr>
+                <td class="px-3 py-4">
+                  <a
+                    class="font-mono text-xs font-semibold text-primary hover:underline"
+                    [routerLink]="['/purchase-requests', request.id]"
+                  >
+                    {{ request.requestCode }}
+                  </a>
+                </td>
+                <td class="px-3 py-4">
+                  <p class="max-w-80 truncate font-medium">{{ request.title }}</p>
+                  <p class="mt-1 text-xs text-muted-foreground">{{ request.departmentName }}</p>
+                </td>
+                <td class="px-3 py-4">
+                  <app-purchase-request-status-badge [status]="request.status" />
+                </td>
+                <td class="px-3 py-4 text-right font-medium tabular-nums">
+                  {{ request.totalAmount | dxMoney: request.currency }}
+                </td>
+                <td class="px-3 py-4 text-muted-foreground">
+                  {{ request.updatedAt | date: 'dd/MM/yyyy HH:mm' }}
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="px-3 py-10 text-center text-muted-foreground">
+                  {{
+                    metricsLoading() ? 'Đang tải dữ liệu…' : 'Chưa có phiếu trong phạm vi của bạn.'
+                  }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <section hlmCard class="mt-6">
+    <div hlmCardHeader class="border-b">
+      <h2 hlmCardTitle>Trạng thái nền tảng</h2>
+      <p hlmCardDescription>Các lớp đang phục vụ phiên đăng nhập hiện tại.</p>
+    </div>
+    <div hlmCardContent>
+      <ul class="grid gap-4 py-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Trạng thái dịch vụ">
+        <li>
+          <p class="font-medium">Angular UI</p>
+          <span hlmBadge class="mt-2" variant="secondary">Sẵn sàng</span>
+        </li>
+        <li>
+          <p class="font-medium">Keycloak OIDC</p>
+          <span hlmBadge class="mt-2" variant="secondary">Đã xác thực</span>
+        </li>
+        <li>
+          <p class="font-medium">Go API</p>
+          <span
+            hlmBadge
+            class="mt-2"
+            [variant]="currentUser() ? 'secondary' : loading() ? 'outline' : 'destructive'"
+          >
+            {{ currentUser() ? 'Đã kết nối' : loading() ? 'Đang kiểm tra' : 'Có lỗi' }}
+          </span>
+        </li>
+        <li>
+          <p class="font-medium">PostgreSQL</p>
+          <span hlmBadge class="mt-2" variant="secondary">Healthy</span>
+        </li>
+      </ul>
+    </div>
+  </section>
 </section>

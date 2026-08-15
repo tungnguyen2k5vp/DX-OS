@@ -136,6 +136,22 @@ services:
     networks:
       - dxos_internal
 
+  worker:
+    profiles: ["application"]
+    build:
+      context: ../backend
+      args:
+        GO_BUILDER_IMAGE: ${GO_BUILDER_IMAGE}
+    entrypoint: ["/app/worker"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${DXOS_DB_USER}:${DXOS_DB_PASSWORD}@postgres:5432/${DXOS_DB}?sslmode=disable
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - dxos_internal
+
   web:
     profiles: ["application"]
     build:

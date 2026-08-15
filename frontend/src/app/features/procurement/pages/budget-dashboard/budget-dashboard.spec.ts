@@ -57,6 +57,7 @@ describe('BudgetDashboardPage', () => {
 
     expect(text).toContain('Chế độ kiểm toán chỉ đọc');
     expect(text).toContain('CC-GENERAL');
+    expect(text).toContain('Xuất CSV');
     expect(text).not.toContain('Điều chỉnh tổng hạn mức');
   });
 });

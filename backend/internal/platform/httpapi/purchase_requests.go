@@ -52,6 +52,10 @@ type transitionPurchaseRequestBody struct {
 	Comment         string `json:"comment"`
 }
 
+type addPurchaseRequestCommentBody struct {
+	Body string `json:"body"`
+}
+
 type adjustBudgetAllocationBody struct {
 	AllocatedAmount string `json:"allocatedAmount"`
 	ExpectedVersion int64  `json:"expectedVersion"`
@@ -176,6 +180,63 @@ func (a *api) getPurchaseRequestTimeline(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	result, err := a.procurement.Timeline(r.Context(), principal, requestID, input)
+	if err != nil {
+		a.writeProcurementError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (a *api) listPurchaseRequestComments(w http.ResponseWriter, r *http.Request) {
+	principal, requestID, ok := a.purchaseRequestContext(w, r)
+	if !ok {
+		return
+	}
+	result, err := a.procurement.ListComments(r.Context(), principal, requestID)
+	if err != nil {
+		a.writeProcurementError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (a *api) addPurchaseRequestComment(w http.ResponseWriter, r *http.Request) {
+	principal, requestID, ok := a.purchaseRequestContext(w, r)
+	if !ok {
+		return
+	}
+	var body addPurchaseRequestCommentBody
+	if err := decodeJSONBody(w, r, &body); err != nil {
+		writeRequestBodyProblem(w, r, err)
+		return
+	}
+	comment, err := a.procurement.AddComment(
+		r.Context(),
+		principal,
+		requestID,
+		procurement.CommentInput{
+			Body:          body.Body,
+			CorrelationID: correlationIDFromContext(r.Context()),
+		},
+	)
+	if err != nil {
+		a.writeProcurementError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, comment)
+}
+
+func (a *api) getTaskSummary(w http.ResponseWriter, r *http.Request) {
+	if a.procurement == nil {
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		return
+	}
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		return
+	}
+	result, err := a.procurement.TaskSummary(r.Context(), principal)
 	if err != nil {
 		a.writeProcurementError(w, r, err)
 		return
@@ -593,6 +654,32 @@ func (a *api) writeProcurementError(w http.ResponseWriter, r *http.Request, err 
 		writeProblem(w, r, http.StatusUnprocessableEntity, "quotation-required", "Quotation required", "Upload a quotation before submitting this purchase request.")
 	case errors.Is(err, procurement.ErrDocumentStore):
 		writeProblem(w, r, http.StatusServiceUnavailable, "document-store-unavailable", "Document store unavailable", "The attachment service is temporarily unavailable. Please try again.")
+	case errors.Is(err, procurement.ErrSupplierNotFound):
+		writeProblem(w, r, http.StatusNotFound, "supplier-not-found", "Supplier not found", "The supplier does not exist or is outside the organization scope.")
+	case errors.Is(err, procurement.ErrSupplierConflict):
+		writeProblem(w, r, http.StatusConflict, "supplier-conflict", "Supplier conflict", "The supplier code or tax code already exists.")
+	case errors.Is(err, procurement.ErrSupplierVersion):
+		writeProblem(w, r, http.StatusConflict, "supplier-version-conflict", "Supplier changed", "Reload the supplier before updating it.")
+	case errors.Is(err, procurement.ErrPurchaseOrderNotFound):
+		writeProblem(w, r, http.StatusNotFound, "purchase-order-not-found", "Purchase order not found", "No purchase order exists for this request in the current scope.")
+	case errors.Is(err, procurement.ErrPurchaseOrderConflict):
+		writeProblem(w, r, http.StatusConflict, "purchase-order-conflict", "Purchase order conflict", "The request already has an order or the idempotency key was used elsewhere.")
+	case errors.Is(err, procurement.ErrInvalidFulfillment):
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-fulfillment-operation", "Invalid fulfillment operation", "The supplier, request status, or delivery state does not allow this operation.")
+	case errors.Is(err, procurement.ErrInvoiceNotFound):
+		writeProblem(w, r, http.StatusNotFound, "invoice-not-found", "Invoice not found", "The invoice does not exist or is outside the organization scope.")
+	case errors.Is(err, procurement.ErrInvoiceConflict):
+		writeProblem(w, r, http.StatusConflict, "invoice-conflict", "Invoice conflict", "The order already has an invoice, the invoice number exists, or the idempotency key conflicts.")
+	case errors.Is(err, procurement.ErrInvoiceVersion):
+		writeProblem(w, r, http.StatusConflict, "invoice-version-conflict", "Invoice changed", "Reload the invoice before trying this operation again.")
+	case errors.Is(err, procurement.ErrInvalidInvoiceAction):
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-invoice-action", "Invalid invoice action", "The requested action is not allowed in the current invoice status.")
+	case errors.Is(err, procurement.ErrInvoiceMismatch):
+		writeProblem(w, r, http.StatusConflict, "invoice-mismatch", "Invoice does not match", "Verification requires a received order with matching amount and currency.")
+	case errors.Is(err, procurement.ErrPolicyNotFound):
+		writeProblem(w, r, http.StatusNotFound, "policy-not-found", "Policy not found", "The operating policy does not exist in this organization.")
+	case errors.Is(err, procurement.ErrPolicyVersion):
+		writeProblem(w, r, http.StatusConflict, "policy-version-conflict", "Policy changed", "Reload the policy center before updating this policy.")
 	default:
 		a.logger.Error(
 			"procurement request failed",

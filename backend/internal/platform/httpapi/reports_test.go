@@ -41,6 +41,16 @@ func (s *reportingStub) Dashboard(
 	}, nil
 }
 
+func (s *reportingStub) AuditCenter(
+	_ context.Context,
+	_ auth.Principal,
+	input reporting.AuditInput,
+) (reporting.AuditCenter, error) {
+	return reporting.AuditCenter{
+		Items: []reporting.AuditEvent{}, Page: input.Page, PageSize: input.PageSize,
+	}, s.err
+}
+
 func TestGetProcurementReportParsesFilters(t *testing.T) {
 	service := &reportingStub{}
 	handler := newReportingTestHandler(service)
@@ -94,6 +104,21 @@ func TestGetProcurementReportMapsForbidden(t *testing.T) {
 
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d: %s", response.Code, response.Body.String())
+	}
+}
+
+func TestGetAuditEventsParsesFilters(t *testing.T) {
+	handler := newReportingTestHandler(&reportingStub{})
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/audit/events?page=2&pageSize=10&resourceType=supplier&action=supplier_updated&from=2026-08-01&to=2026-08-14",
+		nil,
+	)
+	request.Header.Set("Authorization", "Bearer auditor")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
 	}
 }
 

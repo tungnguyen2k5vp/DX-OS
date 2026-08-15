@@ -108,6 +108,91 @@ func (s *Store) Dashboard(
 	return result, nil
 }
 
+func (s *Store) AuditCenter(
+	ctx context.Context,
+	principal auth.Principal,
+	input AuditInput,
+) (AuditCenter, error) {
+	if !CanAccessAudit(principal) {
+		return AuditCenter{}, ErrForbidden
+	}
+	if err := ValidateAuditInput(&input); err != nil {
+		return AuditCenter{}, err
+	}
+	var conditions []string
+	var args []any
+	add := func(value any) string {
+		args = append(args, value)
+		return fmt.Sprintf("$%d", len(args))
+	}
+	if input.ResourceType != "" {
+		conditions = append(conditions, "al.resource_type = "+add(input.ResourceType))
+	}
+	if input.Action != "" {
+		conditions = append(conditions, "al.action = "+add(input.Action))
+	}
+	if input.From != nil {
+		conditions = append(conditions, "al.occurred_at >= "+add(*input.From))
+	}
+	if input.To != nil {
+		conditions = append(conditions, "al.occurred_at < "+add(*input.To))
+	}
+	where := ""
+	if len(conditions) > 0 {
+		where = "WHERE " + strings.Join(conditions, " AND ")
+	}
+	limit := add(input.PageSize)
+	offset := add((input.Page - 1) * input.PageSize)
+	rows, err := s.database.Query(ctx, `
+		SELECT
+			al.id, al.resource_type, al.resource_id, al.action, u.display_name,
+			al.actor_roles, al.from_status, al.to_status, al.correlation_id,
+			al.occurred_at, count(*) OVER()
+		FROM audit_logs al
+		JOIN users u ON u.id = al.actor_id
+		`+where+`
+		ORDER BY al.occurred_at DESC, al.id DESC
+		LIMIT `+limit+` OFFSET `+offset,
+		args...,
+	)
+	if err != nil {
+		return AuditCenter{}, fmt.Errorf("query audit center: %w", err)
+	}
+	defer rows.Close()
+	result := AuditCenter{Items: make([]AuditEvent, 0), Page: input.Page, PageSize: input.PageSize}
+	for rows.Next() {
+		var event AuditEvent
+		if err = rows.Scan(
+			&event.ID, &event.ResourceType, &event.ResourceID, &event.Action,
+			&event.ActorName, &event.ActorRoles, &event.FromStatus, &event.ToStatus,
+			&event.CorrelationID, &event.OccurredAt, &result.Total,
+		); err != nil {
+			return AuditCenter{}, fmt.Errorf("scan audit center event: %w", err)
+		}
+		result.Items = append(result.Items, event)
+	}
+	if err = rows.Err(); err != nil {
+		return AuditCenter{}, fmt.Errorf("iterate audit center events: %w", err)
+	}
+	if result.Total > 0 {
+		result.Pages = int((result.Total + int64(input.PageSize) - 1) / int64(input.PageSize))
+	}
+	if err = s.database.QueryRow(ctx, `
+		SELECT
+			count(*) FILTER (WHERE occurred_at >= CURRENT_DATE),
+			count(*) FILTER (WHERE resource_type = 'supplier'),
+			count(*) FILTER (WHERE resource_type = 'purchase_order')
+		FROM audit_logs
+	`).Scan(
+		&result.TodayCount,
+		&result.SupplierChangeCount,
+		&result.PurchaseOrderEventCount,
+	); err != nil {
+		return AuditCenter{}, fmt.Errorf("query audit center summary: %w", err)
+	}
+	return result, nil
+}
+
 func (s *Store) loadCurrencyTotals(
 	ctx context.Context,
 	result *Dashboard,

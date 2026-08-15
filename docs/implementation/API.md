@@ -152,6 +152,15 @@ Action:
 
 Server suy ra bước hiện tại và role cần thiết; client không gửi target status.
 
+### API đã bổ sung trong bản demo
+
+- `GET /api/v1/me/tasks-summary`: hàng đợi theo role, SLA và urgency.
+- `GET /api/v1/purchase-requests/{id}/comments`: đọc trao đổi theo data scope.
+- `POST /api/v1/purchase-requests/{id}/comments`: thêm trao đổi; auditor bị chặn ghi.
+- Timeline đang chạy dùng `GET /api/v1/purchase-requests/{id}/timeline`.
+
+Chi tiết và kịch bản test xem `docs/features/WORK_CENTER_AND_COMMENTS.md`.
+
 ## 6. Attachment flow
 
 Ưu tiên backend kiểm soát metadata/quyền:
@@ -215,3 +224,46 @@ Health response không lộ DSN, secret hoặc stack trace.
 - Rate limit AI/tool và endpoint nhạy cảm.
 - Validate URL/path để tránh SSRF/path traversal.
 - Không nhận role, requester hoặc department từ body nếu có thể suy từ authenticated principal.
+
+## 12. API vận hành đã triển khai
+
+### Giao nhận, hóa đơn và thông báo
+
+| Method | Endpoint | Quyền |
+|---|---|---|
+| `GET` | `/api/v1/procurement-operations` | employee/manager theo scope; finance; auditor read-only |
+| `POST` | `/api/v1/procurement-operations/orders` | finance |
+| `POST` | `/api/v1/procurement-operations/orders/{requestId}/receipt` | requester hoặc manager cùng phòng; không phải finance |
+| `GET` | `/api/v1/invoices` | finance; auditor read-only |
+| `POST` | `/api/v1/invoices` | finance + `Idempotency-Key` |
+| `PATCH` | `/api/v1/invoices/{invoiceId}` | finance + `expectedVersion` |
+| `POST` | `/api/v1/invoices/{invoiceId}/transitions` | finance + `Idempotency-Key` + `expectedVersion` |
+| `GET` | `/api/v1/me/notifications` | principal hiện tại |
+| `POST` | `/api/v1/me/notifications/{id}/read` | principal sở hữu notification |
+| `POST` | `/api/v1/me/notifications/read-all` | principal hiện tại |
+
+Invoice action: `VERIFY`, `DISPUTE`, `REOPEN`, `MARK_PAID`. `VERIFY` trả `409 invoice-mismatch` nếu order chưa nhận, sai currency hoặc sai amount.
+
+### Chính sách vận hành
+
+| Method | Endpoint | Quyền |
+|---|---|---|
+| `GET` | `/api/v1/admin/policies` | dx_admin; auditor read-only |
+| `PATCH` | `/api/v1/admin/policies/sla/{processName}` | dx_admin |
+| `PATCH` | `/api/v1/admin/policies/attachments/{ruleId}` | dx_admin |
+
+Hai PATCH bắt buộc `expectedVersion`; dữ liệu cũ trả `409 policy-version-conflict`.
+
+### Rate limit
+
+API áp dụng 120 request/phút theo authenticated `subject`. Khi vượt ngưỡng:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 37
+X-RateLimit-Limit: 120
+X-RateLimit-Remaining: 0
+Content-Type: application/problem+json
+```
+
+Limiter hiện là per-instance in-memory. Triển khai nhiều API replica phải đặt quota dùng chung ở gateway/Redis.

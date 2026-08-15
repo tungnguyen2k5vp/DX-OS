@@ -1,0 +1,194 @@
+<section aria-labelledby="audit-heading">
+  <header class="border-b border-border pb-7">
+    <p class="mb-2 text-sm font-medium text-primary">Compliance và truy vết</p>
+    <h1 id="audit-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+      Trung tâm kiểm toán
+    </h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+      Tra cứu ai đã thay đổi tài nguyên nào, trạng thái trước/sau và correlation ID để đối chiếu sự
+      cố.
+    </p>
+  </header>
+
+  @if (result(); as current) {
+    <div class="mt-7 grid gap-4 sm:grid-cols-3">
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Sự kiện hôm nay</p>
+          <p class="text-3xl font-semibold">{{ current.todayCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Thay đổi nhà cung cấp</p>
+          <p class="text-3xl font-semibold">{{ current.supplierChangeCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Sự kiện đơn hàng</p>
+          <p class="text-3xl font-semibold">{{ current.purchaseOrderEventCount }}</p>
+        </div>
+      </section>
+    </div>
+  }
+
+  <section hlmCard class="mt-6">
+    <div hlmCardHeader class="border-b"><h2 hlmCardTitle>Bộ lọc bằng chứng</h2></div>
+    <div hlmCardContent class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <label class="grid gap-1.5 text-sm font-medium"
+        >Loại tài nguyên<select
+          class="h-10 rounded-md border border-input bg-background px-3"
+          [value]="resourceType()"
+          (change)="resourceType.set($any($event.target).value)"
+        >
+          <option value="">Tất cả</option>
+          <option value="purchase_request">Phiếu mua sắm</option>
+          <option value="supplier">Nhà cung cấp</option>
+          <option value="purchase_order">Đơn hàng</option>
+          <option value="budget_allocation">Ngân sách</option>
+        </select></label
+      >
+      <label class="grid gap-1.5 text-sm font-medium"
+        >Hành động<input
+          class="h-10 rounded-md border border-input bg-background px-3"
+          placeholder="VD: DELIVERY_RECEIVED"
+          [value]="action()"
+          (input)="action.set($any($event.target).value)"
+      /></label>
+      <label class="grid gap-1.5 text-sm font-medium"
+        >Từ ngày<input
+          class="h-10 rounded-md border border-input bg-background px-3"
+          type="date"
+          [value]="from()"
+          (input)="from.set($any($event.target).value)"
+      /></label>
+      <label class="grid gap-1.5 text-sm font-medium"
+        >Đến ngày<input
+          class="h-10 rounded-md border border-input bg-background px-3"
+          type="date"
+          [value]="to()"
+          (input)="to.set($any($event.target).value)"
+      /></label>
+      <div class="flex items-end gap-2">
+        <button hlmBtn type="button" [disabled]="loading()" (click)="applyFilters()">Lọc</button
+        ><button
+          hlmBtn
+          type="button"
+          variant="outline"
+          [disabled]="loading()"
+          (click)="clearFilters()"
+        >
+          Xóa
+        </button>
+      </div>
+    </div>
+  </section>
+
+  @if (error()) {
+    <p
+      class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+      role="alert"
+    >
+      {{ error() }}
+    </p>
+  }
+
+  <section hlmCard class="mt-6">
+    <div hlmCardHeader class="border-b">
+      <h2 hlmCardTitle>Nhật ký bất biến</h2>
+      <p hlmCardDescription>{{ result()?.total ?? 0 }} sự kiện phù hợp</p>
+    </div>
+    <div hlmCardContent>
+      @if (loading() && !result()) {
+        <div class="h-28 animate-pulse rounded-lg bg-muted" aria-label="Đang tải audit"></div>
+      } @else if (result(); as current) {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[1050px] text-left text-sm">
+            <thead class="border-b border-border text-xs uppercase text-muted-foreground">
+              <tr>
+                <th class="px-3 py-3">Thời gian</th>
+                <th class="px-3 py-3">Tài nguyên</th>
+                <th class="px-3 py-3">Hành động</th>
+                <th class="px-3 py-3">Người thực hiện</th>
+                <th class="px-3 py-3">Thay đổi trạng thái</th>
+                <th class="px-3 py-3">Correlation</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              @for (event of current.items; track event.id) {
+                <tr class="hover:bg-muted/40">
+                  <td class="px-3 py-4 whitespace-nowrap">
+                    {{ event.occurredAt | date: 'dd/MM/yyyy HH:mm:ss' }}
+                  </td>
+                  <td class="px-3 py-4">
+                    <span hlmBadge variant="outline">{{ resourceLabel(event.resourceType) }}</span>
+                    <p
+                      class="mt-1 max-w-40 truncate font-mono text-xs text-muted-foreground"
+                      [title]="event.resourceId"
+                    >
+                      {{ event.resourceId }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4 font-medium">{{ event.action }}</td>
+                  <td class="px-3 py-4">
+                    <p>{{ event.actorName }}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      {{ event.actorRoles.join(', ') }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <span class="font-mono text-xs"
+                      >{{ event.fromStatus || '—' }} → {{ event.toStatus || '—' }}</span
+                    >
+                  </td>
+                  <td class="px-3 py-4">
+                    <code
+                      class="block max-w-48 truncate text-xs"
+                      [title]="event.correlationId || ''"
+                      >{{ event.correlationId || '—' }}</code
+                    >
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td class="px-3 py-10 text-center text-muted-foreground" colspan="6">
+                    Không có sự kiện phù hợp bộ lọc.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (current.pages > 1) {
+          <footer class="mt-5 flex items-center justify-between border-t border-border pt-5">
+            <p class="text-sm text-muted-foreground">
+              Trang {{ current.page }} / {{ current.pages }}
+            </p>
+            <div class="flex gap-2">
+              <button
+                hlmBtn
+                type="button"
+                variant="outline"
+                size="sm"
+                [disabled]="current.page <= 1 || loading()"
+                (click)="goToPage(current.page - 1)"
+              >
+                Trước</button
+              ><button
+                hlmBtn
+                type="button"
+                variant="outline"
+                size="sm"
+                [disabled]="current.page >= current.pages || loading()"
+                (click)="goToPage(current.page + 1)"
+              >
+                Sau
+              </button>
+            </div>
+          </footer>
+        }
+      }
+    </div>
+  </section>
+</section>

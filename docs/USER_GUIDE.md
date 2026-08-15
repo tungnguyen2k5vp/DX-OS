@@ -256,6 +256,26 @@ Chọn **Báo cáo**. Finance xem dữ liệu trong organization của mình và
 
 Không cộng các currency khác nhau thành một tổng. Khi đối soát, luôn ghi lại bộ lọc đang dùng.
 
+### 8.4 Đặt hàng và theo dõi giao nhận
+
+1. Sau khi phiếu được duyệt cuối, mở **Giao nhận**.
+2. Chọn **Tạo đơn hàng**, nhà cung cấp đang hoạt động, ngày giao dự kiến và mã tham chiếu ngoài.
+3. Theo dõi các nhóm Chờ đặt hàng, Đang giao, Giao trễ và Đã nhận.
+4. Requester hoặc Manager cùng phòng xác nhận đã nhận hàng. Finance không tự xác nhận nhận hàng để bảo đảm phân tách nhiệm vụ.
+
+### 8.5 Hóa đơn, đối soát và thanh toán
+
+1. Mở **Hóa đơn**, chọn order và **Ghi hóa đơn**.
+2. Nhập số hóa đơn, ngày phát hành, hạn trả, amount/currency và ghi chú.
+3. Kiểm tra nhãn đối soát:
+   - **Chờ nhận hàng**: chưa có biên nhận, chưa được xác minh;
+   - **Lệch tiền tệ/Lệch số tiền**: sửa hóa đơn hoặc đánh dấu tranh chấp;
+   - **Khớp ba bên**: có thể chọn **Xác minh**.
+4. Sau khi xác minh, chọn **Thanh toán**, nhập mã tham chiếu ngân hàng và ngày trả.
+5. Kiểm tra trạng thái **Đã thanh toán** và notification gửi cho requester.
+
+Không làm tròn amount bằng JavaScript/Excel trước khi nhập. Nếu người khác vừa sửa hóa đơn, tải lại trang khi gặp conflict phiên bản.
+
 ## 9. Hướng dẫn cho Auditor
 
 Auditor dùng hệ thống ở chế độ đọc:
@@ -264,6 +284,7 @@ Auditor dùng hệ thống ở chế độ đọc:
 - tải tài liệu bằng đường đi qua Go API;
 - xem dashboard Ngân sách nhưng không có nút Điều chỉnh;
 - xem báo cáo toàn bộ phạm vi được cấp;
+- xem Giao nhận, Hóa đơn và Chính sách nhưng không có nút tạo/sửa/xác minh/thanh toán;
 - đối chiếu actor, role, timestamp, comment và các event ngân sách.
 
 Nếu auditor thấy nút thay đổi dữ liệu hoặc một lệnh ghi thành công, coi đó là lỗi phân quyền và báo
@@ -271,7 +292,13 @@ ngay cho nhóm phát triển. Không dùng tài khoản auditor để làm nghi�
 
 ## 10. Hướng dẫn cho DX Admin
 
-Trong phiên bản hiện tại, dx_admin có thể vào **Báo cáo** với phạm vi toàn bộ dữ liệu báo cáo.
+DX Admin có thể vào **Báo cáo** và **Chính sách**. Tại Chính sách:
+
+1. Chọn SLA phê duyệt và nhập thời hạn từ 1 đến 720 giờ; SLA mới áp dụng cho lần submit/resubmit tiếp theo.
+2. Chọn quy tắc chứng từ, nhập ngưỡng tiền và loại tài liệu bắt buộc.
+3. Lưu và yêu cầu Auditor kiểm tra sự kiện audit tương ứng.
+4. Nếu báo policy vừa thay đổi, tải lại trang; không ghi đè phiên bản của người khác.
+
 Role này không mặc nhiên:
 
 - tạo/sửa phiếu;
@@ -279,9 +306,7 @@ Role này không mặc nhiên:
 - điều chỉnh ngân sách;
 - đọc mọi hồ sơ nghiệp vụ như auditor.
 
-Quản trị realm/user trong local được thực hiện qua Keycloak Admin Console hoặc script vận hành,
-không phải qua một trang quản trị DX-OS riêng. Mọi quyền support mở rộng sau này phải có endpoint,
-policy và audit riêng; không gán role nghiệp vụ rộng chỉ để xử lý nhanh.
+Quản trị realm/user vẫn được thực hiện qua Keycloak Admin Console hoặc script vận hành, không phải trang Chính sách. Không gán role nghiệp vụ rộng chỉ để xử lý nhanh.
 
 ## 11. Hướng dẫn cho AI Operator
 
@@ -317,6 +342,28 @@ Không dùng role ai_operator để thay thế manager hoặc finance trong phi�
 Một card hiển thị **0** không nhất thiết là lỗi: đó có thể là KPI dạng số và tập dữ liệu hiện không
 có dòng phù hợp bộ lọc. Hãy bỏ/broaden bộ lọc, tạo dữ liệu đúng trạng thái rồi chạy lại báo cáo.
 
+### Dashboard theo vai trò
+
+Trang **Tổng quan** tự nhận role trong access token và chỉ gọi các API mà role đó được phép dùng:
+
+- employee thấy số phiếu của mình, phiếu cần bổ sung và lối tắt tạo phiếu;
+- department_manager thấy hàng đợi chờ trưởng bộ phận và lối tắt phê duyệt;
+- finance thấy hàng đợi tài chính, cảnh báo ngân sách, KPI 30 ngày và các lối tắt nghiệp vụ;
+- auditor thấy dữ liệu kiểm tra ở chế độ đọc, ngân sách và báo cáo;
+- dx_admin thấy KPI/SLA toàn hệ thống nhưng không được cấp quyền sửa nghiệp vụ;
+- ai_operator thấy trạng thái nền tảng và phạm vi chuẩn bị AI, chưa có thao tác Agent giả lập.
+
+Nếu một card hiển thị **—**, role hiện tại không có quyền đọc chỉ số đó hoặc một API thành phần chưa sẵn
+sàng. Cảnh báo màu vàng cho biết chỉ một phần số liệu lỗi; các màn hình nghiệp vụ còn lại vẫn dùng được.
+
+### Xuất CSV phục vụ báo cáo
+
+- Tại **Báo cáo**, chọn khoảng thời gian/bộ lọc, bấm **Áp dụng**, sau đó bấm **Xuất CSV**.
+- Tại **Ngân sách**, bấm **Xuất CSV** để lấy hạn mức, reservation và lịch sử điều chỉnh.
+- File dùng UTF-8 BOM để mở tiếng Việt đúng trong Excel. Số tiền được giữ ở dạng dữ liệu thô để tiếp tục
+  tính toán, không chỉ là chuỗi đã định dạng trên giao diện.
+- Quyền xuất file giống quyền xem trang; frontend không mở rộng phạm vi dữ liệu do Go API trả về.
+
 ## 13. Kịch bản kiểm thử toàn bộ quy trình
 
 Dùng ba cửa sổ trình duyệt riêng hoặc đăng xuất giữa các bước:
@@ -328,8 +375,12 @@ Dùng ba cửa sổ trình duyệt riêng hoặc đăng xuất giữa các bư�
    reserved.
 5. Finance mở Phê duyệt và duyệt; trạng thái thành Đã duyệt, ngân sách reserved giảm và committed
    tăng.
-6. Auditor mở phiếu/timeline, Ngân sách và Báo cáo để đối chiếu nhưng không thay đổi dữ liệu.
-7. Mở Metabase, đặt đúng khoảng ngày/currency và đối chiếu số liệu với DX-OS.
+6. Finance mở Giao nhận, chọn nhà cung cấp và phát hành order.
+7. Finance ghi hóa đơn; thử xác minh trước khi nhận hàng phải bị chặn.
+8. Employee xác nhận nhận hàng; Finance tải lại Hóa đơn, thấy **Khớp ba bên**, xác minh và ghi nhận thanh toán.
+9. Employee kiểm tra notification thanh toán; Auditor mở Giao nhận/Hóa đơn/Audit ở chế độ chỉ đọc.
+10. DX Admin mở Chính sách, kiểm tra SLA/ngưỡng chứng từ; nếu test sửa phải ghi lại và khôi phục giá trị.
+11. Mở Metabase, đặt đúng khoảng ngày/currency và đối chiếu số liệu với DX-OS.
 
 Nên chạy thêm các smoke test trong README để xác nhận cả positive và negative authorization path.
 
@@ -346,6 +397,10 @@ Nên chạy thêm các smoke test trong README để xác nhận cả positive v
 | Không duyệt được             | Kiểm tra đúng bước, đúng department/organization, không tự duyệt và đủ ngân sách |
 | Không thấy menu Ngân sách    | Chỉ finance/auditor có quyền; đăng nhập lại sau khi gán role                     |
 | Không thấy menu Báo cáo      | Chỉ finance/auditor/dx_admin có quyền                                            |
+| Hóa đơn chưa xác minh được   | Order phải đã nhận và amount/currency phải khớp                                  |
+| Không thấy menu Hóa đơn      | Chỉ finance/auditor; auditor chỉ đọc                                             |
+| Không thấy menu Chính sách   | Chỉ dx_admin/auditor; auditor chỉ đọc                                            |
+| HTTP 429                     | Đã vượt 120 request/phút; chờ số giây trong `Retry-After`, không gửi lặp liên tục |
 | Metabase hiện 0              | Kiểm tra khoảng ngày, currency và dữ liệu đã phát sinh                           |
 
 Khi báo lỗi cho nhóm phát triển, cung cấp: thời điểm, username (không gửi password), role, mã phiếu,

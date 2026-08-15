@@ -1,0 +1,226 @@
+<section aria-labelledby="operations-heading">
+  <header class="border-b border-border pb-7">
+    <p class="mb-2 text-sm font-medium text-primary">Sau phê duyệt</p>
+    <h1 id="operations-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+      Đặt hàng và giao nhận
+    </h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+      Theo dõi phiếu đã duyệt từ lúc chọn nhà cung cấp, phát hành đơn hàng đến khi bộ phận yêu cầu
+      xác nhận đã nhận.
+    </p>
+  </header>
+
+  @if (board(); as current) {
+    <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Chờ đặt hàng</p>
+          <p class="text-3xl font-semibold">{{ current.awaitingOrderCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Đang giao</p>
+          <p class="text-3xl font-semibold">{{ current.inDeliveryCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Giao trễ</p>
+          <p class="text-3xl font-semibold text-destructive">{{ current.overdueDeliveryCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Đã nhận</p>
+          <p class="text-3xl font-semibold text-primary">{{ current.receivedCount }}</p>
+        </div>
+      </section>
+    </div>
+  }
+
+  @if (selected(); as request) {
+    <section hlmCard class="mt-6">
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Tạo đơn hàng cho {{ request.requestCode }}</h2>
+        <p hlmCardDescription>
+          {{ request.requestTitle }} · {{ request.totalAmount | dxMoney: request.currency }}
+        </p>
+      </div>
+      <div hlmCardContent class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <label class="grid gap-1.5 text-sm font-medium lg:col-span-2"
+          >Nhà cung cấp
+          <select
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="supplierId()"
+            (change)="supplierId.set($any($event.target).value)"
+          >
+            <option value="">Chọn nhà cung cấp</option>
+            @for (supplier of suppliers(); track supplier.id) {
+              <option [value]="supplier.id">{{ supplier.code }} — {{ supplier.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Mã tham chiếu ngoài<input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="externalReference()"
+            (input)="externalReference.set($any($event.target).value)"
+        /></label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Ngày giao dự kiến<input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            type="date"
+            [value]="expectedDeliveryOn()"
+            (input)="expectedDeliveryOn.set($any($event.target).value)"
+        /></label>
+        <label class="grid gap-1.5 text-sm font-medium md:col-span-2 lg:col-span-4"
+          >Ghi chú<textarea
+            class="min-h-20 rounded-md border border-input bg-background px-3 py-2"
+            maxlength="2000"
+            [value]="note()"
+            (input)="note.set($any($event.target).value)"
+          ></textarea>
+        </label>
+        <div class="flex gap-2 lg:col-span-4">
+          <button hlmBtn type="button" [disabled]="saving()" (click)="placeOrder()">
+            {{ saving() ? 'Đang tạo…' : 'Phát hành đơn hàng' }}</button
+          ><button
+            hlmBtn
+            type="button"
+            variant="outline"
+            [disabled]="saving()"
+            (click)="cancelOrder()"
+          >
+            Hủy
+          </button>
+        </div>
+      </div>
+    </section>
+  }
+
+  @if (error()) {
+    <p
+      class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+      role="alert"
+    >
+      {{ error() }}
+    </p>
+  }
+
+  <section hlmCard class="mt-6">
+    <div hlmCardHeader class="border-b">
+      <h2 hlmCardTitle>Dòng giao nhận</h2>
+      <p hlmCardDescription>Việc giao trễ được ưu tiên lên đầu.</p>
+    </div>
+    <div hlmCardContent>
+      @if (loading()) {
+        <div class="h-28 animate-pulse rounded-lg bg-muted" aria-label="Đang tải giao nhận"></div>
+      } @else if (board(); as current) {
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[1080px] text-left text-sm">
+            <thead class="border-b border-border text-xs uppercase text-muted-foreground">
+              <tr>
+                <th class="px-3 py-3">Phiếu</th>
+                <th class="px-3 py-3">Đơn hàng</th>
+                <th class="px-3 py-3">Nhà cung cấp</th>
+                <th class="px-3 py-3">Giao hàng</th>
+                <th class="px-3 py-3">Trạng thái</th>
+                <th class="px-3 py-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              @for (order of current.items; track order.purchaseRequestId) {
+                <tr class="hover:bg-muted/40">
+                  <td class="px-3 py-4">
+                    <a
+                      class="font-mono text-xs font-semibold text-primary hover:underline"
+                      [routerLink]="['/purchase-requests', order.purchaseRequestId]"
+                      >{{ order.requestCode }}</a
+                    >
+                    <p class="mt-1 max-w-64 truncate font-medium">{{ order.requestTitle }}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      {{ order.requesterName }} · {{ order.totalAmount | dxMoney: order.currency }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <p class="font-medium">{{ order.orderCode || 'Chưa phát hành' }}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      {{ order.externalReference || 'Không có mã ngoài' }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <p>{{ order.supplierName || 'Chưa chọn' }}</p>
+                    <p class="mt-1 font-mono text-xs text-muted-foreground">
+                      {{ order.supplierCode || '—' }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <p [class.text-destructive]="order.deliveryOverdue" class="font-medium">
+                      {{
+                        order.expectedDeliveryOn
+                          ? (order.expectedDeliveryOn | date: 'dd/MM/yyyy')
+                          : 'Chưa có lịch'
+                      }}
+                    </p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      @if (order.actualDeliveryOn) {
+                        Thực nhận {{ order.actualDeliveryOn | date: 'dd/MM/yyyy' }}
+                      } @else if (order.deliveryOverdue) {
+                        Đã trễ hạn giao
+                      } @else {
+                        Theo kế hoạch
+                      }
+                    </p>
+                  </td>
+                  <td class="px-3 py-4">
+                    <span hlmBadge [variant]="statusVariant(order.status)">{{
+                      statusLabel(order.status)
+                    }}</span>
+                  </td>
+                  <td class="px-3 py-4 text-right">
+                    <div class="flex justify-end gap-2">
+                      @if (order.canPlaceOrder) {
+                        <button
+                          hlmBtn
+                          type="button"
+                          size="sm"
+                          [disabled]="suppliers().length === 0"
+                          (click)="openOrder(order)"
+                        >
+                          Tạo đơn hàng
+                        </button>
+                      }
+                      @if (order.canConfirmReceipt) {
+                        <button
+                          hlmBtn
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          [disabled]="receivingId() === order.purchaseRequestId"
+                          (click)="confirmReceipt(order)"
+                        >
+                          {{
+                            receivingId() === order.purchaseRequestId
+                              ? 'Đang xác nhận…'
+                              : 'Xác nhận đã nhận'
+                          }}
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6" class="px-3 py-10 text-center text-muted-foreground">
+                    Chưa có phiếu đã duyệt trong phạm vi của bạn.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </section>
+</section>

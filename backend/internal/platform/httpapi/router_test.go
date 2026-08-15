@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
 )
@@ -57,6 +58,59 @@ func TestMeReturnsAuthenticatedPrincipal(t *testing.T) {
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", response.Code)
+	}
+}
+
+func TestAuthenticatedRateLimitIsScopedPerPrincipal(t *testing.T) {
+	handler := New(Dependencies{
+		AllowedOrigin: "http://localhost:4200",
+		Logger:        slog.New(slog.NewTextHandler(discardWriter{}, nil)),
+		TokenVerifier: verifierStub{},
+		RateLimit:     2,
+		RateWindow:    time.Minute,
+	})
+
+	for attempt := 1; attempt <= 3; attempt++ {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
+		request.Header.Set("Authorization", "Bearer valid")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if attempt <= 2 && response.Code != http.StatusOK {
+			t.Fatalf("request %d: expected 200, got %d", attempt, response.Code)
+		}
+		if attempt == 3 {
+			if response.Code != http.StatusTooManyRequests {
+				t.Fatalf("expected 429, got %d", response.Code)
+			}
+			if response.Header().Get("Retry-After") == "" {
+				t.Fatal("expected Retry-After header")
+			}
+		}
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
+	request.Header.Set("Authorization", "Bearer finance")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("a different principal must have an independent quota, got %d", response.Code)
+	}
+}
+
+func TestRateLimitDoesNotApplyToLiveness(t *testing.T) {
+	handler := New(Dependencies{
+		AllowedOrigin: "http://localhost:4200",
+		Logger:        slog.New(slog.NewTextHandler(discardWriter{}, nil)),
+		TokenVerifier: verifierStub{},
+		RateLimit:     1,
+	})
+	for range 3 {
+		request := httptest.NewRequest(http.MethodGet, "/health/live", nil)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("liveness must not be rate limited, got %d", response.Code)
+		}
 	}
 }
 

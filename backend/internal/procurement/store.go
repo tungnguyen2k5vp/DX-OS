@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dx-os-lab/dx-os/backend/internal/notifications"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
+	"github.com/dx-os-lab/dx-os/backend/internal/platform/identity"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,12 +18,7 @@ import (
 
 const defaultDepartmentCode = "GENERAL"
 
-type userProfile struct {
-	ID             string
-	DepartmentID   string
-	OrganizationID string
-	Active         bool
-}
+type userProfile = identity.Profile
 
 type Store struct {
 	database  *pgxpool.Pool
@@ -369,6 +366,766 @@ func (s *Store) Timeline(
 		result.Pages = int((result.Total + int64(input.PageSize) - 1) / int64(input.PageSize))
 	}
 	return result, nil
+}
+
+func (s *Store) ListComments(
+	ctx context.Context,
+	principal auth.Principal,
+	requestID string,
+) (CommentList, error) {
+	if _, err := s.Get(ctx, principal, requestID); err != nil {
+		return CommentList{}, err
+	}
+
+	rows, err := s.database.Query(ctx, `
+		SELECT
+			pe.id,
+			pe.comment,
+			pe.actor_id,
+			u.display_name,
+			pe.actor_roles,
+			pe.occurred_at,
+			count(*) OVER()
+		FROM process_events pe
+		JOIN users u ON u.id = pe.actor_id
+		WHERE pe.purchase_request_id = $1
+		  AND pe.event_type = 'COMMENT_ADDED'
+		ORDER BY pe.occurred_at ASC, pe.id ASC
+	`, requestID)
+	if err != nil {
+		return CommentList{}, fmt.Errorf("list purchase request comments: %w", err)
+	}
+	defer rows.Close()
+
+	result := CommentList{Items: make([]Comment, 0)}
+	for rows.Next() {
+		var comment Comment
+		if err = rows.Scan(
+			&comment.ID,
+			&comment.Body,
+			&comment.AuthorID,
+			&comment.AuthorName,
+			&comment.AuthorRoles,
+			&comment.CreatedAt,
+			&result.Total,
+		); err != nil {
+			return CommentList{}, fmt.Errorf("scan purchase request comment: %w", err)
+		}
+		result.Items = append(result.Items, comment)
+	}
+	if err = rows.Err(); err != nil {
+		return CommentList{}, fmt.Errorf("iterate purchase request comments: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Store) AddComment(
+	ctx context.Context,
+	principal auth.Principal,
+	requestID string,
+	input CommentInput,
+) (Comment, error) {
+	if hasRole(principal.Roles, "auditor") ||
+		(!hasRole(principal.Roles, "employee") &&
+			!hasRole(principal.Roles, "department_manager") &&
+			!hasRole(principal.Roles, "finance")) {
+		return Comment{}, ErrForbidden
+	}
+	if err := ValidateComment(&input); err != nil {
+		return Comment{}, err
+	}
+
+	tx, err := s.database.Begin(ctx)
+	if err != nil {
+		return Comment{}, fmt.Errorf("begin purchase request comment: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	user, err := ensureUser(ctx, tx, principal)
+	if err != nil {
+		return Comment{}, err
+	}
+	current, err := lockRequest(ctx, tx, requestID)
+	if err != nil {
+		return Comment{}, err
+	}
+	scope, err := ScopeFor(principal)
+	if err != nil {
+		return Comment{}, err
+	}
+	if !canAccessLockedRequest(scope, user, current) {
+		return Comment{}, ErrNotFound
+	}
+
+	comment := Comment{
+		Body:        input.Body,
+		AuthorID:    user.ID,
+		AuthorName:  principal.Username,
+		AuthorRoles: principal.Roles,
+	}
+	err = tx.QueryRow(ctx, `
+		INSERT INTO process_events (
+			purchase_request_id,
+			event_type,
+			from_status,
+			to_status,
+			actor_id,
+			actor_roles,
+			comment,
+			correlation_id
+		)
+		VALUES ($1, 'COMMENT_ADDED', $2, $2, $3, $4, $5, NULLIF($6, ''))
+		RETURNING id, occurred_at
+	`, requestID, current.Status, user.ID, principal.Roles, input.Body, input.CorrelationID).Scan(
+		&comment.ID,
+		&comment.CreatedAt,
+	)
+	if err != nil {
+		return Comment{}, fmt.Errorf("insert purchase request comment: %w", err)
+	}
+	if err = insertAudit(
+		ctx, tx, requestID, "COMMENT_ADDED", user.ID, principal.Roles,
+		string(current.Status), current.Status, input.CorrelationID,
+	); err != nil {
+		return Comment{}, err
+	}
+	if err = queueCommentNotification(ctx, tx, requestID, current, user.ID); err != nil {
+		return Comment{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Comment{}, fmt.Errorf("commit purchase request comment: %w", err)
+	}
+	return comment, nil
+}
+
+func (s *Store) TaskSummary(
+	ctx context.Context,
+	principal auth.Principal,
+) (WorkSummary, error) {
+	user, err := s.ensureUser(ctx, principal)
+	if err != nil {
+		return WorkSummary{}, err
+	}
+
+	canOwn := CanCreate(principal)
+	isManager := hasRole(principal.Roles, "department_manager")
+	isFinance := hasRole(principal.Roles, "finance")
+	isAuditor := hasRole(principal.Roles, "auditor")
+	rows, err := s.database.Query(ctx, `
+		WITH scoped_tasks AS (
+			SELECT
+				pr.id,
+				pr.request_code,
+				pr.title,
+				u.display_name AS requester_name,
+				d.name AS department_name,
+				pr.status,
+				CASE
+					WHEN $2::boolean AND pr.requester_id = $1
+						AND pr.status IN ('DRAFT', 'CHANGES_REQUESTED') THEN 'COMPLETE_REQUEST'
+					WHEN $3::boolean AND pr.department_id = $5
+						AND pr.requester_id <> $1 AND pr.status = 'SUBMITTED' THEN 'MANAGER_REVIEW'
+					WHEN $4::boolean AND d.organization_id = $6
+						AND pr.requester_id <> $1 AND pr.status = 'MANAGER_APPROVED' THEN 'FINANCE_REVIEW'
+					WHEN $7::boolean THEN 'SLA_MONITOR'
+				END AS task_type,
+				pr.currency,
+				pr.total_amount::text,
+				CASE
+					WHEN pr.submitted_at IS NULL THEN NULL
+					ELSE COALESCE(
+						pr.sla_due_at,
+						pr.submitted_at + make_interval(hours => COALESCE(sp.target_hours, 72))
+					)
+				END AS due_at,
+				pr.updated_at
+			FROM purchase_requests pr
+			JOIN users u ON u.id = pr.requester_id
+			JOIN departments d ON d.id = pr.department_id
+			LEFT JOIN reporting.sla_policies sp
+				ON sp.organization_id = d.organization_id
+			   AND sp.process_name = 'PURCHASE_REQUEST_APPROVAL'
+			   AND sp.active
+			WHERE
+				($2::boolean AND pr.requester_id = $1 AND pr.status IN ('DRAFT', 'CHANGES_REQUESTED'))
+				OR ($3::boolean AND pr.department_id = $5 AND pr.requester_id <> $1 AND pr.status = 'SUBMITTED')
+				OR ($4::boolean AND d.organization_id = $6 AND pr.requester_id <> $1 AND pr.status = 'MANAGER_APPROVED')
+				OR ($7::boolean AND pr.status IN ('SUBMITTED', 'MANAGER_APPROVED', 'CHANGES_REQUESTED'))
+		)
+		SELECT
+			id,
+			request_code,
+			title,
+			requester_name,
+			department_name,
+			status,
+			task_type,
+			currency,
+			total_amount,
+			due_at,
+			COALESCE(due_at < now(), false) AS overdue,
+			CASE
+				WHEN due_at < now() THEN 'OVERDUE'
+				WHEN due_at <= now() + interval '24 hours' THEN 'DUE_SOON'
+				ELSE 'NORMAL'
+			END AS urgency,
+			updated_at
+		FROM scoped_tasks
+		WHERE task_type IS NOT NULL
+		ORDER BY overdue DESC, due_at ASC NULLS LAST, updated_at DESC, id DESC
+		LIMIT 100
+	`, user.ID, canOwn, isManager, isFinance, user.DepartmentID, user.OrganizationID, isAuditor)
+	if err != nil {
+		return WorkSummary{}, fmt.Errorf("list work center tasks: %w", err)
+	}
+	defer rows.Close()
+
+	result := WorkSummary{Items: make([]WorkTask, 0)}
+	for rows.Next() {
+		var task WorkTask
+		if err = rows.Scan(
+			&task.PurchaseRequestID,
+			&task.RequestCode,
+			&task.Title,
+			&task.RequesterName,
+			&task.DepartmentName,
+			&task.Status,
+			&task.TaskType,
+			&task.Currency,
+			&task.TotalAmount,
+			&task.DueAt,
+			&task.Overdue,
+			&task.Urgency,
+			&task.UpdatedAt,
+		); err != nil {
+			return WorkSummary{}, fmt.Errorf("scan work center task: %w", err)
+		}
+		result.Items = append(result.Items, task)
+		if task.Overdue {
+			result.OverdueCount++
+		} else if task.Urgency == "DUE_SOON" {
+			result.DueSoonCount++
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return WorkSummary{}, fmt.Errorf("iterate work center tasks: %w", err)
+	}
+	result.Total = len(result.Items)
+	return result, nil
+}
+
+func (s *Store) ListSuppliers(
+	ctx context.Context,
+	principal auth.Principal,
+) (SupplierList, error) {
+	if !hasRole(principal.Roles, "finance") && !hasRole(principal.Roles, "auditor") {
+		return SupplierList{}, ErrForbidden
+	}
+	user, err := s.ensureUser(ctx, principal)
+	if err != nil {
+		return SupplierList{}, err
+	}
+	rows, err := s.database.Query(ctx, `
+		SELECT id, code, name, COALESCE(tax_code, ''), COALESCE(contact_name, ''),
+			COALESCE(email, ''), COALESCE(phone, ''), status, risk_level, version,
+			created_at, updated_at
+		FROM suppliers
+		WHERE organization_id = $1
+		ORDER BY CASE status WHEN 'ACTIVE' THEN 1 ELSE 2 END,
+			CASE risk_level WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END,
+			name, id
+	`, user.OrganizationID)
+	if err != nil {
+		return SupplierList{}, fmt.Errorf("list suppliers: %w", err)
+	}
+	defer rows.Close()
+	result := SupplierList{Items: make([]Supplier, 0), CanManage: hasRole(principal.Roles, "finance")}
+	for rows.Next() {
+		var supplier Supplier
+		if err = rows.Scan(
+			&supplier.ID, &supplier.Code, &supplier.Name, &supplier.TaxCode,
+			&supplier.ContactName, &supplier.Email, &supplier.Phone, &supplier.Status,
+			&supplier.RiskLevel, &supplier.Version, &supplier.CreatedAt, &supplier.UpdatedAt,
+		); err != nil {
+			return SupplierList{}, fmt.Errorf("scan supplier: %w", err)
+		}
+		result.Items = append(result.Items, supplier)
+	}
+	if err = rows.Err(); err != nil {
+		return SupplierList{}, fmt.Errorf("iterate suppliers: %w", err)
+	}
+	result.Total = len(result.Items)
+	return result, nil
+}
+
+func (s *Store) CreateSupplier(
+	ctx context.Context,
+	principal auth.Principal,
+	input SupplierInput,
+	correlationID string,
+) (Supplier, error) {
+	if !hasRole(principal.Roles, "finance") {
+		return Supplier{}, ErrForbidden
+	}
+	if err := ValidateSupplierInput(&input); err != nil {
+		return Supplier{}, err
+	}
+	tx, err := s.database.Begin(ctx)
+	if err != nil {
+		return Supplier{}, fmt.Errorf("begin create supplier: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	user, err := ensureUser(ctx, tx, principal)
+	if err != nil {
+		return Supplier{}, err
+	}
+	var supplierID string
+	err = tx.QueryRow(ctx, `
+		INSERT INTO suppliers (
+			organization_id, code, name, tax_code, contact_name, email, phone,
+			status, risk_level, created_by
+		)
+		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''),
+			NULLIF($7, ''), $8, $9, $10)
+		RETURNING id
+	`, user.OrganizationID, input.Code, input.Name, input.TaxCode, input.ContactName,
+		input.Email, input.Phone, input.Status, input.RiskLevel, user.ID).Scan(&supplierID)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return Supplier{}, ErrSupplierConflict
+		}
+		return Supplier{}, fmt.Errorf("insert supplier: %w", err)
+	}
+	if err = insertResourceAudit(
+		ctx, tx, "supplier", supplierID, "SUPPLIER_CREATED", user.ID,
+		principal.Roles, "", input.Status, correlationID,
+	); err != nil {
+		return Supplier{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Supplier{}, fmt.Errorf("commit create supplier: %w", err)
+	}
+	return s.getSupplier(ctx, user.OrganizationID, supplierID)
+}
+
+func (s *Store) UpdateSupplier(
+	ctx context.Context,
+	principal auth.Principal,
+	supplierID string,
+	input UpdateSupplierInput,
+	correlationID string,
+) (Supplier, error) {
+	if !hasRole(principal.Roles, "finance") {
+		return Supplier{}, ErrForbidden
+	}
+	if err := ValidateUpdateSupplierInput(&input); err != nil {
+		return Supplier{}, err
+	}
+	tx, err := s.database.Begin(ctx)
+	if err != nil {
+		return Supplier{}, fmt.Errorf("begin update supplier: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	user, err := ensureUser(ctx, tx, principal)
+	if err != nil {
+		return Supplier{}, err
+	}
+	var currentVersion int64
+	var currentStatus string
+	err = tx.QueryRow(ctx, `
+		SELECT version, status FROM suppliers
+		WHERE id = $1 AND organization_id = $2
+		FOR UPDATE
+	`, supplierID, user.OrganizationID).Scan(&currentVersion, &currentStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Supplier{}, ErrSupplierNotFound
+	}
+	if err != nil {
+		return Supplier{}, fmt.Errorf("lock supplier: %w", err)
+	}
+	if currentVersion != input.ExpectedVersion {
+		return Supplier{}, ErrSupplierVersion
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE suppliers
+		SET code = $2, name = $3, tax_code = NULLIF($4, ''),
+			contact_name = NULLIF($5, ''), email = NULLIF($6, ''), phone = NULLIF($7, ''),
+			status = $8, risk_level = $9, version = version + 1, updated_at = now()
+		WHERE id = $1
+	`, supplierID, input.Code, input.Name, input.TaxCode, input.ContactName,
+		input.Email, input.Phone, input.Status, input.RiskLevel)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return Supplier{}, ErrSupplierConflict
+		}
+		return Supplier{}, fmt.Errorf("update supplier: %w", err)
+	}
+	if err = insertResourceAudit(
+		ctx, tx, "supplier", supplierID, "SUPPLIER_UPDATED", user.ID,
+		principal.Roles, currentStatus, input.Status, correlationID,
+	); err != nil {
+		return Supplier{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Supplier{}, fmt.Errorf("commit update supplier: %w", err)
+	}
+	return s.getSupplier(ctx, user.OrganizationID, supplierID)
+}
+
+func (s *Store) getSupplier(ctx context.Context, organizationID, supplierID string) (Supplier, error) {
+	var supplier Supplier
+	err := s.database.QueryRow(ctx, `
+		SELECT id, code, name, COALESCE(tax_code, ''), COALESCE(contact_name, ''),
+			COALESCE(email, ''), COALESCE(phone, ''), status, risk_level, version,
+			created_at, updated_at
+		FROM suppliers WHERE id = $1 AND organization_id = $2
+	`, supplierID, organizationID).Scan(
+		&supplier.ID, &supplier.Code, &supplier.Name, &supplier.TaxCode,
+		&supplier.ContactName, &supplier.Email, &supplier.Phone, &supplier.Status,
+		&supplier.RiskLevel, &supplier.Version, &supplier.CreatedAt, &supplier.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Supplier{}, ErrSupplierNotFound
+	}
+	if err != nil {
+		return Supplier{}, fmt.Errorf("get supplier: %w", err)
+	}
+	return supplier, nil
+}
+
+func (s *Store) OperationsBoard(
+	ctx context.Context,
+	principal auth.Principal,
+) (OperationsBoard, error) {
+	isEmployee := hasRole(principal.Roles, "employee")
+	isManager := hasRole(principal.Roles, "department_manager")
+	isFinance := hasRole(principal.Roles, "finance")
+	isAuditor := hasRole(principal.Roles, "auditor")
+	if !isEmployee && !isManager && !isFinance && !isAuditor {
+		return OperationsBoard{}, ErrForbidden
+	}
+	user, err := s.ensureUser(ctx, principal)
+	if err != nil {
+		return OperationsBoard{}, err
+	}
+	rows, err := s.database.Query(ctx, `
+		SELECT
+			COALESCE(po.id::text, ''),
+			pr.id,
+			pr.request_code,
+			pr.title,
+			ru.display_name,
+			d.name,
+			pr.currency,
+			pr.total_amount::text,
+			po.order_code,
+			po.supplier_id,
+			s.code,
+			s.name,
+			po.external_reference,
+			po.expected_delivery_on::text,
+			po.actual_delivery_on::text,
+			COALESCE(po.status, 'AWAITING_ORDER'),
+			po.note,
+			COALESCE(po.version, 0),
+			po.ordered_at,
+			po.received_at,
+			COALESCE(po.status = 'ORDERED' AND po.expected_delivery_on < CURRENT_DATE, false),
+			($4::boolean AND po.id IS NULL AND d.organization_id = $6),
+			COALESCE(
+				po.status = 'ORDERED' AND (
+					(($2::boolean OR $3::boolean) AND pr.requester_id = $1)
+					OR ($3::boolean AND pr.department_id = $5)
+				),
+				false
+			)
+		FROM purchase_requests pr
+		JOIN users ru ON ru.id = pr.requester_id
+		JOIN departments d ON d.id = pr.department_id
+		LEFT JOIN purchase_orders po ON po.purchase_request_id = pr.id
+		LEFT JOIN suppliers s ON s.id = po.supplier_id
+		WHERE pr.status = 'APPROVED'
+		  AND (
+			$7::boolean
+			OR ($4::boolean AND d.organization_id = $6)
+			OR ($3::boolean AND pr.department_id = $5)
+			OR ($2::boolean AND pr.requester_id = $1)
+		  )
+		ORDER BY
+			CASE WHEN po.status = 'ORDERED' AND po.expected_delivery_on < CURRENT_DATE THEN 1 ELSE 2 END,
+			CASE COALESCE(po.status, 'AWAITING_ORDER')
+				WHEN 'AWAITING_ORDER' THEN 1 WHEN 'ORDERED' THEN 2 ELSE 3 END,
+			COALESCE(po.expected_delivery_on, CURRENT_DATE + 3650), pr.updated_at DESC
+		LIMIT 200
+	`, user.ID, isEmployee, isManager, isFinance, user.DepartmentID, user.OrganizationID, isAuditor)
+	if err != nil {
+		return OperationsBoard{}, fmt.Errorf("list procurement operations: %w", err)
+	}
+	defer rows.Close()
+	result := OperationsBoard{Items: make([]PurchaseOrder, 0)}
+	for rows.Next() {
+		var order PurchaseOrder
+		if err = rows.Scan(
+			&order.ID, &order.PurchaseRequestID, &order.RequestCode, &order.RequestTitle,
+			&order.RequesterName, &order.DepartmentName, &order.Currency, &order.TotalAmount,
+			&order.OrderCode, &order.SupplierID, &order.SupplierCode, &order.SupplierName,
+			&order.ExternalReference, &order.ExpectedDeliveryOn, &order.ActualDeliveryOn,
+			&order.Status, &order.Note, &order.Version, &order.OrderedAt, &order.ReceivedAt,
+			&order.DeliveryOverdue, &order.CanPlaceOrder, &order.CanConfirmReceipt,
+		); err != nil {
+			return OperationsBoard{}, fmt.Errorf("scan procurement operation: %w", err)
+		}
+		result.Items = append(result.Items, order)
+		switch order.Status {
+		case "AWAITING_ORDER":
+			result.AwaitingOrderCount++
+		case "ORDERED":
+			result.InDeliveryCount++
+			if order.DeliveryOverdue {
+				result.OverdueDeliveryCount++
+			}
+		case "RECEIVED":
+			result.ReceivedCount++
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return OperationsBoard{}, fmt.Errorf("iterate procurement operations: %w", err)
+	}
+	result.Total = len(result.Items)
+	return result, nil
+}
+
+func (s *Store) CreatePurchaseOrder(
+	ctx context.Context,
+	principal auth.Principal,
+	input CreatePurchaseOrderInput,
+) (PurchaseOrder, error) {
+	if !hasRole(principal.Roles, "finance") || hasRole(principal.Roles, "auditor") {
+		return PurchaseOrder{}, ErrForbidden
+	}
+	if err := ValidateCreatePurchaseOrder(&input); err != nil {
+		return PurchaseOrder{}, err
+	}
+	tx, err := s.database.Begin(ctx)
+	if err != nil {
+		return PurchaseOrder{}, fmt.Errorf("begin create purchase order: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	user, err := ensureUser(ctx, tx, principal)
+	if err != nil {
+		return PurchaseOrder{}, err
+	}
+	current, err := lockRequest(ctx, tx, input.PurchaseRequestID)
+	if err != nil {
+		return PurchaseOrder{}, err
+	}
+	if current.OrganizationID != user.OrganizationID || current.Status != StatusApproved {
+		return PurchaseOrder{}, ErrInvalidFulfillment
+	}
+	var existingRequestID string
+	err = tx.QueryRow(ctx, `
+		SELECT purchase_request_id FROM purchase_orders WHERE idempotency_key = $1
+	`, input.IdempotencyKey).Scan(&existingRequestID)
+	switch {
+	case err == nil:
+		if existingRequestID != input.PurchaseRequestID {
+			return PurchaseOrder{}, ErrPurchaseOrderConflict
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return PurchaseOrder{}, fmt.Errorf("commit purchase order replay: %w", err)
+		}
+		return s.loadPurchaseOrder(ctx, input.PurchaseRequestID)
+	case !errors.Is(err, pgx.ErrNoRows):
+		return PurchaseOrder{}, fmt.Errorf("check purchase order idempotency: %w", err)
+	}
+	var supplierActive bool
+	err = tx.QueryRow(ctx, `
+		SELECT status = 'ACTIVE' FROM suppliers
+		WHERE id = $1 AND organization_id = $2
+	`, input.SupplierID, user.OrganizationID).Scan(&supplierActive)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PurchaseOrder{}, ErrSupplierNotFound
+	}
+	if err != nil {
+		return PurchaseOrder{}, fmt.Errorf("get purchase order supplier: %w", err)
+	}
+	if !supplierActive {
+		return PurchaseOrder{}, ErrInvalidFulfillment
+	}
+	var orderID string
+	err = tx.QueryRow(ctx, `
+		INSERT INTO purchase_orders (
+			organization_id, purchase_request_id, supplier_id, order_code,
+			external_reference, expected_delivery_on, note, ordered_by, idempotency_key
+		)
+		VALUES (
+			$1, $2, $3,
+			'PO-' || to_char(CURRENT_DATE, 'YYYY') || '-' || lpad(nextval('purchase_order_code_seq')::text, 6, '0'),
+			NULLIF($4, ''), $5::date, NULLIF($6, ''), $7, $8
+		)
+		RETURNING id
+	`, user.OrganizationID, input.PurchaseRequestID, input.SupplierID,
+		input.ExternalReference, input.ExpectedDeliveryOn, input.Note, user.ID,
+		input.IdempotencyKey).Scan(&orderID)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return PurchaseOrder{}, ErrPurchaseOrderConflict
+		}
+		return PurchaseOrder{}, fmt.Errorf("insert purchase order: %w", err)
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO process_events (
+			purchase_request_id, event_type, from_status, to_status, actor_id,
+			actor_roles, comment, correlation_id
+		)
+		VALUES ($1, 'ORDER_PLACED', 'APPROVED', 'APPROVED', $2, $3, NULLIF($4, ''), NULLIF($5, ''))
+	`, input.PurchaseRequestID, user.ID, principal.Roles, input.Note, input.CorrelationID)
+	if err != nil {
+		return PurchaseOrder{}, fmt.Errorf("insert order-placed event: %w", err)
+	}
+	if err = insertAudit(ctx, tx, input.PurchaseRequestID, "ORDER_PLACED", user.ID,
+		principal.Roles, string(StatusApproved), StatusApproved, input.CorrelationID); err != nil {
+		return PurchaseOrder{}, err
+	}
+	if err = insertResourceAudit(ctx, tx, "purchase_order", orderID, "PURCHASE_ORDER_CREATED",
+		user.ID, principal.Roles, "", "ORDERED", input.CorrelationID); err != nil {
+		return PurchaseOrder{}, err
+	}
+	if err = notifications.Queue(ctx, tx, notifications.QueueInput{
+		EventType: "ORDER_PLACED", ResourceType: "purchase_request",
+		ResourceID: input.PurchaseRequestID, OrganizationID: current.OrganizationID,
+		DepartmentID: current.DepartmentID, RecipientUserID: current.RequesterID,
+		ActorID: user.ID, Title: "Đơn mua hàng đã được tạo",
+		Body: current.RequestCode + " - " + current.Title,
+	}); err != nil {
+		return PurchaseOrder{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return PurchaseOrder{}, fmt.Errorf("commit purchase order: %w", err)
+	}
+	return s.loadPurchaseOrder(ctx, input.PurchaseRequestID)
+}
+
+func (s *Store) ConfirmReceipt(
+	ctx context.Context,
+	principal auth.Principal,
+	requestID string,
+	input ConfirmReceiptInput,
+) (PurchaseOrder, error) {
+	if err := ValidateConfirmReceipt(&input); err != nil {
+		return PurchaseOrder{}, err
+	}
+	tx, err := s.database.Begin(ctx)
+	if err != nil {
+		return PurchaseOrder{}, fmt.Errorf("begin confirm receipt: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	user, err := ensureUser(ctx, tx, principal)
+	if err != nil {
+		return PurchaseOrder{}, err
+	}
+	var orderID, status, requesterID, departmentID, requestCode, requestTitle string
+	var version int64
+	err = tx.QueryRow(ctx, `
+		SELECT po.id, po.status, po.version, pr.requester_id, pr.department_id,
+			pr.request_code, pr.title
+		FROM purchase_orders po
+		JOIN purchase_requests pr ON pr.id = po.purchase_request_id
+		WHERE po.purchase_request_id = $1 AND po.organization_id = $2
+		FOR UPDATE OF po
+	`, requestID, user.OrganizationID).Scan(
+		&orderID, &status, &version, &requesterID, &departmentID, &requestCode, &requestTitle,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PurchaseOrder{}, ErrPurchaseOrderNotFound
+	}
+	if err != nil {
+		return PurchaseOrder{}, fmt.Errorf("lock purchase order: %w", err)
+	}
+	canReceive := (requesterID == user.ID &&
+		(hasRole(principal.Roles, "employee") || hasRole(principal.Roles, "department_manager"))) ||
+		(hasRole(principal.Roles, "department_manager") && departmentID == user.DepartmentID)
+	if !canReceive {
+		return PurchaseOrder{}, ErrForbidden
+	}
+	if status != "ORDERED" {
+		return PurchaseOrder{}, ErrInvalidFulfillment
+	}
+	if version != input.ExpectedVersion {
+		return PurchaseOrder{}, ErrVersionConflict
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE purchase_orders
+		SET status = 'RECEIVED', actual_delivery_on = $2::date, received_by = $3,
+			received_at = now(), version = version + 1, updated_at = now()
+		WHERE id = $1
+	`, orderID, input.ActualDeliveryOn, user.ID)
+	if err != nil {
+		return PurchaseOrder{}, fmt.Errorf("confirm purchase order receipt: %w", err)
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO process_events (
+			purchase_request_id, event_type, from_status, to_status, actor_id,
+			actor_roles, correlation_id
+		)
+		VALUES ($1, 'DELIVERY_RECEIVED', 'APPROVED', 'APPROVED', $2, $3, NULLIF($4, ''))
+	`, requestID, user.ID, principal.Roles, input.CorrelationID)
+	if err != nil {
+		return PurchaseOrder{}, fmt.Errorf("insert delivery-received event: %w", err)
+	}
+	if err = insertAudit(ctx, tx, requestID, "DELIVERY_RECEIVED", user.ID,
+		principal.Roles, string(StatusApproved), StatusApproved, input.CorrelationID); err != nil {
+		return PurchaseOrder{}, err
+	}
+	if err = insertResourceAudit(ctx, tx, "purchase_order", orderID, "DELIVERY_RECEIVED",
+		user.ID, principal.Roles, "ORDERED", "RECEIVED", input.CorrelationID); err != nil {
+		return PurchaseOrder{}, err
+	}
+	if err = notifications.Queue(ctx, tx, notifications.QueueInput{
+		EventType: "DELIVERY_RECEIVED", ResourceType: "purchase_request",
+		ResourceID: requestID, OrganizationID: user.OrganizationID,
+		DepartmentID: departmentID, RecipientRole: "finance", ActorID: user.ID,
+		Title: "Đơn hàng đã được xác nhận nhận hàng", Body: requestCode + " - " + requestTitle,
+	}); err != nil {
+		return PurchaseOrder{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return PurchaseOrder{}, fmt.Errorf("commit receipt confirmation: %w", err)
+	}
+	return s.loadPurchaseOrder(ctx, requestID)
+}
+
+func (s *Store) loadPurchaseOrder(ctx context.Context, requestID string) (PurchaseOrder, error) {
+	var order PurchaseOrder
+	err := s.database.QueryRow(ctx, `
+		SELECT
+			po.id, pr.id, pr.request_code, pr.title, ru.display_name, d.name,
+			pr.currency, pr.total_amount::text, po.order_code, po.supplier_id,
+			s.code, s.name, po.external_reference, po.expected_delivery_on::text,
+			po.actual_delivery_on::text, po.status, po.note, po.version,
+			po.ordered_at, po.received_at,
+			(po.status = 'ORDERED' AND po.expected_delivery_on < CURRENT_DATE)
+		FROM purchase_orders po
+		JOIN purchase_requests pr ON pr.id = po.purchase_request_id
+		JOIN users ru ON ru.id = pr.requester_id
+		JOIN departments d ON d.id = pr.department_id
+		JOIN suppliers s ON s.id = po.supplier_id
+		WHERE po.purchase_request_id = $1
+	`, requestID).Scan(
+		&order.ID, &order.PurchaseRequestID, &order.RequestCode, &order.RequestTitle,
+		&order.RequesterName, &order.DepartmentName, &order.Currency, &order.TotalAmount,
+		&order.OrderCode, &order.SupplierID, &order.SupplierCode, &order.SupplierName,
+		&order.ExternalReference, &order.ExpectedDeliveryOn, &order.ActualDeliveryOn,
+		&order.Status, &order.Note, &order.Version, &order.OrderedAt, &order.ReceivedAt,
+		&order.DeliveryOverdue,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PurchaseOrder{}, ErrPurchaseOrderNotFound
+	}
+	if err != nil {
+		return PurchaseOrder{}, fmt.Errorf("get purchase order: %w", err)
+	}
+	return order, nil
 }
 
 func (s *Store) GetBudgetSummary(
@@ -1093,11 +1850,22 @@ func (s *Store) Transition(
 				WHEN $2::varchar = 'APPROVED' THEN now()
 				ELSE NULL
 			END,
+			sla_due_at = CASE
+				WHEN $3::varchar IN ('SUBMIT', 'RESUBMIT') THEN
+					now() + make_interval(hours => COALESCE((
+						SELECT sp.target_hours
+						FROM reporting.sla_policies sp
+						WHERE sp.organization_id = $4
+						  AND sp.process_name = 'PURCHASE_REQUEST_APPROVAL'
+						  AND sp.active
+					), 72))
+				ELSE sla_due_at
+			END,
 			current_assignee_id = NULL,
 			version = version + 1,
 			updated_at = now()
 		WHERE id = $1
-	`, requestID, decision.ToStatus, input.Action)
+	`, requestID, decision.ToStatus, input.Action, current.OrganizationID)
 	if err != nil {
 		return PurchaseRequest{}, fmt.Errorf("update purchase request transition: %w", err)
 	}
@@ -1146,6 +1914,9 @@ func (s *Store) Transition(
 	); err != nil {
 		return PurchaseRequest{}, err
 	}
+	if err = queueTransitionNotification(ctx, tx, requestID, current, decision, user.ID); err != nil {
+		return PurchaseRequest{}, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return PurchaseRequest{}, fmt.Errorf("commit purchase request transition: %w", err)
 	}
@@ -1174,54 +1945,19 @@ func ensureUser(
 	tx pgx.Tx,
 	principal auth.Principal,
 ) (userProfile, error) {
-	var user userProfile
-	err := tx.QueryRow(ctx, `
-		INSERT INTO users (
-			keycloak_subject,
-			username,
-			email,
-			display_name,
-			department_id
-		)
-		SELECT
-			$1,
-			$2,
-			NULLIF($3, ''),
-			$2,
-			d.id
-		FROM departments d
-		WHERE d.code = $4 AND d.active
-		ORDER BY d.created_at
-		LIMIT 1
-		ON CONFLICT (keycloak_subject) DO UPDATE
-		SET username = EXCLUDED.username,
-			email = COALESCE(EXCLUDED.email, users.email),
-			display_name = EXCLUDED.display_name,
-			updated_at = now()
-		RETURNING
-			users.id,
-			users.department_id,
-			(SELECT organization_id FROM departments WHERE id = users.department_id),
-			users.active
-	`, principal.Subject, principal.Username, principal.Email, defaultDepartmentCode).Scan(
-		&user.ID,
-		&user.DepartmentID,
-		&user.OrganizationID,
-		&user.Active,
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return userProfile{}, errors.New("default active department is not configured")
+	user, err := identity.Ensure(ctx, tx, principal, defaultDepartmentCode)
+	if errors.Is(err, identity.ErrInactive) {
+		return userProfile{}, ErrForbidden
 	}
 	if err != nil {
-		return userProfile{}, fmt.Errorf("provision business user: %w", err)
-	}
-	if !user.Active {
-		return userProfile{}, ErrForbidden
+		return userProfile{}, err
 	}
 	return user, nil
 }
 
 type lockedRequest struct {
+	RequestCode    string
+	Title          string
 	RequesterID    string
 	DepartmentID   string
 	OrganizationID string
@@ -1232,10 +1968,30 @@ type lockedRequest struct {
 	TotalAmount    string
 }
 
+func canAccessLockedRequest(scope ScopeKind, user userProfile, request lockedRequest) bool {
+	switch scope {
+	case ScopeOwn:
+		return request.RequesterID == user.ID
+	case ScopeDepartment:
+		return request.DepartmentID == user.DepartmentID
+	case ScopeFinance:
+		return request.OrganizationID == user.OrganizationID &&
+			(request.Status == StatusManagerApproved ||
+				request.Status == StatusApproved ||
+				request.Status == StatusRejected)
+	case ScopeAll:
+		return true
+	default:
+		return false
+	}
+}
+
 func lockRequest(ctx context.Context, tx pgx.Tx, requestID string) (lockedRequest, error) {
 	var request lockedRequest
 	err := tx.QueryRow(ctx, `
 		SELECT
+			pr.request_code,
+			pr.title,
 			pr.requester_id,
 			pr.department_id,
 			d.organization_id,
@@ -1249,6 +2005,8 @@ func lockRequest(ctx context.Context, tx pgx.Tx, requestID string) (lockedReques
 		WHERE pr.id = $1
 		FOR UPDATE OF pr
 	`, requestID).Scan(
+		&request.RequestCode,
+		&request.Title,
 		&request.RequesterID,
 		&request.DepartmentID,
 		&request.OrganizationID,
@@ -1265,6 +2023,72 @@ func lockRequest(ctx context.Context, tx pgx.Tx, requestID string) (lockedReques
 		return lockedRequest{}, fmt.Errorf("lock purchase request: %w", err)
 	}
 	return request, nil
+}
+
+func queueCommentNotification(
+	ctx context.Context,
+	tx pgx.Tx,
+	requestID string,
+	request lockedRequest,
+	actorID string,
+) error {
+	input := notifications.QueueInput{
+		EventType: "COMMENT_ADDED", ResourceType: "purchase_request",
+		ResourceID: requestID, OrganizationID: request.OrganizationID,
+		DepartmentID: request.DepartmentID, ActorID: actorID,
+		Title: "Phiếu mua sắm có bình luận mới",
+		Body: request.RequestCode + " - " + request.Title,
+	}
+	if actorID != request.RequesterID {
+		input.RecipientUserID = request.RequesterID
+	} else {
+		switch request.Status {
+		case StatusSubmitted:
+			input.RecipientRole = "department_manager"
+		case StatusManagerApproved:
+			input.RecipientRole = "finance"
+		default:
+			return nil
+		}
+	}
+	return notifications.Queue(ctx, tx, input)
+}
+
+func queueTransitionNotification(
+	ctx context.Context,
+	tx pgx.Tx,
+	requestID string,
+	request lockedRequest,
+	decision TransitionDecision,
+	actorID string,
+) error {
+	input := notifications.QueueInput{
+		EventType: decision.EventType, ResourceType: "purchase_request",
+		ResourceID: requestID, OrganizationID: request.OrganizationID,
+		DepartmentID: request.DepartmentID, ActorID: actorID,
+		Body: request.RequestCode + " - " + request.Title,
+	}
+	switch decision.EventType {
+	case "SUBMITTED", "RESUBMITTED":
+		input.RecipientRole = "department_manager"
+		input.Title = "Phiếu mua sắm cần phê duyệt"
+	case "MANAGER_APPROVED":
+		input.RecipientRole = "finance"
+		input.DepartmentID = ""
+		input.Title = "Phiếu chờ duyệt tài chính"
+	case "FINANCE_APPROVED":
+		input.RecipientUserID = request.RequesterID
+		input.Title = "Phiếu mua sắm đã được phê duyệt"
+	case "CHANGES_REQUESTED":
+		input.RecipientUserID = request.RequesterID
+		input.Title = "Phiếu mua sắm cần chỉnh sửa"
+	case "REJECTED":
+		input.RecipientUserID = request.RequesterID
+		input.Title = "Phiếu mua sắm đã bị từ chối"
+	default:
+		return nil
+	}
+	return notifications.Queue(ctx, tx, input)
 }
 
 type queryRower interface {
@@ -1610,6 +2434,24 @@ func insertAudit(
 	toStatus Status,
 	correlationID string,
 ) error {
+	return insertResourceAudit(
+		ctx, tx, "purchase_request", requestID, action, actorID, actorRoles,
+		fromStatus, string(toStatus), correlationID,
+	)
+}
+
+func insertResourceAudit(
+	ctx context.Context,
+	tx pgx.Tx,
+	resourceType string,
+	resourceID string,
+	action string,
+	actorID string,
+	actorRoles []string,
+	fromStatus string,
+	toStatus string,
+	correlationID string,
+) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO audit_logs (
 			resource_type,
@@ -1623,21 +2465,26 @@ func insertAudit(
 			metadata
 		)
 		VALUES (
-			'purchase_request',
 			$1,
 			$2,
 			$3,
 			$4,
-			NULLIF($5, ''),
-			$6,
+			$5,
+			NULLIF($6, ''),
 			NULLIF($7, ''),
+			NULLIF($8, ''),
 			jsonb_build_object('source', 'procurement')
 		)
-	`, requestID, action, actorID, actorRoles, fromStatus, toStatus, correlationID)
+	`, resourceType, resourceID, action, actorID, actorRoles, fromStatus, toStatus, correlationID)
 	if err != nil {
-		return fmt.Errorf("insert purchase request audit: %w", err)
+		return fmt.Errorf("insert %s audit: %w", resourceType, err)
 	}
 	return nil
+}
+
+func isUniqueViolation(err error) bool {
+	var databaseError *pgconn.PgError
+	return errors.As(err, &databaseError) && databaseError.Code == "23505"
 }
 
 func (s *Store) getUnscoped(ctx context.Context, requestID string) (PurchaseRequest, error) {

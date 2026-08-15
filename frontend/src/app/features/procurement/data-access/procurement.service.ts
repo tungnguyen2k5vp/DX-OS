@@ -14,10 +14,29 @@ import {
   PurchaseRequestAttachmentList,
   AttachmentDocumentType,
   PurchaseRequestPage,
+  PurchaseRequestComment,
+  PurchaseRequestCommentList,
   PurchaseRequestStatus,
   PurchaseRequestTimelinePage,
   TransitionPurchaseRequest,
   UpdatePurchaseRequest,
+  WorkSummary,
+  Supplier,
+  SupplierInput,
+  SupplierList,
+  OperationsBoard,
+  PurchaseOrder,
+  CreatePurchaseOrder,
+  CreateInvoice,
+  InvoiceBoard,
+  InvoiceBoardItem,
+  TransitionInvoice,
+  UpdateInvoice,
+  PolicyCenter,
+  SLAPolicy,
+  AttachmentPolicy,
+  UpdateSLAPolicy,
+  UpdateAttachmentPolicy,
 } from './procurement.models';
 
 export interface ListPurchaseRequestsQuery {
@@ -62,6 +81,116 @@ export class ProcurementService {
     return this.http.get<PurchaseRequestTimelinePage>(
       `${this.collectionUrl}/${encodeURIComponent(requestId)}/timeline`,
       { params },
+    );
+  }
+
+  comments(requestId: string): Observable<PurchaseRequestCommentList> {
+    return this.http.get<PurchaseRequestCommentList>(
+      `${this.collectionUrl}/${encodeURIComponent(requestId)}/comments`,
+    );
+  }
+
+  addComment(requestId: string, body: string): Observable<PurchaseRequestComment> {
+    return this.http.post<PurchaseRequestComment>(
+      `${this.collectionUrl}/${encodeURIComponent(requestId)}/comments`,
+      { body },
+    );
+  }
+
+  taskSummary(): Observable<WorkSummary> {
+    return this.http.get<WorkSummary>(`${this.config.apiBaseUrl}/api/v1/me/tasks-summary`);
+  }
+
+  suppliers(): Observable<SupplierList> {
+    return this.http.get<SupplierList>(`${this.config.apiBaseUrl}/api/v1/suppliers`);
+  }
+
+  createSupplier(input: SupplierInput): Observable<Supplier> {
+    return this.http.post<Supplier>(`${this.config.apiBaseUrl}/api/v1/suppliers`, input);
+  }
+
+  updateSupplier(supplierId: string, input: SupplierInput): Observable<Supplier> {
+    return this.http.patch<Supplier>(
+      `${this.config.apiBaseUrl}/api/v1/suppliers/${encodeURIComponent(supplierId)}`,
+      input,
+    );
+  }
+
+  operationsBoard(): Observable<OperationsBoard> {
+    return this.http.get<OperationsBoard>(
+      `${this.config.apiBaseUrl}/api/v1/procurement-operations`,
+    );
+  }
+
+  createPurchaseOrder(
+    input: CreatePurchaseOrder,
+    idempotencyKey: string,
+  ): Observable<PurchaseOrder> {
+    return this.http.post<PurchaseOrder>(
+      `${this.config.apiBaseUrl}/api/v1/procurement-operations/orders`,
+      input,
+      { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
+    );
+  }
+
+  confirmReceipt(
+    requestId: string,
+    expectedVersion: number,
+    actualDeliveryOn: string,
+  ): Observable<PurchaseOrder> {
+    return this.http.post<PurchaseOrder>(
+      `${this.config.apiBaseUrl}/api/v1/procurement-operations/orders/${encodeURIComponent(requestId)}/receipt`,
+      { expectedVersion, actualDeliveryOn },
+    );
+  }
+
+  invoiceBoard(): Observable<InvoiceBoard> {
+    return this.http.get<InvoiceBoard>(`${this.config.apiBaseUrl}/api/v1/invoices`);
+  }
+
+  createInvoice(input: CreateInvoice, idempotencyKey: string): Observable<InvoiceBoardItem> {
+    return this.http.post<InvoiceBoardItem>(`${this.config.apiBaseUrl}/api/v1/invoices`, input, {
+      headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }),
+    });
+  }
+
+  updateInvoice(invoiceId: string, input: UpdateInvoice): Observable<InvoiceBoardItem> {
+    return this.http.patch<InvoiceBoardItem>(
+      `${this.config.apiBaseUrl}/api/v1/invoices/${encodeURIComponent(invoiceId)}`,
+      input,
+    );
+  }
+
+  transitionInvoice(
+    invoiceId: string,
+    input: TransitionInvoice,
+    idempotencyKey: string,
+  ): Observable<InvoiceBoardItem> {
+    return this.http.post<InvoiceBoardItem>(
+      `${this.config.apiBaseUrl}/api/v1/invoices/${encodeURIComponent(invoiceId)}/transitions`,
+      input,
+      { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
+    );
+  }
+
+  policyCenter(): Observable<PolicyCenter> {
+    return this.http.get<PolicyCenter>(`${this.config.apiBaseUrl}/api/v1/admin/policies`);
+  }
+
+  updateSLAPolicy(processName: string, input: UpdateSLAPolicy): Observable<SLAPolicy> {
+    return this.http.patch<SLAPolicy>(
+      `${this.config.apiBaseUrl}/api/v1/admin/policies/sla/${encodeURIComponent(processName)}`,
+      input,
+    );
+  }
+
+  updateAttachmentPolicy(
+    ruleId: string,
+    input: UpdateAttachmentPolicy,
+  ): Observable<AttachmentPolicy> {
+    return this.http.patch<AttachmentPolicy>(
+      `${this.config.apiBaseUrl}/api/v1/admin/policies/attachments/${encodeURIComponent(ruleId)}`,
+      input,
     );
   }
 

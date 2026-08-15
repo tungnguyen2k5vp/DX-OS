@@ -47,13 +47,30 @@ var (
 	ErrAttachmentNotFound    = errors.New("purchase request attachment not found")
 	ErrAttachmentRequired    = errors.New("a required purchase request attachment is missing")
 	ErrDocumentStore         = errors.New("document store operation failed")
+	ErrSupplierNotFound      = errors.New("supplier not found")
+	ErrSupplierConflict      = errors.New("supplier code or tax code already exists")
+	ErrSupplierVersion       = errors.New("supplier version conflict")
+	ErrPurchaseOrderNotFound = errors.New("purchase order not found")
+	ErrPurchaseOrderConflict = errors.New("purchase order already exists or idempotency key conflicts")
+	ErrInvalidFulfillment    = errors.New("purchase order operation is invalid")
+	ErrInvoiceNotFound       = errors.New("purchase invoice not found")
+	ErrInvoiceConflict       = errors.New("purchase invoice already exists or conflicts")
+	ErrInvoiceVersion        = errors.New("purchase invoice version conflict")
+	ErrInvalidInvoiceAction  = errors.New("purchase invoice action is invalid")
+	ErrInvoiceMismatch       = errors.New("purchase invoice does not match the order and receipt")
+	ErrPolicyNotFound        = errors.New("operating policy not found")
+	ErrPolicyVersion         = errors.New("operating policy version conflict")
 
-	quantityPattern    = regexp.MustCompile(`^(0|[1-9][0-9]{0,10})(\.[0-9]{1,4})?$`)
-	unitPricePattern   = regexp.MustCompile(`^(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$`)
-	currencyPattern    = regexp.MustCompile(`^[A-Z]{3}$`)
-	idempotencyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{7,254}$`)
-	maxMoney, _        = new(big.Rat).SetString("999999999999999.9999")
-	validStatuses      = []Status{
+	quantityPattern      = regexp.MustCompile(`^(0|[1-9][0-9]{0,10})(\.[0-9]{1,4})?$`)
+	unitPricePattern     = regexp.MustCompile(`^(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$`)
+	currencyPattern      = regexp.MustCompile(`^[A-Z]{3}$`)
+	idempotencyPattern   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{7,254}$`)
+	supplierCodePattern  = regexp.MustCompile(`^[A-Z0-9][A-Z0-9._-]{1,49}$`)
+	emailPattern         = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
+	invoiceNumberPattern = regexp.MustCompile(`^[A-Z0-9][A-Z0-9./_-]{1,99}$`)
+	uuidPatternForDomain = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
+	maxMoney, _          = new(big.Rat).SetString("999999999999999.9999")
+	validStatuses        = []Status{
 		StatusDraft,
 		StatusSubmitted,
 		StatusManagerApproved,
@@ -200,6 +217,250 @@ type TimelineResult struct {
 	PageSize int             `json:"pageSize"`
 	Total    int64           `json:"total"`
 	Pages    int             `json:"pages"`
+}
+
+type CommentInput struct {
+	Body          string
+	CorrelationID string
+}
+
+type Comment struct {
+	ID          string    `json:"id"`
+	Body        string    `json:"body"`
+	AuthorID    string    `json:"authorId"`
+	AuthorName  string    `json:"authorName"`
+	AuthorRoles []string  `json:"authorRoles"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+type CommentList struct {
+	Items []Comment `json:"items"`
+	Total int64     `json:"total"`
+}
+
+type WorkTask struct {
+	PurchaseRequestID string     `json:"purchaseRequestId"`
+	RequestCode       string     `json:"requestCode"`
+	Title             string     `json:"title"`
+	RequesterName     string     `json:"requesterName"`
+	DepartmentName    string     `json:"departmentName"`
+	Status            Status     `json:"status"`
+	TaskType          string     `json:"taskType"`
+	Currency          string     `json:"currency"`
+	TotalAmount       string     `json:"totalAmount"`
+	DueAt             *time.Time `json:"dueAt"`
+	Overdue           bool       `json:"overdue"`
+	Urgency           string     `json:"urgency"`
+	UpdatedAt         time.Time  `json:"updatedAt"`
+}
+
+type WorkSummary struct {
+	Items        []WorkTask `json:"items"`
+	Total        int        `json:"total"`
+	OverdueCount int        `json:"overdueCount"`
+	DueSoonCount int        `json:"dueSoonCount"`
+}
+
+type Supplier struct {
+	ID          string    `json:"id"`
+	Code        string    `json:"code"`
+	Name        string    `json:"name"`
+	TaxCode     string    `json:"taxCode,omitempty"`
+	ContactName string    `json:"contactName,omitempty"`
+	Email       string    `json:"email,omitempty"`
+	Phone       string    `json:"phone,omitempty"`
+	Status      string    `json:"status"`
+	RiskLevel   string    `json:"riskLevel"`
+	Version     int64     `json:"version"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type SupplierInput struct {
+	Code        string
+	Name        string
+	TaxCode     string
+	ContactName string
+	Email       string
+	Phone       string
+	Status      string
+	RiskLevel   string
+}
+
+type UpdateSupplierInput struct {
+	SupplierInput
+	ExpectedVersion int64
+}
+
+type SupplierList struct {
+	Items     []Supplier `json:"items"`
+	Total     int        `json:"total"`
+	CanManage bool       `json:"canManage"`
+}
+
+type PurchaseOrder struct {
+	ID                 string     `json:"id"`
+	PurchaseRequestID  string     `json:"purchaseRequestId"`
+	RequestCode        string     `json:"requestCode"`
+	RequestTitle       string     `json:"requestTitle"`
+	RequesterName      string     `json:"requesterName"`
+	DepartmentName     string     `json:"departmentName"`
+	Currency           string     `json:"currency"`
+	TotalAmount        string     `json:"totalAmount"`
+	OrderCode          *string    `json:"orderCode"`
+	SupplierID         *string    `json:"supplierId"`
+	SupplierCode       *string    `json:"supplierCode"`
+	SupplierName       *string    `json:"supplierName"`
+	ExternalReference  *string    `json:"externalReference"`
+	ExpectedDeliveryOn *string    `json:"expectedDeliveryOn"`
+	ActualDeliveryOn   *string    `json:"actualDeliveryOn"`
+	Status             string     `json:"status"`
+	Note               *string    `json:"note"`
+	Version            int64      `json:"version"`
+	OrderedAt          *time.Time `json:"orderedAt"`
+	ReceivedAt         *time.Time `json:"receivedAt"`
+	DeliveryOverdue    bool       `json:"deliveryOverdue"`
+	CanPlaceOrder      bool       `json:"canPlaceOrder"`
+	CanConfirmReceipt  bool       `json:"canConfirmReceipt"`
+}
+
+type OperationsBoard struct {
+	Items                []PurchaseOrder `json:"items"`
+	Total                int             `json:"total"`
+	AwaitingOrderCount   int             `json:"awaitingOrderCount"`
+	InDeliveryCount      int             `json:"inDeliveryCount"`
+	OverdueDeliveryCount int             `json:"overdueDeliveryCount"`
+	ReceivedCount        int             `json:"receivedCount"`
+}
+
+type CreatePurchaseOrderInput struct {
+	PurchaseRequestID  string
+	SupplierID         string
+	ExternalReference  string
+	ExpectedDeliveryOn string
+	Note               string
+	IdempotencyKey     string
+	CorrelationID      string
+}
+
+type ConfirmReceiptInput struct {
+	ExpectedVersion  int64
+	ActualDeliveryOn string
+	CorrelationID    string
+}
+
+type InvoiceBoardItem struct {
+	PurchaseOrderID   string     `json:"purchaseOrderId"`
+	PurchaseRequestID string     `json:"purchaseRequestId"`
+	RequestCode       string     `json:"requestCode"`
+	RequestTitle      string     `json:"requestTitle"`
+	RequesterName     string     `json:"requesterName"`
+	DepartmentName    string     `json:"departmentName"`
+	SupplierID        string     `json:"supplierId"`
+	SupplierCode      string     `json:"supplierCode"`
+	SupplierName      string     `json:"supplierName"`
+	OrderCode         string     `json:"orderCode"`
+	OrderStatus       string     `json:"orderStatus"`
+	OrderAmount       string     `json:"orderAmount"`
+	OrderCurrency     string     `json:"orderCurrency"`
+	ActualDeliveryOn  *string    `json:"actualDeliveryOn"`
+	InvoiceID         *string    `json:"invoiceId"`
+	InvoiceNumber     *string    `json:"invoiceNumber"`
+	IssuedOn          *string    `json:"issuedOn"`
+	DueOn             *string    `json:"dueOn"`
+	InvoiceAmount     *string    `json:"invoiceAmount"`
+	InvoiceCurrency   *string    `json:"invoiceCurrency"`
+	InvoiceStatus     *string    `json:"invoiceStatus"`
+	MatchStatus       string     `json:"matchStatus"`
+	Note              *string    `json:"note"`
+	Version           int64      `json:"version"`
+	PaymentReference  *string    `json:"paymentReference"`
+	PaidOn            *string    `json:"paidOn"`
+	InvoiceCreatedAt  *time.Time `json:"invoiceCreatedAt"`
+	InvoiceUpdatedAt  *time.Time `json:"invoiceUpdatedAt"`
+	PaymentOverdue    bool       `json:"paymentOverdue"`
+	CanManage         bool       `json:"canManage"`
+}
+
+type InvoiceBoard struct {
+	Items                []InvoiceBoardItem `json:"items"`
+	Total                int                `json:"total"`
+	AwaitingInvoiceCount int                `json:"awaitingInvoiceCount"`
+	NeedsReviewCount     int                `json:"needsReviewCount"`
+	ReadyToPayCount      int                `json:"readyToPayCount"`
+	OverdueCount         int                `json:"overdueCount"`
+	PaidCount            int                `json:"paidCount"`
+	CanManage            bool               `json:"canManage"`
+}
+
+type InvoiceInput struct {
+	PurchaseOrderID string
+	InvoiceNumber   string
+	IssuedOn        string
+	DueOn           string
+	Amount          string
+	Currency        string
+	Note            string
+	IdempotencyKey  string
+	CorrelationID   string
+}
+
+type UpdateInvoiceInput struct {
+	InvoiceNumber   string
+	IssuedOn        string
+	DueOn           string
+	Amount          string
+	Currency        string
+	Note            string
+	ExpectedVersion int64
+	CorrelationID   string
+}
+
+type InvoiceActionInput struct {
+	Action           string
+	ExpectedVersion  int64
+	Comment          string
+	PaymentReference string
+	PaidOn           string
+	IdempotencyKey   string
+	CorrelationID    string
+}
+
+type SLAPolicy struct {
+	ProcessName string `json:"processName"`
+	TargetHours int    `json:"targetHours"`
+	Active      bool   `json:"active"`
+	Version     int64  `json:"version"`
+}
+
+type AttachmentPolicy struct {
+	ID                   string `json:"id"`
+	Currency             string `json:"currency"`
+	ThresholdAmount      string `json:"thresholdAmount"`
+	RequiredDocumentType string `json:"requiredDocumentType"`
+	Active               bool   `json:"active"`
+	Version              int64  `json:"version"`
+}
+
+type PolicyCenter struct {
+	SLA             []SLAPolicy        `json:"slaPolicies"`
+	AttachmentRules []AttachmentPolicy `json:"attachmentRules"`
+	CanManage       bool               `json:"canManage"`
+}
+
+type UpdateSLAPolicyInput struct {
+	TargetHours     int
+	Active          bool
+	ExpectedVersion int64
+	CorrelationID   string
+}
+
+type UpdateAttachmentPolicyInput struct {
+	ThresholdAmount      string
+	RequiredDocumentType string
+	Active               bool
+	ExpectedVersion      int64
+	CorrelationID        string
 }
 
 type BudgetSummaryInput struct {
@@ -596,6 +857,238 @@ func ValidateTransition(input *TransitionInput) error {
 		return &ValidationError{Violations: violations}
 	}
 	return nil
+}
+
+func ValidateComment(input *CommentInput) error {
+	input.Body = strings.TrimSpace(input.Body)
+	var violations []FieldViolation
+	if length := len([]rune(input.Body)); length < 1 || length > 2000 {
+		violations = append(violations, FieldViolation{
+			Field: "body", Message: "must contain between 1 and 2000 characters",
+		})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func ValidateSupplierInput(input *SupplierInput) error {
+	input.Code = strings.ToUpper(strings.TrimSpace(input.Code))
+	input.Name = strings.TrimSpace(input.Name)
+	input.TaxCode = strings.TrimSpace(input.TaxCode)
+	input.ContactName = strings.TrimSpace(input.ContactName)
+	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
+	input.Phone = strings.TrimSpace(input.Phone)
+	input.Status = strings.ToUpper(strings.TrimSpace(input.Status))
+	input.RiskLevel = strings.ToUpper(strings.TrimSpace(input.RiskLevel))
+	var violations []FieldViolation
+	if !supplierCodePattern.MatchString(input.Code) {
+		violations = append(violations, FieldViolation{Field: "code", Message: "must contain 2 to 50 uppercase letters, digits, dots, underscores, or hyphens"})
+	}
+	if length := len([]rune(input.Name)); length < 2 || length > 255 {
+		violations = append(violations, FieldViolation{Field: "name", Message: "must contain between 2 and 255 characters"})
+	}
+	if len([]rune(input.TaxCode)) > 50 {
+		violations = append(violations, FieldViolation{Field: "taxCode", Message: "must contain at most 50 characters"})
+	}
+	if len([]rune(input.ContactName)) > 255 {
+		violations = append(violations, FieldViolation{Field: "contactName", Message: "must contain at most 255 characters"})
+	}
+	if input.Email != "" && (len(input.Email) > 255 || !emailPattern.MatchString(input.Email)) {
+		violations = append(violations, FieldViolation{Field: "email", Message: "must be a valid email address"})
+	}
+	if len([]rune(input.Phone)) > 50 {
+		violations = append(violations, FieldViolation{Field: "phone", Message: "must contain at most 50 characters"})
+	}
+	if input.Status != "ACTIVE" && input.Status != "INACTIVE" {
+		violations = append(violations, FieldViolation{Field: "status", Message: "must be ACTIVE or INACTIVE"})
+	}
+	if input.RiskLevel != "LOW" && input.RiskLevel != "MEDIUM" && input.RiskLevel != "HIGH" {
+		violations = append(violations, FieldViolation{Field: "riskLevel", Message: "must be LOW, MEDIUM, or HIGH"})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func ValidateUpdateSupplierInput(input *UpdateSupplierInput) error {
+	err := ValidateSupplierInput(&input.SupplierInput)
+	var violations []FieldViolation
+	if validationError := (*ValidationError)(nil); errors.As(err, &validationError) {
+		violations = append(violations, validationError.Violations...)
+	} else if err != nil {
+		return err
+	}
+	if input.ExpectedVersion < 1 {
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than or equal to 1"})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func ValidateCreatePurchaseOrder(input *CreatePurchaseOrderInput) error {
+	input.SupplierID = strings.TrimSpace(input.SupplierID)
+	input.ExternalReference = strings.TrimSpace(input.ExternalReference)
+	input.ExpectedDeliveryOn = strings.TrimSpace(input.ExpectedDeliveryOn)
+	input.Note = strings.TrimSpace(input.Note)
+	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
+	var violations []FieldViolation
+	if !uuidPatternForDomain.MatchString(input.SupplierID) {
+		violations = append(violations, FieldViolation{Field: "supplierId", Message: "must be a valid UUID"})
+	}
+	if len([]rune(input.ExternalReference)) > 100 {
+		violations = append(violations, FieldViolation{Field: "externalReference", Message: "must contain at most 100 characters"})
+	}
+	deliveryDate, err := time.Parse(time.DateOnly, input.ExpectedDeliveryOn)
+	if err != nil {
+		violations = append(violations, FieldViolation{Field: "expectedDeliveryOn", Message: "must use YYYY-MM-DD format"})
+	} else if deliveryDate.Before(time.Now().UTC().Truncate(24 * time.Hour)) {
+		violations = append(violations, FieldViolation{Field: "expectedDeliveryOn", Message: "must not be in the past"})
+	}
+	if len([]rune(input.Note)) > 2000 {
+		violations = append(violations, FieldViolation{Field: "note", Message: "must contain at most 2000 characters"})
+	}
+	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
+		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters"})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func ValidateConfirmReceipt(input *ConfirmReceiptInput) error {
+	input.ActualDeliveryOn = strings.TrimSpace(input.ActualDeliveryOn)
+	var violations []FieldViolation
+	if input.ExpectedVersion < 1 {
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than or equal to 1"})
+	}
+	deliveryDate, err := time.Parse(time.DateOnly, input.ActualDeliveryOn)
+	if err != nil {
+		violations = append(violations, FieldViolation{Field: "actualDeliveryOn", Message: "must use YYYY-MM-DD format"})
+	} else if deliveryDate.After(time.Now().UTC().Truncate(24 * time.Hour)) {
+		violations = append(violations, FieldViolation{Field: "actualDeliveryOn", Message: "must not be in the future"})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func ValidateInvoiceInput(input *InvoiceInput) error {
+	input.PurchaseOrderID = strings.TrimSpace(input.PurchaseOrderID)
+	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
+	violations := validateInvoiceFields(
+		&input.InvoiceNumber, &input.IssuedOn, &input.DueOn,
+		&input.Amount, &input.Currency, &input.Note,
+	)
+	if !uuidPatternForDomain.MatchString(input.PurchaseOrderID) {
+		violations = append(violations, FieldViolation{Field: "purchaseOrderId", Message: "must be a valid UUID"})
+	}
+	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
+		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters"})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func ValidateUpdateInvoiceInput(input *UpdateInvoiceInput) error {
+	violations := validateInvoiceFields(
+		&input.InvoiceNumber, &input.IssuedOn, &input.DueOn,
+		&input.Amount, &input.Currency, &input.Note,
+	)
+	if input.ExpectedVersion < 1 {
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than or equal to 1"})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func ValidateInvoiceActionInput(input *InvoiceActionInput) error {
+	input.Action = strings.ToUpper(strings.TrimSpace(input.Action))
+	input.Comment = strings.TrimSpace(input.Comment)
+	input.PaymentReference = strings.TrimSpace(input.PaymentReference)
+	input.PaidOn = strings.TrimSpace(input.PaidOn)
+	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
+	var violations []FieldViolation
+	if input.Action != "VERIFY" && input.Action != "DISPUTE" &&
+		input.Action != "REOPEN" && input.Action != "MARK_PAID" {
+		violations = append(violations, FieldViolation{Field: "action", Message: "must be VERIFY, DISPUTE, REOPEN, or MARK_PAID"})
+	}
+	if input.ExpectedVersion < 1 {
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than or equal to 1"})
+	}
+	if len([]rune(input.Comment)) > 2000 {
+		violations = append(violations, FieldViolation{Field: "comment", Message: "must contain at most 2000 characters"})
+	}
+	if input.Action == "DISPUTE" && input.Comment == "" {
+		violations = append(violations, FieldViolation{Field: "comment", Message: "is required when disputing an invoice"})
+	}
+	if input.Action == "MARK_PAID" {
+		if length := len([]rune(input.PaymentReference)); length < 2 || length > 100 || strings.ContainsAny(input.PaymentReference, "\r\n") {
+			violations = append(violations, FieldViolation{Field: "paymentReference", Message: "must contain between 2 and 100 characters on one line"})
+		}
+		paidDate, err := time.Parse(time.DateOnly, input.PaidOn)
+		if err != nil {
+			violations = append(violations, FieldViolation{Field: "paidOn", Message: "must use YYYY-MM-DD format"})
+		} else if paidDate.After(time.Now().UTC().Truncate(24 * time.Hour)) {
+			violations = append(violations, FieldViolation{Field: "paidOn", Message: "must not be in the future"})
+		}
+	} else if input.PaymentReference != "" || input.PaidOn != "" {
+		violations = append(violations, FieldViolation{Field: "paymentReference", Message: "is only allowed for MARK_PAID"})
+	}
+	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
+		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters"})
+	}
+	if len(violations) > 0 {
+		return &ValidationError{Violations: violations}
+	}
+	return nil
+}
+
+func validateInvoiceFields(
+	invoiceNumber, issuedOn, dueOn, amount, currency, note *string,
+) []FieldViolation {
+	*invoiceNumber = strings.ToUpper(strings.TrimSpace(*invoiceNumber))
+	*issuedOn = strings.TrimSpace(*issuedOn)
+	*dueOn = strings.TrimSpace(*dueOn)
+	*amount = strings.TrimSpace(*amount)
+	*currency = strings.ToUpper(strings.TrimSpace(*currency))
+	*note = strings.TrimSpace(*note)
+	var violations []FieldViolation
+	if !invoiceNumberPattern.MatchString(*invoiceNumber) {
+		violations = append(violations, FieldViolation{Field: "invoiceNumber", Message: "must contain 2 to 100 uppercase letters, digits, dots, slashes, underscores, or hyphens"})
+	}
+	issuedDate, issuedErr := time.Parse(time.DateOnly, *issuedOn)
+	if issuedErr != nil {
+		violations = append(violations, FieldViolation{Field: "issuedOn", Message: "must use YYYY-MM-DD format"})
+	} else if issuedDate.After(time.Now().UTC().Truncate(24 * time.Hour)) {
+		violations = append(violations, FieldViolation{Field: "issuedOn", Message: "must not be in the future"})
+	}
+	dueDate, dueErr := time.Parse(time.DateOnly, *dueOn)
+	if dueErr != nil {
+		violations = append(violations, FieldViolation{Field: "dueOn", Message: "must use YYYY-MM-DD format"})
+	} else if issuedErr == nil && dueDate.Before(issuedDate) {
+		violations = append(violations, FieldViolation{Field: "dueOn", Message: "must not be before issuedOn"})
+	}
+	if number, valid := decimal(*amount, unitPricePattern, true); !valid || number.Cmp(maxMoney) > 0 {
+		violations = append(violations, FieldViolation{Field: "amount", Message: "must be a positive decimal within the supported money range"})
+	}
+	if !currencyPattern.MatchString(*currency) {
+		violations = append(violations, FieldViolation{Field: "currency", Message: "must be a three-letter uppercase currency code"})
+	}
+	if len([]rune(*note)) > 2000 {
+		violations = append(violations, FieldViolation{Field: "note", Message: "must contain at most 2000 characters"})
+	}
+	return violations
 }
 
 func DecideTransition(

@@ -12,9 +12,14 @@
         curated views.
       </p>
     </div>
-    <a hlmBtn variant="outline" [href]="metabaseUrl" target="_blank" rel="noopener noreferrer">
-      Mở Metabase
-    </a>
+    <div class="flex flex-wrap gap-2">
+      <button hlmBtn type="button" [disabled]="loading() || !dashboard()" (click)="exportCsv()">
+        Xuất CSV
+      </button>
+      <a hlmBtn variant="outline" [href]="metabaseUrl" target="_blank" rel="noopener noreferrer">
+        Mở Metabase
+      </a>
+    </div>
   </header>
 
   <form

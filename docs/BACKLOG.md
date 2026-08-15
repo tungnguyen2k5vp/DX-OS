@@ -63,7 +63,7 @@ sidebar_position: 90
 - [x] Migration organization/users/departments.
 - [x] Migration purchase requests/items/process events và workflow status.
 - [x] Migration audit log và backfill từ process events.
-- [ ] Transactional outbox.
+- [x] Transactional outbox, worker retry/claim và thông báo in-app theo scope.
 - [x] Seed organization/department demo và tự ánh xạ user từ Keycloak subject.
 - [x] Seed budget demo theo kỳ, cost center và currency.
 - [x] API create/list/detail draft.
@@ -106,11 +106,28 @@ sidebar_position: 90
 - [x] Data quality/reconciliation smoke test.
 - [x] Metabase database user read-only.
 - [x] Angular dashboard và filter thời gian/department/cost center/currency.
+- [x] Dashboard tổng quan theo vai trò với KPI thật và lối tắt nghiệp vụ.
+- [x] Xuất CSV báo cáo vận hành và ngân sách, tương thích tiếng Việt trong Excel.
 - [x] Metabase container và application database riêng.
 - [x] Verify KPI với fixture và curated view.
 - [x] Provision collection, 8 cards và dashboard Metabase với filter ngày/tiền tệ.
 
 **Exit:** dashboard khớp operational data và có bằng chứng reconciliation.
+
+## Giai đoạn 5.5 — Vận hành doanh nghiệp thực tế
+
+- [x] Danh mục nhà cung cấp có trạng thái, mức rủi ro, version và audit.
+- [x] Phát hành đơn đặt hàng, lịch giao, cảnh báo giao trễ và phân tách người đặt/người nhận.
+- [x] Hóa đơn đầu vào và đối soát ba bên order–receipt–invoice.
+- [x] Tranh chấp, mở lại, xác minh và ghi nhận thanh toán có idempotency/optimistic locking.
+- [x] Trung tâm thông báo dùng transactional outbox và worker nền.
+- [x] Trung tâm kiểm toán tra cứu bằng chứng nghiệp vụ.
+- [x] Trung tâm chính sách cho SLA/ngưỡng chứng từ; admin ghi, auditor chỉ đọc.
+- [x] Rate limit 120 request/phút theo principal, trả `429` và `Retry-After`.
+- [ ] Lịch thanh toán nhiều đợt/partial payment và nhiều hóa đơn trên một purchase order.
+- [ ] Credit note, thuế VAT và đồng bộ sao kê ngân hàng thực tế.
+
+**Exit:** smoke test đi từ draft đến paid, kiểm tra scope của Employee/Manager/Finance/Auditor/Admin và khôi phục policy sau test.
 
 ## Giai đoạn 6 — RAG
 

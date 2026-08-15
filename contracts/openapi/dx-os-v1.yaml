@@ -16,6 +16,9 @@ tags:
   - name: Budgets
   - name: Documents
   - name: Reports
+  - name: Notifications
+  - name: Invoices
+  - name: Policies
 paths:
   /health/live:
     get:
@@ -566,6 +569,190 @@ paths:
           $ref: "#/components/responses/Problem"
         "500":
           $ref: "#/components/responses/Problem"
+  /api/v1/me/notifications:
+    get:
+      operationId: listMyNotifications
+      description: Liệt kê notification đã materialize theo principal hiện tại và trạng thái đã đọc.
+      tags: [Notifications]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: unreadOnly
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Notification theo đúng user/role/department scope.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/me/notifications/read-all:
+    post:
+      operationId: markAllMyNotificationsRead
+      description: Đánh dấu toàn bộ notification thuộc principal hiện tại là đã đọc.
+      tags: [Notifications]
+      responses:
+        "200":
+          description: Số notification vừa đánh dấu đã đọc.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                properties: { updated: { type: integer, format: int64 } }
+        "401": { $ref: "#/components/responses/Problem" }
+  /api/v1/me/notifications/{notificationId}/read:
+    post:
+      operationId: markMyNotificationRead
+      description: Đánh dấu một notification thuộc principal hiện tại là đã đọc.
+      tags: [Notifications]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Đã đánh dấu đọc hoặc trước đó đã đọc. }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/invoices:
+    get:
+      operationId: getInvoiceBoard
+      description: Trả hàng đợi hóa đơn và kết quả đối soát động cho Finance hoặc Auditor.
+      tags: [Invoices]
+      responses:
+        "200":
+          description: Hàng đợi đối soát/công nợ theo organization.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceBoard" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoice
+      description: Finance ghi một hóa đơn duy nhất cho purchase order trong organization.
+      tags: [Invoices]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateInvoice" }
+      responses:
+        "201":
+          description: Hóa đơn được ghi nhận.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceBoardItem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/invoices/{invoiceId}:
+    patch:
+      operationId: updateInvoice
+      description: Finance sửa hóa đơn chưa hoàn tất bằng optimistic locking.
+      tags: [Invoices]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateInvoice" }
+      responses:
+        "200":
+          description: Hóa đơn đã cập nhật.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceBoardItem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/invoices/{invoiceId}/transitions:
+    post:
+      operationId: transitionInvoice
+      description: Finance xác minh, tranh chấp, mở lại hoặc ghi nhận thanh toán hóa đơn.
+      tags: [Invoices]
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceTransition" }
+      responses:
+        "200":
+          description: Hóa đơn sau transition.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceBoardItem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/policies:
+    get:
+      operationId: getPolicyCenter
+      description: Trả SLA và quy tắc chứng từ; Auditor luôn nhận chế độ chỉ đọc.
+      tags: [Policies]
+      responses:
+        "200":
+          description: SLA và quy tắc chứng từ; auditor nhận canManage=false.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolicyCenter" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/policies/sla/{processName}:
+    patch:
+      operationId: updateSlaPolicy
+      description: DX Admin cập nhật SLA theo process với optimistic locking và audit.
+      tags: [Policies]
+      parameters:
+        - name: processName
+          in: path
+          required: true
+          schema: { type: string, maxLength: 80 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateSlaPolicy" }
+      responses:
+        "200":
+          description: SLA sau cập nhật.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SlaPolicy" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/policies/attachments/{ruleId}:
+    patch:
+      operationId: updateAttachmentPolicy
+      description: DX Admin cập nhật ngưỡng/loại chứng từ với optimistic locking và audit.
+      tags: [Policies]
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAttachmentPolicy" }
+      responses:
+        "200":
+          description: Quy tắc chứng từ sau cập nhật.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AttachmentPolicy" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearerAuth:
@@ -580,6 +767,16 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 255 }
+    InvoiceId:
+      name: invoiceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     PurchaseRequestId:
       name: requestId
       in: path
@@ -614,6 +811,147 @@ components:
         maximum: 100
         default: 20
   schemas:
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, eventType, resourceType, resourceId, title, body, createdAt, readAt]
+      properties:
+        id: { type: string, format: uuid }
+        eventType: { type: string }
+        resourceType: { type: string }
+        resourceId: { type: string, format: uuid }
+        title: { type: string }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+        readAt:
+          anyOf:
+            - { type: string, format: date-time }
+            - { type: "null" }
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, total, pages, unreadCount]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Notification" } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer, format: int64 }
+        pages: { type: integer }
+        unreadCount: { type: integer, format: int64 }
+    InvoiceBoardItem:
+      type: object
+      description: Dòng order/invoice; các trường invoice có thể null khi chưa ghi nhận.
+      additionalProperties: true
+      required: [purchaseOrderId, purchaseRequestId, requestCode, orderCode, orderStatus, orderAmount, orderCurrency, matchStatus, version, canManage]
+      properties:
+        purchaseOrderId: { type: string, format: uuid }
+        purchaseRequestId: { type: string, format: uuid }
+        requestCode: { type: string }
+        orderCode: { type: string }
+        orderStatus: { type: string, enum: [ORDERED, RECEIVED] }
+        orderAmount: { type: string, pattern: "^[0-9]+(\\.[0-9]{1,4})?$" }
+        orderCurrency: { type: string, pattern: "^[A-Z]{3}$" }
+        invoiceId:
+          anyOf: [{ type: string, format: uuid }, { type: "null" }]
+        invoiceNumber:
+          anyOf: [{ type: string }, { type: "null" }]
+        invoiceStatus:
+          anyOf: [{ type: string, enum: [RECORDED, VERIFIED, DISPUTED, PAID] }, { type: "null" }]
+        matchStatus: { type: string, enum: [NOT_RECORDED, WAITING_RECEIPT, CURRENCY_MISMATCH, AMOUNT_MISMATCH, MATCHED] }
+        version: { type: integer, format: int64 }
+        canManage: { type: boolean }
+    InvoiceBoard:
+      type: object
+      additionalProperties: false
+      required: [items, total, awaitingInvoiceCount, needsReviewCount, readyToPayCount, overdueCount, paidCount, canManage]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/InvoiceBoardItem" } }
+        total: { type: integer }
+        awaitingInvoiceCount: { type: integer }
+        needsReviewCount: { type: integer }
+        readyToPayCount: { type: integer }
+        overdueCount: { type: integer }
+        paidCount: { type: integer }
+        canManage: { type: boolean }
+    CreateInvoice:
+      type: object
+      additionalProperties: false
+      required: [purchaseOrderId, invoiceNumber, issuedOn, dueOn, amount, currency, note]
+      properties:
+        purchaseOrderId: { type: string, format: uuid }
+        invoiceNumber: { type: string, minLength: 2, maxLength: 100 }
+        issuedOn: { type: string, format: date }
+        dueOn: { type: string, format: date }
+        amount: { type: string }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        note: { type: string, maxLength: 2000 }
+    UpdateInvoice:
+      type: object
+      additionalProperties: false
+      required: [invoiceNumber, issuedOn, dueOn, amount, currency, note, expectedVersion]
+      properties:
+        invoiceNumber: { type: string, minLength: 2, maxLength: 100 }
+        issuedOn: { type: string, format: date }
+        dueOn: { type: string, format: date }
+        amount: { type: string }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        note: { type: string, maxLength: 2000 }
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
+    InvoiceTransition:
+      type: object
+      additionalProperties: false
+      required: [action, expectedVersion]
+      properties:
+        action: { type: string, enum: [VERIFY, DISPUTE, REOPEN, MARK_PAID] }
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
+        comment: { type: string, maxLength: 2000 }
+        paymentReference: { type: string, maxLength: 100 }
+        paidOn: { type: string, format: date }
+    SlaPolicy:
+      type: object
+      additionalProperties: false
+      required: [processName, targetHours, active, version]
+      properties:
+        processName: { type: string }
+        targetHours: { type: integer, minimum: 1, maximum: 720 }
+        active: { type: boolean }
+        version: { type: integer, format: int64, minimum: 1 }
+    AttachmentPolicy:
+      type: object
+      additionalProperties: false
+      required: [id, currency, thresholdAmount, requiredDocumentType, active, version]
+      properties:
+        id: { type: string, format: uuid }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        thresholdAmount: { type: string }
+        requiredDocumentType: { type: string, enum: [QUOTATION, SPECIFICATION, CONTRACT, OTHER] }
+        active: { type: boolean }
+        version: { type: integer, format: int64, minimum: 1 }
+    PolicyCenter:
+      type: object
+      additionalProperties: false
+      required: [slaPolicies, attachmentRules, canManage]
+      properties:
+        slaPolicies: { type: array, items: { $ref: "#/components/schemas/SlaPolicy" } }
+        attachmentRules: { type: array, items: { $ref: "#/components/schemas/AttachmentPolicy" } }
+        canManage: { type: boolean }
+    UpdateSlaPolicy:
+      type: object
+      additionalProperties: false
+      required: [targetHours, active, expectedVersion]
+      properties:
+        targetHours: { type: integer, minimum: 1, maximum: 720 }
+        active: { type: boolean }
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
+    UpdateAttachmentPolicy:
+      type: object
+      additionalProperties: false
+      required: [thresholdAmount, requiredDocumentType, active, expectedVersion]
+      properties:
+        thresholdAmount: { type: string }
+        requiredDocumentType: { type: string, enum: [QUOTATION, SPECIFICATION, CONTRACT, OTHER] }
+        active: { type: boolean }
+        expectedVersion: { type: integer, format: int64, minimum: 1 }
     Health:
       type: object
       additionalProperties: false

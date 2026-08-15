@@ -344,7 +344,7 @@ Chi tiết thao tác cho từng role nằm trong [Hướng dẫn sử dụng](do
 
 ## Tài liệu
 
-- [Website tài liệu DX-OS](https://vanvuong2005827.github.io/DX-OS/)
+- [Website tài liệu DX-OS](https://tungnguyen2k5vp.github.io/DX-OS/)
 - [Hướng dẫn sử dụng và role](docs/USER_GUIDE.md)
 - [Chỉ mục tài liệu](docs/INDEX.md)
 - [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md)

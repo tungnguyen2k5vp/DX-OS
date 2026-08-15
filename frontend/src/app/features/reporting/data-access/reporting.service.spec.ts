@@ -53,4 +53,32 @@ describe('ReportingService', () => {
     });
     http.verify();
   });
+
+  it('sends audit pagination and evidence filters', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: APP_CONFIG,
+          useValue: {
+            apiBaseUrl: 'http://api.test',
+            oidc: { url: 'http://keycloak.test', realm: 'dx-os', clientId: 'dx-web' },
+          },
+        },
+      ],
+    });
+    const service = TestBed.inject(ReportingService);
+    const http = TestBed.inject(HttpTestingController);
+    service.auditEvents({ page: 2, pageSize: 10, resourceType: 'supplier' }).subscribe();
+    const request = http.expectOne(
+      (candidate) =>
+        candidate.url === 'http://api.test/api/v1/audit/events' &&
+        candidate.params.get('page') === '2' &&
+        candidate.params.get('resourceType') === 'supplier',
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush({ items: [], page: 2, pageSize: 10, total: 0, pages: 0 });
+    http.verify();
+  });
 });

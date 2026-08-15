@@ -3,7 +3,7 @@
 Website tài liệu dùng Docusaurus 3. Nội dung được đọc trực tiếp từ thư mục ../docs để tránh tạo hai
 nguồn tài liệu khác nhau.
 
-Website production: https://vanvuong2005827.github.io/DX-OS/
+Website production: https://tungnguyen2k5vp.github.io/DX-OS/
 
 ## Chạy local
 
@@ -54,9 +54,9 @@ and deployment → Source**, chọn **GitHub Actions**. Sau đó có thể chạ
 Build production tại máy local (PowerShell):
 
 ```powershell
-$env:DOCS_SITE_URL = 'https://vanvuong2005827.github.io'
+$env:DOCS_SITE_URL = 'https://tungnguyen2k5vp.github.io'
 $env:DOCS_BASE_URL = '/DX-OS/'
-$env:DOCS_APP_URL = 'https://github.com/Vanvuong2005827/DX-OS'
+$env:DOCS_APP_URL = 'https://github.com/tungnguyen2k5vp/DX-OS'
 $env:DOCS_APP_LABEL = 'Mã nguồn'
 npm run build
 ```

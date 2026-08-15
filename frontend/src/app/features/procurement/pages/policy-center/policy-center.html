@@ -1,0 +1,187 @@
+<section aria-labelledby="policy-heading">
+  <header class="border-b border-border pb-7">
+    <p class="mb-2 text-sm font-medium text-primary">Quản trị có kiểm soát</p>
+    <h1 id="policy-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+      Chính sách vận hành
+    </h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+      Cấu hình SLA và yêu cầu chứng từ mà không cần sửa SQL. Thay đổi sử dụng phiên bản chống ghi đè
+      và được lưu vào trung tâm kiểm toán.
+    </p>
+  </header>
+
+  @if (center(); as current) {
+    <div class="mt-6 flex items-center gap-3">
+      <span hlmBadge [variant]="current.canManage ? 'secondary' : 'outline'">{{
+        current.canManage ? 'Chế độ quản trị' : 'Chỉ đọc cho kiểm toán'
+      }}</span>
+      <span class="text-sm text-muted-foreground"
+        >{{ current.slaPolicies.length }} SLA · {{ current.attachmentRules.length }} quy tắc chứng
+        từ</span
+      >
+    </div>
+  }
+  @if (success()) {
+    <p
+      class="mt-5 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-primary"
+      role="status"
+    >
+      {{ success() }}
+    </p>
+  }
+  @if (error()) {
+    <p
+      class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+      role="alert"
+    >
+      {{ error() }}
+    </p>
+  }
+
+  @if (selectedSLA(); as policy) {
+    <section hlmCard class="mt-6">
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Sửa SLA: {{ processLabel(policy.processName) }}</h2>
+        <p hlmCardDescription>Áp dụng cho các lần gửi phiếu mới sau khi lưu.</p>
+      </div>
+      <div hlmCardContent class="grid gap-4 sm:grid-cols-2">
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Thời hạn xử lý (giờ)<input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            type="number"
+            min="1"
+            max="720"
+            [value]="targetHours()"
+            (input)="targetHours.set(+$any($event.target).value)"
+        /></label>
+        <div class="flex items-end gap-2">
+          <button hlmBtn type="button" [disabled]="saving()" (click)="saveSLA()">Lưu SLA</button
+          ><button hlmBtn type="button" variant="outline" (click)="cancel()">Hủy</button>
+        </div>
+      </div>
+    </section>
+  }
+  @if (selectedAttachment(); as policy) {
+    <section hlmCard class="mt-6">
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Sửa quy tắc chứng từ {{ policy.currency }}</h2>
+        <p hlmCardDescription>Phiếu từ ngưỡng này trở lên phải có đúng loại tài liệu.</p>
+      </div>
+      <div hlmCardContent class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Ngưỡng tiền<input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            inputmode="decimal"
+            [value]="thresholdAmount()"
+            (input)="thresholdAmount.set($any($event.target).value)" /></label
+        ><label class="grid gap-1.5 text-sm font-medium"
+          >Loại tài liệu<select
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="documentType()"
+            (change)="documentType.set($any($event.target).value)"
+          >
+            <option value="QUOTATION">Báo giá</option>
+            <option value="SPECIFICATION">Đặc tả</option>
+            <option value="CONTRACT">Hợp đồng</option>
+            <option value="OTHER">Tài liệu khác</option>
+          </select></label
+        >
+        <div class="flex items-end gap-2">
+          <button hlmBtn type="button" [disabled]="saving()" (click)="saveAttachment()">
+            Lưu quy tắc</button
+          ><button hlmBtn type="button" variant="outline" (click)="cancel()">Hủy</button>
+        </div>
+      </div>
+    </section>
+  }
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <section hlmCard>
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>SLA quy trình</h2>
+        <p hlmCardDescription>Thời hạn tạo việc và đo mức quá hạn.</p>
+      </div>
+      <div hlmCardContent>
+        @if (loading()) {
+          <div class="h-24 animate-pulse rounded-lg bg-muted"></div>
+        } @else if (center(); as current) {
+          <div class="divide-y divide-border">
+            @for (policy of current.slaPolicies; track policy.processName) {
+              <article class="flex items-center justify-between gap-4 py-4">
+                <div>
+                  <p class="font-medium">{{ processLabel(policy.processName) }}</p>
+                  <p class="mt-1 text-sm text-muted-foreground">
+                    {{ policy.targetHours }} giờ · phiên bản {{ policy.version }}
+                  </p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span hlmBadge [variant]="policy.active ? 'secondary' : 'outline'">{{
+                    policy.active ? 'Đang áp dụng' : 'Tạm dừng'
+                  }}</span>
+                  @if (current.canManage) {
+                    <button
+                      hlmBtn
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      (click)="editSLA(policy)"
+                    >
+                      Sửa
+                    </button>
+                  }
+                </div>
+              </article>
+            } @empty {
+              <p class="py-8 text-center text-muted-foreground">Chưa có SLA.</p>
+            }
+          </div>
+        }
+      </div>
+    </section>
+    <section hlmCard>
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Yêu cầu chứng từ</h2>
+        <p hlmCardDescription>Ngưỡng kiểm soát theo tiền tệ.</p>
+      </div>
+      <div hlmCardContent>
+        @if (loading()) {
+          <div class="h-24 animate-pulse rounded-lg bg-muted"></div>
+        } @else if (center(); as current) {
+          <div class="divide-y divide-border">
+            @for (policy of current.attachmentRules; track policy.id) {
+              <article class="flex items-center justify-between gap-4 py-4">
+                <div>
+                  <p class="font-medium">
+                    Từ {{ policy.thresholdAmount | dxMoney: policy.currency }}
+                  </p>
+                  <p class="mt-1 text-sm text-muted-foreground">
+                    Bắt buộc: {{ documentLabel(policy.requiredDocumentType) }} · phiên bản
+                    {{ policy.version }}
+                  </p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span hlmBadge [variant]="policy.active ? 'secondary' : 'outline'">{{
+                    policy.active ? 'Đang áp dụng' : 'Tạm dừng'
+                  }}</span>
+                  @if (current.canManage) {
+                    <button
+                      hlmBtn
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      (click)="editAttachment(policy)"
+                    >
+                      Sửa
+                    </button>
+                  }
+                </div>
+              </article>
+            } @empty {
+              <p class="py-8 text-center text-muted-foreground">Chưa có quy tắc chứng từ.</p>
+            }
+          </div>
+        }
+      </div>
+    </section>
+  </div>
+</section>

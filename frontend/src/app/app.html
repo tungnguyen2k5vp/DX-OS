@@ -14,7 +14,10 @@
         </span>
       </a>
 
-      <nav class="ml-4 hidden items-center gap-1 md:flex" aria-label="Điều hướng chính">
+      <nav
+        class="ml-4 hidden min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap md:flex"
+        aria-label="Điều hướng chính"
+      >
         <a
           class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           routerLink="/dashboard"
@@ -29,6 +32,29 @@
         >
           Phiếu mua sắm
         </a>
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          routerLink="/work-center"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Việc của tôi
+        </a>
+        @if (canAccessOperations()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/operations"
+            routerLinkActive="bg-muted text-foreground"
+            >Giao nhận</a
+          >
+        }
+        @if (canAccessSuppliers()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/suppliers"
+            routerLinkActive="bg-muted text-foreground"
+            >Nhà cung cấp</a
+          >
+        }
         @if (canReview()) {
           <a
             class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -47,6 +73,32 @@
             Ngân sách
           </a>
         }
+        @if (canAccessInvoices()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/invoices"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Hóa đơn
+          </a>
+        }
+        @if (canAccessAudit()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/audit"
+            routerLinkActive="bg-muted text-foreground"
+            >Kiểm toán</a
+          >
+        }
+        @if (canAccessPolicies()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/policies"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Chính sách
+          </a>
+        }
         @if (canAccessReports()) {
           <a
             class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -59,6 +111,21 @@
       </nav>
 
       <div class="ml-auto flex items-center gap-3">
+        <a
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          routerLink="/notifications"
+          routerLinkActive="bg-muted"
+          aria-label="Mở trung tâm thông báo"
+        >
+          Thông báo
+          @if (notifications.unreadCount() > 0) {
+            <span hlmBadge class="ml-2 min-w-6 justify-center" aria-label="Số thông báo chưa đọc">
+              {{ notifications.unreadCount() > 99 ? '99+' : notifications.unreadCount() }}
+            </span>
+          }
+        </a>
         <span hlmBadge variant="secondary" class="hidden sm:inline-flex">
           {{ primaryRoleLabel() }}
         </span>
@@ -74,7 +141,7 @@
       </div>
     </div>
     <nav
-      class="mx-auto flex max-w-[1600px] gap-1 border-t border-border px-4 py-2 md:hidden"
+      class="mx-auto flex max-w-[1600px] gap-1 overflow-x-auto whitespace-nowrap border-t border-border px-4 py-2 md:hidden"
       aria-label="Điều hướng trên thiết bị di động"
     >
       <a
@@ -91,6 +158,39 @@
       >
         Phiếu mua sắm
       </a>
+      <a
+        class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+        routerLink="/work-center"
+        routerLinkActive="bg-muted text-foreground"
+      >
+        Việc của tôi
+      </a>
+      <a
+        class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+        routerLink="/notifications"
+        routerLinkActive="bg-muted text-foreground"
+      >
+        Thông báo
+        @if (notifications.unreadCount() > 0) {
+          <span class="ml-1 font-semibold text-primary">{{ notifications.unreadCount() }}</span>
+        }
+      </a>
+      @if (canAccessOperations()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/operations"
+          routerLinkActive="bg-muted text-foreground"
+          >Giao nhận</a
+        >
+      }
+      @if (canAccessSuppliers()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/suppliers"
+          routerLinkActive="bg-muted text-foreground"
+          >Nhà cung cấp</a
+        >
+      }
       @if (canReview()) {
         <a
           class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
@@ -107,6 +207,32 @@
           routerLinkActive="bg-muted text-foreground"
         >
           Ngân sách
+        </a>
+      }
+      @if (canAccessInvoices()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/invoices"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Hóa đơn
+        </a>
+      }
+      @if (canAccessAudit()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/audit"
+          routerLinkActive="bg-muted text-foreground"
+          >Kiểm toán</a
+        >
+      }
+      @if (canAccessPolicies()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/policies"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Chính sách
         </a>
       }
       @if (canAccessReports()) {

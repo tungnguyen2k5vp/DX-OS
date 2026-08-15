@@ -1,0 +1,71 @@
+<section aria-labelledby="notification-heading">
+  <header class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="mb-2 text-sm font-medium text-primary">Theo dõi thay đổi cần hành động</p>
+      <h1 id="notification-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">Thông báo</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+        Thông báo được tạo từ sự kiện nghiệp vụ đã commit, đúng phạm vi người dùng, phòng ban và vai trò.
+      </p>
+    </div>
+    <button hlmBtn type="button" variant="outline" [disabled]="saving() || (result()?.unreadCount ?? 0) === 0" (click)="markAllRead()">
+      Đánh dấu tất cả đã đọc
+    </button>
+  </header>
+
+  <div class="mt-6 flex gap-2" role="group" aria-label="Lọc thông báo">
+    <button hlmBtn type="button" [variant]="unreadOnly() ? 'outline' : 'default'" (click)="setUnreadOnly(false)">Tất cả</button>
+    <button hlmBtn type="button" [variant]="unreadOnly() ? 'default' : 'outline'" (click)="setUnreadOnly(true)">
+      Chưa đọc
+      @if (result(); as current) { <span class="ml-2 tabular-nums">{{ current.unreadCount }}</span> }
+    </button>
+  </div>
+
+  @if (error()) {
+    <p class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive" role="alert">{{ error() }}</p>
+  }
+
+  <section hlmCard class="mt-5">
+    <div hlmCardContent class="divide-y divide-border p-0">
+      @if (loading() && !result()) {
+        <div class="space-y-3 p-6" aria-live="polite">
+          @for (item of [1, 2, 3]; track item) { <div class="h-20 animate-pulse rounded-lg bg-muted"></div> }
+        </div>
+      } @else if (result(); as current) {
+        @if (current.items.length === 0) {
+          <div class="grid min-h-64 place-items-center p-8 text-center">
+            <div><p class="text-lg font-semibold">Không có thông báo</p><p class="mt-2 text-sm text-muted-foreground">Các thay đổi liên quan sẽ xuất hiện tại đây.</p></div>
+          </div>
+        } @else {
+          @for (item of current.items; track item.id) {
+            <article class="flex flex-col gap-4 p-5 sm:flex-row sm:items-start" [class.bg-primary/5]="!item.readAt">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="font-semibold">{{ item.title }}</h2>
+                  @if (!item.readAt) { <span hlmBadge>Chưa đọc</span> }
+                </div>
+                <p class="mt-2 text-sm text-muted-foreground">{{ item.body }}</p>
+                <p class="mt-2 text-xs text-muted-foreground">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+              </div>
+              <div class="flex shrink-0 gap-2">
+                @if (!item.readAt) {
+                  <button hlmBtn type="button" size="sm" variant="outline" [disabled]="saving()" (click)="markRead(item.id)">Đã đọc</button>
+                }
+                <a hlmBtn size="sm" [routerLink]="resourceLink(item.resourceType, item.resourceId)">Mở nội dung</a>
+              </div>
+            </article>
+          }
+        }
+      }
+    </div>
+  </section>
+
+  @if (result(); as current) {
+    @if (current.pages > 1) {
+      <nav class="mt-5 flex items-center justify-end gap-3" aria-label="Phân trang thông báo">
+        <button hlmBtn type="button" variant="outline" size="sm" [disabled]="current.page <= 1" (click)="goToPage(current.page - 1)">Trước</button>
+        <span class="text-sm text-muted-foreground">Trang {{ current.page }}/{{ current.pages }}</span>
+        <button hlmBtn type="button" variant="outline" size="sm" [disabled]="current.page >= current.pages" (click)="goToPage(current.page + 1)">Sau</button>
+      </nav>
+    }
+  }
+</section>

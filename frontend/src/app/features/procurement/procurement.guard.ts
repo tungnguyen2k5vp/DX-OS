@@ -27,10 +27,47 @@ export const canAccessBudgetManagementGuard: CanActivateFn = () => {
   return inject(Router).createUrlTree(['/dashboard']);
 };
 
+export const canAccessInvoicesGuard: CanActivateFn = () => {
+  const roles = inject(AuthService).roles();
+  if (roles.includes('finance') || roles.includes('auditor')) return true;
+  return inject(Router).createUrlTree(['/dashboard']);
+};
+
+export const canAccessPoliciesGuard: CanActivateFn = () => {
+  const roles = inject(AuthService).roles();
+  if (roles.includes('dx_admin') || roles.includes('auditor')) return true;
+  return inject(Router).createUrlTree(['/dashboard']);
+};
+
 export const canAccessReportsGuard: CanActivateFn = () => {
   const roles = inject(AuthService).roles();
   if (roles.includes('finance') || roles.includes('auditor') || roles.includes('dx_admin')) {
     return true;
   }
+  return inject(Router).createUrlTree(['/dashboard']);
+};
+
+export const canAccessSupplierDirectoryGuard: CanActivateFn = () => {
+  const roles = inject(AuthService).roles();
+  if (roles.includes('finance') || roles.includes('auditor')) return true;
+  return inject(Router).createUrlTree(['/dashboard']);
+};
+
+export const canAccessOperationsGuard: CanActivateFn = () => {
+  const roles = inject(AuthService).roles();
+  if (
+    roles.includes('employee') ||
+    roles.includes('department_manager') ||
+    roles.includes('finance') ||
+    roles.includes('auditor')
+  ) {
+    return true;
+  }
+  return inject(Router).createUrlTree(['/dashboard']);
+};
+
+export const canAccessAuditGuard: CanActivateFn = () => {
+  const roles = inject(AuthService).roles();
+  if (roles.includes('auditor') || roles.includes('dx_admin')) return true;
   return inject(Router).createUrlTree(['/dashboard']);
 };

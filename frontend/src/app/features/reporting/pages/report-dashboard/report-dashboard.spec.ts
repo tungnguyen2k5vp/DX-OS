@@ -55,5 +55,6 @@ describe('ReportDashboardPage', () => {
     expect(element.textContent).toContain('Báo cáo vận hành');
     expect(element.textContent).toContain('100.000.000 VND');
     expect(element.querySelector<HTMLAnchorElement>('a[href="http://metabase.test"]')).toBeTruthy();
+    expect(element.textContent).toContain('Xuất CSV');
   });
 });
