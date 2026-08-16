@@ -47,6 +47,14 @@
             >Giao nhận</a
           >
         }
+        @if (isEmployee()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/employee-guide"
+            routerLinkActive="bg-muted text-foreground"
+            >Hướng dẫn</a
+          >
+        }
         @if (canAccessSuppliers()) {
           <a
             class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -181,6 +189,14 @@
           routerLink="/operations"
           routerLinkActive="bg-muted text-foreground"
           >Giao nhận</a
+        >
+      }
+      @if (isEmployee()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/employee-guide"
+          routerLinkActive="bg-muted text-foreground"
+          >Hướng dẫn</a
         >
       }
       @if (canAccessSuppliers()) {

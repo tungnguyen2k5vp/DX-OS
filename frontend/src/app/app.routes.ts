@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { canAccessEmployeeGuideGuard } from './features/dashboard/employee-guide.guard';
 import {
   canAccessBudgetManagementGuard,
   canAccessInvoicesGuard,
@@ -32,6 +33,13 @@ export const routes: Routes = [
         (module) => module.NotificationCenter,
       ),
     title: 'Thông báo | DX-OS',
+  },
+  {
+    path: 'employee-guide',
+    canActivate: [authGuard, canAccessEmployeeGuideGuard],
+    loadComponent: () =>
+      import('./features/dashboard/pages/employee-guide').then((module) => module.EmployeeGuide),
+    title: 'Hướng dẫn nhân viên | DX-OS',
   },
   {
     path: 'approvals',

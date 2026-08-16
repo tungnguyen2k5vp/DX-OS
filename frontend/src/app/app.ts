@@ -24,6 +24,7 @@ const roleLabels: Record<string, string> = {
 export class App {
   readonly auth = inject(AuthService);
   readonly notifications = inject(NotificationService);
+  readonly isEmployee = computed(() => this.auth.roles().includes('employee'));
   readonly canReview = computed(() => {
     const roles = this.auth.roles();
     return roles.includes('department_manager') || roles.includes('finance');

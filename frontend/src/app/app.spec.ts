@@ -6,7 +6,10 @@ import { NotificationService } from './core/notifications/notification.service';
 import { App } from './app';
 
 describe('App', () => {
+  let roles: ReturnType<typeof signal<string[]>>;
+
   beforeEach(async () => {
+    roles = signal<string[]>(['employee']);
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -15,7 +18,7 @@ describe('App', () => {
           provide: AuthService,
           useValue: {
             username: signal('employee.demo').asReadonly(),
-            roles: signal(['employee']).asReadonly(),
+            roles: roles.asReadonly(),
             logout: vi.fn().mockResolvedValue(undefined),
           },
         },
@@ -37,5 +40,21 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('DX-OS');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nhân viên');
+  });
+
+  it('shows the employee guide only for the employee role', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('a[href="/employee-guide"]'),
+    ).toBeTruthy();
+
+    roles.set(['finance']);
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('a[href="/employee-guide"]'),
+    ).toBeNull();
   });
 });
