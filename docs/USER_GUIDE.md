@@ -53,8 +53,8 @@ tài khoản và gán role phù hợp. Bộ account demo nên tách riêng như 
 | manager.demo     | department_manager | Duyệt phiếu của phòng ban             |
 | finance.demo     | finance            | Duyệt cuối và quản lý ngân sách       |
 | auditor.demo     | auditor            | Đọc hồ sơ, ngân sách và báo cáo       |
-| ai.operator.demo | ai_operator        | Dành cho giai đoạn AI sau này         |
-| admin.demo       | dx_admin           | Truy cập báo cáo và cấu hình được cấp |
+| ai.operator.demo | ai_operator        | Quét và quyết định khuyến nghị rủi ro |
+| admin.demo       | dx_admin           | Quản trị người dùng, phòng ban, policy |
 
 Cách tạo tài khoản và vị trí file mật khẩu được mô tả trong [Bắt đầu với DX-OS](GETTING_STARTED.md). Sau khi role
 của một user thay đổi, user phải đăng xuất rồi đăng nhập lại để access token chứa role mới.
@@ -71,7 +71,12 @@ của một user thay đổi, user phải đăng xuất rồi đăng nhập lạ
 | Duyệt cấp tài chính      |  Không   |      Không      |           Có           |      Không       |      Không      |       Không       |
 | Dashboard ngân sách      |  Không   |      Không      |      Có, được sửa      |   Có, chỉ đọc    |      Không      |       Không       |
 | Báo cáo DX-OS            |  Không   |      Không      |     Trong tổ chức      |     Toàn bộ      |      Không      |      Toàn bộ      |
-| Tính năng AI             | Chưa có  |     Chưa có     |        Chưa có         |     Chưa có      | Chưa triển khai |      Chưa có      |
+| Nhà cung cấp             |  Không   |      Không      |      Có, được sửa      |   Có, chỉ đọc    |      Không      |       Không       |
+| Giao nhận                | Xác nhận |  Xác nhận phòng | Điều phối đơn hàng     |   Có, chỉ đọc    |      Không      |       Không       |
+| Hóa đơn/thanh toán       |  Không   |      Không      |      Có, được sửa      |   Có, chỉ đọc    |      Không      |       Không       |
+| Hồ sơ kiểm toán          |  Không   |      Không      |         Không          |   Có, được sửa   |      Không      |    Có, chỉ đọc    |
+| Quản trị hệ thống        |  Không   |      Không      |         Không          |      Không       |      Không      |        Có         |
+| Khuyến nghị rủi ro       |  Không   |      Không      |      Có, chỉ đọc       |   Có, chỉ đọc    | Có, quyết định  |   Có, quyết định  |
 
 Lưu ý quan trọng:
 
@@ -95,6 +100,12 @@ Lưu ý quan trọng:
 | /approvals                   | Hộp thư chờ duyệt                            | Manager, finance                    |
 | /budgets                     | Hạn mức, cảnh báo, reservation và điều chỉnh | Finance, auditor                    |
 | /reports                     | KPI vận hành                                 | Finance, auditor, dx_admin          |
+| /suppliers                   | Hồ sơ và tuân thủ nhà cung cấp               | Finance, auditor                    |
+| /operations                  | Đặt hàng, giao từng phần và ngoại lệ         | Employee, manager, finance, auditor |
+| /invoices                    | Nhiều hóa đơn và thanh toán từng phần        | Finance, auditor                    |
+| /audit                       | Audit log, hồ sơ khắc phục, evidence package | Auditor, dx_admin                   |
+| /admin                       | Người dùng, phòng ban, sức khỏe hệ thống     | dx_admin                            |
+| /ai-center                   | Khuyến nghị có bằng chứng và human review    | AI operator, dx_admin, finance, auditor |
 
 Menu được hiển thị theo role. Nếu nhập trực tiếp một URL không được phép, Angular sẽ chuyển hướng
 hoặc Go API trả HTTP 403.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/dx-os-lab/dx-os/backend/internal/notifications"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
@@ -31,10 +32,14 @@ func (s *Store) InvoiceBoard(ctx context.Context, principal auth.Principal) (Inv
 				WHEN pi.id IS NULL THEN 'NOT_RECORDED'
 				WHEN po.status <> 'RECEIVED' THEN 'WAITING_RECEIPT'
 				WHEN pi.currency <> pr.currency THEN 'CURRENCY_MISMATCH'
-				WHEN pi.amount <> pr.total_amount THEN 'AMOUNT_MISMATCH'
+				WHEN (SELECT sum(px.amount) FROM purchase_invoices px WHERE px.purchase_order_id = po.id) > pr.total_amount THEN 'AMOUNT_MISMATCH'
+				WHEN (SELECT sum(px.amount) FROM purchase_invoices px WHERE px.purchase_order_id = po.id) < pr.total_amount THEN 'PARTIAL_MATCH'
 				ELSE 'MATCHED'
 			END,
 			pi.note, COALESCE(pi.version, 0), pi.payment_reference, pi.paid_on::text,
+			COALESCE(pi.paid_amount, 0)::text,
+			COALESCE(pi.amount - pi.paid_amount, 0)::text,
+			COALESCE((SELECT count(*) FROM invoice_payments ip WHERE ip.invoice_id = pi.id), 0),
 			pi.created_at, pi.updated_at,
 			COALESCE(pi.status <> 'PAID' AND pi.due_on < CURRENT_DATE, false),
 			$3::boolean
@@ -120,15 +125,15 @@ func (s *Store) CreateInvoice(
 	case !errors.Is(err, pgx.ErrNoRows):
 		return InvoiceBoardItem{}, fmt.Errorf("check invoice idempotency: %w", err)
 	}
-	var organizationID, requesterID, departmentID, requestID, requestCode, requestTitle string
+	var organizationID, requesterID, departmentID, requestID, requestCode, requestTitle, orderStatus string
 	err = tx.QueryRow(ctx, `
-		SELECT po.organization_id, pr.requester_id, pr.department_id, pr.id, pr.request_code, pr.title
+		SELECT po.organization_id, pr.requester_id, pr.department_id, pr.id, pr.request_code, pr.title, po.status
 		FROM purchase_orders po
 		JOIN purchase_requests pr ON pr.id = po.purchase_request_id
 		WHERE po.id = $1
 		FOR UPDATE OF po
 	`, input.PurchaseOrderID).Scan(
-		&organizationID, &requesterID, &departmentID, &requestID, &requestCode, &requestTitle,
+		&organizationID, &requesterID, &departmentID, &requestID, &requestCode, &requestTitle, &orderStatus,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return InvoiceBoardItem{}, ErrPurchaseOrderNotFound
@@ -138,6 +143,9 @@ func (s *Store) CreateInvoice(
 	}
 	if organizationID != user.OrganizationID {
 		return InvoiceBoardItem{}, ErrPurchaseOrderNotFound
+	}
+	if orderStatus == "CANCELLED" {
+		return InvoiceBoardItem{}, ErrInvalidFulfillment
 	}
 	var invoiceID string
 	err = tx.QueryRow(ctx, `
@@ -281,12 +289,13 @@ func (s *Store) TransitionInvoice(
 	case !errors.Is(err, pgx.ErrNoRows):
 		return InvoiceBoardItem{}, fmt.Errorf("check invoice transition idempotency: %w", err)
 	}
-	var status, organizationID, orderStatus, invoiceAmount, invoiceCurrency, orderAmount, orderCurrency string
+	var status, organizationID, orderStatus, invoiceTotal, currentInvoiceAmount, invoiceCurrency, orderAmount, orderCurrency, paidAmount string
 	var requesterID, departmentID, requestID, requestCode, requestTitle string
 	var version int64
 	err = tx.QueryRow(ctx, `
 		SELECT pi.status, pi.version, pi.organization_id, po.status,
-			pi.amount::text, pi.currency, pr.total_amount::text, pr.currency,
+			(SELECT sum(px.amount)::text FROM purchase_invoices px WHERE px.purchase_order_id = po.id),
+			pi.amount::text, pi.currency, pr.total_amount::text, pr.currency, pi.paid_amount::text,
 			pr.requester_id, pr.department_id, pr.id, pr.request_code, pr.title
 		FROM purchase_invoices pi
 		JOIN purchase_orders po ON po.id = pi.purchase_order_id
@@ -295,7 +304,7 @@ func (s *Store) TransitionInvoice(
 		FOR UPDATE OF pi
 	`, invoiceID).Scan(
 		&status, &version, &organizationID, &orderStatus,
-		&invoiceAmount, &invoiceCurrency, &orderAmount, &orderCurrency,
+		&invoiceTotal, &currentInvoiceAmount, &invoiceCurrency, &orderAmount, &orderCurrency, &paidAmount,
 		&requesterID, &departmentID, &requestID, &requestCode, &requestTitle,
 	)
 	if errors.Is(err, pgx.ErrNoRows) || organizationID != user.OrganizationID {
@@ -307,14 +316,14 @@ func (s *Store) TransitionInvoice(
 	if version != input.ExpectedVersion {
 		return InvoiceBoardItem{}, ErrInvoiceVersion
 	}
-	matchStatus := invoiceMatchStatus(orderStatus, invoiceAmount, invoiceCurrency, orderAmount, orderCurrency)
+	matchStatus := invoiceMatchStatus(orderStatus, invoiceTotal, invoiceCurrency, orderAmount, orderCurrency)
 	toStatus := ""
 	switch input.Action {
 	case "VERIFY":
 		if status != "RECORDED" {
 			return InvoiceBoardItem{}, ErrInvalidInvoiceAction
 		}
-		if matchStatus != "MATCHED" {
+		if matchStatus != "MATCHED" && matchStatus != "PARTIAL_MATCH" {
 			return InvoiceBoardItem{}, ErrInvoiceMismatch
 		}
 		toStatus = "VERIFIED"
@@ -342,11 +351,24 @@ func (s *Store) TransitionInvoice(
 			paid_by = CASE WHEN $2::text = 'PAID' THEN $3::uuid ELSE paid_by END,
 			payment_reference = CASE WHEN $2::text = 'PAID' THEN $4::text ELSE payment_reference END,
 			paid_on = CASE WHEN $2::text = 'PAID' THEN $5::date ELSE paid_on END,
+			paid_amount = CASE WHEN $2::text = 'PAID' THEN amount ELSE paid_amount END,
 			version = version + 1, updated_at = now()
 		WHERE id = $1
 	`, invoiceID, toStatus, user.ID, input.PaymentReference, nullableDate(input.PaidOn))
 	if err != nil {
 		return InvoiceBoardItem{}, fmt.Errorf("update invoice transition: %w", err)
+	}
+	if toStatus == "PAID" {
+		remaining := new(big.Rat).Sub(mustRat(currentInvoiceAmount), mustRat(paidAmount)).FloatString(4)
+		_, err = tx.Exec(ctx, `
+			INSERT INTO invoice_payments (
+				invoice_id, amount, paid_on, payment_reference, note, created_by,
+				correlation_id, idempotency_key
+			) VALUES ($1, $2::numeric, $3::date, $4, NULLIF($5, ''), $6, NULLIF($7, ''), $8)
+		`, invoiceID, remaining, input.PaidOn, input.PaymentReference, input.Comment, user.ID, input.CorrelationID, input.IdempotencyKey+"-payment")
+		if err != nil {
+			return InvoiceBoardItem{}, fmt.Errorf("record final invoice payment: %w", err)
+		}
 	}
 	eventType := invoiceEventType(input.Action)
 	if err = insertInvoiceEvent(ctx, tx, invoiceID, eventType, status, toStatus,
@@ -384,9 +406,12 @@ func (s *Store) loadInvoiceItem(ctx context.Context, invoiceID string, canManage
 			pi.amount::text, pi.currency, pi.status,
 			CASE WHEN po.status <> 'RECEIVED' THEN 'WAITING_RECEIPT'
 				WHEN pi.currency <> pr.currency THEN 'CURRENCY_MISMATCH'
-				WHEN pi.amount <> pr.total_amount THEN 'AMOUNT_MISMATCH'
+				WHEN (SELECT sum(px.amount) FROM purchase_invoices px WHERE px.purchase_order_id = po.id) > pr.total_amount THEN 'AMOUNT_MISMATCH'
+				WHEN (SELECT sum(px.amount) FROM purchase_invoices px WHERE px.purchase_order_id = po.id) < pr.total_amount THEN 'PARTIAL_MATCH'
 				ELSE 'MATCHED' END,
 			pi.note, pi.version, pi.payment_reference, pi.paid_on::text,
+			pi.paid_amount::text, (pi.amount - pi.paid_amount)::text,
+			(SELECT count(*) FROM invoice_payments ip WHERE ip.invoice_id = pi.id),
 			pi.created_at, pi.updated_at,
 			(pi.status <> 'PAID' AND pi.due_on < CURRENT_DATE), $2::boolean
 		FROM purchase_invoices pi
@@ -414,7 +439,8 @@ func invoiceBoardDestinations(item *InvoiceBoardItem) []any {
 		&item.OrderCurrency, &item.ActualDeliveryOn, &item.InvoiceID, &item.InvoiceNumber,
 		&item.IssuedOn, &item.DueOn, &item.InvoiceAmount, &item.InvoiceCurrency,
 		&item.InvoiceStatus, &item.MatchStatus, &item.Note, &item.Version,
-		&item.PaymentReference, &item.PaidOn, &item.InvoiceCreatedAt, &item.InvoiceUpdatedAt,
+		&item.PaymentReference, &item.PaidOn, &item.PaidAmount, &item.RemainingAmount,
+		&item.PaymentCount, &item.InvoiceCreatedAt, &item.InvoiceUpdatedAt,
 		&item.PaymentOverdue, &item.CanManage,
 	}
 }
@@ -426,8 +452,13 @@ func invoiceMatchStatus(orderStatus, invoiceAmount, invoiceCurrency, orderAmount
 	if invoiceCurrency != orderCurrency {
 		return "CURRENCY_MISMATCH"
 	}
-	if normalizedMoney(invoiceAmount) != normalizedMoney(orderAmount) {
+	invoiceTotal := mustRat(invoiceAmount)
+	orderTotal := mustRat(orderAmount)
+	if invoiceTotal.Cmp(orderTotal) > 0 {
 		return "AMOUNT_MISMATCH"
+	}
+	if invoiceTotal.Cmp(orderTotal) < 0 {
+		return "PARTIAL_MATCH"
 	}
 	return "MATCHED"
 }

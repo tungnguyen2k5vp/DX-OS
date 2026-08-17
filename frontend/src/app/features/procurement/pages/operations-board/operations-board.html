@@ -11,11 +11,23 @@
   </header>
 
   @if (board(); as current) {
-    <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
       <section hlmCard>
         <div hlmCardHeader>
           <p hlmCardDescription>Chờ đặt hàng</p>
           <p class="text-3xl font-semibold">{{ current.awaitingOrderCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Nhận một phần</p>
+          <p class="text-3xl font-semibold">{{ current.partialCount }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Có sự cố</p>
+          <p class="text-3xl font-semibold text-destructive">{{ current.exceptionCount }}</p>
         </div>
       </section>
       <section hlmCard>
@@ -93,6 +105,210 @@
             (click)="cancelOrder()"
           >
             Hủy
+          </button>
+        </div>
+      </div>
+    </section>
+  }
+
+  @if (receiptOrder(); as order) {
+    <section hlmCard class="mt-6" aria-labelledby="receipt-form-heading">
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle id="receipt-form-heading">Biên bản giao nhận {{ order.orderCode }}</h2>
+        <p hlmCardDescription>
+          Ghi đúng số lượng thực nhận; hàng sai, hỏng hoặc bị từ chối phải có ghi chú.
+        </p>
+      </div>
+      <div hlmCardContent class="space-y-5 pt-6">
+        <div class="grid gap-4 md:grid-cols-3">
+          <label class="grid gap-1.5 text-sm font-medium">
+            Kết quả giao nhận
+            <select
+              class="h-10 rounded-md border border-input bg-background px-3"
+              [value]="receiptOutcome()"
+              (change)="changeReceiptOutcome($any($event.target).value)"
+            >
+              <option value="COMPLETE">Nhận đủ</option>
+              <option value="PARTIAL">Nhận một phần</option>
+              <option value="DAMAGED">Hàng hỏng</option>
+              <option value="WRONG_ITEM">Sai hàng</option>
+              <option value="REJECTED">Từ chối nhận</option>
+            </select>
+          </label>
+          <label class="grid gap-1.5 text-sm font-medium">
+            Ngày nhận
+            <input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              type="date"
+              [value]="receiptDate()"
+              (input)="receiptDate.set($any($event.target).value)"
+            />
+          </label>
+          <label class="grid gap-1.5 text-sm font-medium">
+            Ghi chú biên bản
+            <input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              maxlength="5000"
+              [value]="receiptNote()"
+              (input)="receiptNote.set($any($event.target).value)"
+            />
+          </label>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-border">
+          <table class="w-full min-w-[900px] text-left text-sm">
+            <thead class="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th class="px-3 py-3">Dòng hàng</th>
+                <th class="px-3 py-3">Đặt mua</th>
+                <th class="px-3 py-3">Thực nhận</th>
+                <th class="px-3 py-3">Tình trạng</th>
+                <th class="px-3 py-3">Ghi chú dòng</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              @for (item of receiptLines(); track item.id) {
+                <tr>
+                  <td class="px-3 py-3">
+                    <strong>#{{ item.lineNumber }}</strong> {{ item.description }}
+                  </td>
+                  <td class="px-3 py-3">{{ item.quantity }} {{ item.unit }}</td>
+                  <td class="px-3 py-3">
+                    <input
+                      class="h-9 w-32 rounded-md border border-input bg-background px-3"
+                      inputmode="decimal"
+                      [value]="item.quantityReceived"
+                      (input)="
+                        updateReceiptLine(item.id, 'quantityReceived', $any($event.target).value)
+                      "
+                    />
+                  </td>
+                  <td class="px-3 py-3">
+                    <select
+                      class="h-9 rounded-md border border-input bg-background px-3"
+                      [value]="item.condition"
+                      (change)="updateReceiptLine(item.id, 'condition', $any($event.target).value)"
+                    >
+                      <option value="ACCEPTED">Chấp nhận</option>
+                      <option value="DAMAGED">Hỏng</option>
+                      <option value="WRONG_ITEM">Sai hàng</option>
+                      <option value="REJECTED">Từ chối</option>
+                    </select>
+                  </td>
+                  <td class="px-3 py-3">
+                    <input
+                      class="h-9 w-full rounded-md border border-input bg-background px-3"
+                      maxlength="1000"
+                      [value]="item.note"
+                      (input)="updateReceiptLine(item.id, 'note', $any($event.target).value)"
+                    />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (receiptHistory(); as history) {
+          <p class="text-sm text-muted-foreground">
+            Đơn hàng đã có {{ history.total }} biên bản trước đó. Tổng số biên bản được lưu trong
+            audit trail.
+          </p>
+        }
+        <div class="flex flex-wrap gap-2">
+          <button
+            hlmBtn
+            type="button"
+            [disabled]="receivingId() !== null"
+            (click)="submitReceipt()"
+          >
+            {{ receivingId() ? 'Đang lưu…' : 'Lưu biên bản giao nhận' }}
+          </button>
+          <button
+            hlmBtn
+            type="button"
+            variant="outline"
+            [disabled]="receivingId() !== null"
+            (click)="closeReceipt()"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </section>
+  }
+
+  @if (managingOrder(); as order) {
+    <section hlmCard class="mt-6" aria-labelledby="manage-order-heading">
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle id="manage-order-heading">Quản lý đơn {{ order.orderCode }}</h2>
+        <p hlmCardDescription>Finance chỉ được sửa hoặc hủy trước khi có biên bản nhận/hóa đơn.</p>
+      </div>
+      <div hlmCardContent class="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+        <label class="grid gap-1.5 text-sm font-medium xl:col-span-2">
+          Nhà cung cấp
+          <select
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="manageSupplierId()"
+            (change)="manageSupplierId.set($any($event.target).value)"
+          >
+            @for (supplier of suppliers(); track supplier.id) {
+              <option [value]="supplier.id">{{ supplier.code }} — {{ supplier.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Ngày giao dự kiến
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            type="date"
+            [value]="manageExpectedDeliveryOn()"
+            (input)="manageExpectedDeliveryOn.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Mã tham chiếu
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="manageExternalReference()"
+            (input)="manageExternalReference.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium md:col-span-2"
+          >Ghi chú
+          <textarea
+            class="min-h-20 rounded-md border border-input bg-background px-3 py-2"
+            [value]="manageNote()"
+            (input)="manageNote.set($any($event.target).value)"
+          ></textarea>
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium md:col-span-2"
+          >Lý do hủy (chỉ nhập khi hủy)
+          <textarea
+            class="min-h-20 rounded-md border border-destructive/40 bg-background px-3 py-2"
+            [value]="cancellationReason()"
+            (input)="cancellationReason.set($any($event.target).value)"
+          ></textarea>
+        </label>
+        <div class="flex flex-wrap gap-2 md:col-span-2 xl:col-span-4">
+          <button hlmBtn type="button" [disabled]="saving()" (click)="saveOrderChanges()">
+            Lưu thay đổi
+          </button>
+          <button
+            hlmBtn
+            type="button"
+            variant="destructive"
+            [disabled]="saving()"
+            (click)="cancelManagedOrder()"
+          >
+            Hủy đơn hàng
+          </button>
+          <button
+            hlmBtn
+            type="button"
+            variant="outline"
+            [disabled]="saving()"
+            (click)="closeManageOrder()"
+          >
+            Đóng
           </button>
         </div>
       </div>
@@ -198,13 +414,24 @@
                           size="sm"
                           variant="outline"
                           [disabled]="receivingId() === order.purchaseRequestId"
-                          (click)="confirmReceipt(order)"
+                          (click)="openReceipt(order)"
                         >
                           {{
                             receivingId() === order.purchaseRequestId
                               ? 'Đang xác nhận…'
-                              : 'Xác nhận đã nhận'
+                              : 'Lập biên bản nhận'
                           }}
+                        </button>
+                      }
+                      @if (order.canManageOrder) {
+                        <button
+                          hlmBtn
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          (click)="openManageOrder(order)"
+                        >
+                          Sửa / hủy PO
                         </button>
                       }
                     </div>

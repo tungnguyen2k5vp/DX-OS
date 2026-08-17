@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math/big"
 	"mime"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
 	"github.com/dx-os-lab/dx-os/backend/internal/procurement"
@@ -680,6 +682,24 @@ func (a *api) writeProcurementError(w http.ResponseWriter, r *http.Request, err 
 		writeProblem(w, r, http.StatusNotFound, "policy-not-found", "Policy not found", "The operating policy does not exist in this organization.")
 	case errors.Is(err, procurement.ErrPolicyVersion):
 		writeProblem(w, r, http.StatusConflict, "policy-version-conflict", "Policy changed", "Reload the policy center before updating this policy.")
+	case errors.Is(err, procurement.ErrAuditCaseNotFound):
+		writeProblem(w, r, http.StatusNotFound, "audit-case-not-found", "Audit case not found", "The audit case does not exist or is outside the organization scope.")
+	case errors.Is(err, procurement.ErrAuditCaseVersion):
+		writeProblem(w, r, http.StatusConflict, "audit-case-version-conflict", "Audit case changed", "Reload the audit case before updating it.")
+	case errors.Is(err, procurement.ErrAdminUserNotFound):
+		writeProblem(w, r, http.StatusNotFound, "admin-user-not-found", "User not found", "The business user does not exist in this organization.")
+	case errors.Is(err, procurement.ErrAdminDepartmentNotFound):
+		writeProblem(w, r, http.StatusNotFound, "admin-department-not-found", "Department not found", "The department does not exist, is inactive, or is outside the organization.")
+	case errors.Is(err, procurement.ErrAdminVersion):
+		writeProblem(w, r, http.StatusConflict, "admin-version-conflict", "Administrative resource changed", "Reload the administration center before saving again.")
+	case errors.Is(err, procurement.ErrAdminConflict):
+		writeProblem(w, r, http.StatusConflict, "admin-resource-conflict", "Administrative change conflicts", "The change would duplicate a code, deactivate an in-use department, deactivate your own account, or create an invalid hierarchy.")
+	case errors.Is(err, procurement.ErrAIRecommendationNotFound):
+		writeProblem(w, r, http.StatusNotFound, "ai-recommendation-not-found", "Recommendation not found", "The recommendation does not exist or is outside the organization scope.")
+	case errors.Is(err, procurement.ErrAIRecommendationVersion):
+		writeProblem(w, r, http.StatusConflict, "ai-recommendation-version-conflict", "Recommendation changed", "Reload the recommendation center before deciding again.")
+	case errors.Is(err, procurement.ErrInvalidAIAction):
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-ai-recommendation-action", "Invalid recommendation action", "Only pending recommendations can be decided.")
 	default:
 		a.logger.Error(
 			"procurement request failed",
@@ -737,12 +757,18 @@ func invalidBody(detail string) error {
 }
 
 func parseListInput(r *http.Request) (procurement.ListInput, []procurement.FieldViolation) {
-	input := procurement.ListInput{Page: 1, PageSize: 20}
+	input := procurement.ListInput{Page: 1, PageSize: 20, Sort: "createdAt", Direction: "desc"}
 	var violations []procurement.FieldViolation
 	query := r.URL.Query()
+	supported := map[string]bool{
+		"page": true, "pageSize": true, "status": true, "search": true,
+		"department": true, "costCenter": true, "requester": true,
+		"from": true, "to": true, "minAmount": true, "maxAmount": true,
+		"sort": true, "direction": true,
+	}
 
 	for key, values := range query {
-		if key != "page" && key != "pageSize" && key != "status" {
+		if !supported[key] {
 			violations = append(violations, procurement.FieldViolation{Field: key, Message: "is not a supported query parameter"})
 		}
 		if len(values) != 1 {
@@ -772,6 +798,55 @@ func parseListInput(r *http.Request) (procurement.ListInput, []procurement.Field
 			violations = append(violations, procurement.FieldViolation{Field: "status", Message: "must be a supported purchase request status"})
 		} else {
 			input.Status = &status
+		}
+	}
+	input.Search = strings.TrimSpace(query.Get("search"))
+	input.Department = strings.TrimSpace(query.Get("department"))
+	input.CostCenter = strings.TrimSpace(query.Get("costCenter"))
+	input.Requester = strings.TrimSpace(query.Get("requester"))
+	for field, value := range map[string]string{
+		"search": input.Search, "department": input.Department,
+		"costCenter": input.CostCenter, "requester": input.Requester,
+	} {
+		if len([]rune(value)) > 100 {
+			violations = append(violations, procurement.FieldViolation{Field: field, Message: "must not exceed 100 characters"})
+		}
+	}
+	input.From = strings.TrimSpace(query.Get("from"))
+	input.To = strings.TrimSpace(query.Get("to"))
+	for field, value := range map[string]string{"from": input.From, "to": input.To} {
+		if value != "" {
+			if _, err := time.Parse("2006-01-02", value); err != nil {
+				violations = append(violations, procurement.FieldViolation{Field: field, Message: "must use YYYY-MM-DD format"})
+			}
+		}
+	}
+	input.MinAmount = strings.TrimSpace(query.Get("minAmount"))
+	input.MaxAmount = strings.TrimSpace(query.Get("maxAmount"))
+	for field, value := range map[string]string{"minAmount": input.MinAmount, "maxAmount": input.MaxAmount} {
+		if value != "" && !regexp.MustCompile(`^(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$`).MatchString(value) {
+			violations = append(violations, procurement.FieldViolation{Field: field, Message: "must be a non-negative monetary amount"})
+		}
+	}
+	if input.MinAmount != "" && input.MaxAmount != "" {
+		minAmount, _ := new(big.Rat).SetString(input.MinAmount)
+		maxAmount, _ := new(big.Rat).SetString(input.MaxAmount)
+		if minAmount != nil && maxAmount != nil && minAmount.Cmp(maxAmount) > 0 {
+			violations = append(violations, procurement.FieldViolation{Field: "minAmount", Message: "must not exceed maxAmount"})
+		}
+	}
+	if value := strings.TrimSpace(query.Get("sort")); value != "" {
+		if value != "createdAt" && value != "updatedAt" && value != "amount" && value != "code" {
+			violations = append(violations, procurement.FieldViolation{Field: "sort", Message: "must be createdAt, updatedAt, amount or code"})
+		} else {
+			input.Sort = value
+		}
+	}
+	if value := strings.ToLower(strings.TrimSpace(query.Get("direction"))); value != "" {
+		if value != "asc" && value != "desc" {
+			violations = append(violations, procurement.FieldViolation{Field: "direction", Message: "must be asc or desc"})
+		} else {
+			input.Direction = value
 		}
 	}
 	return input, violations

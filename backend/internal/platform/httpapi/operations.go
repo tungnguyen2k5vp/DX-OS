@@ -9,15 +9,23 @@ import (
 )
 
 type supplierBody struct {
-	Code            string `json:"code"`
-	Name            string `json:"name"`
-	TaxCode         string `json:"taxCode"`
-	ContactName     string `json:"contactName"`
-	Email           string `json:"email"`
-	Phone           string `json:"phone"`
-	Status          string `json:"status"`
-	RiskLevel       string `json:"riskLevel"`
-	ExpectedVersion int64  `json:"expectedVersion,omitempty"`
+	Code              string `json:"code"`
+	Name              string `json:"name"`
+	TaxCode           string `json:"taxCode"`
+	ContactName       string `json:"contactName"`
+	Email             string `json:"email"`
+	Phone             string `json:"phone"`
+	Status            string `json:"status"`
+	RiskLevel         string `json:"riskLevel"`
+	Address           string `json:"address"`
+	BankName          string `json:"bankName"`
+	BankAccountNumber string `json:"bankAccountNumber"`
+	ContractReference string `json:"contractReference"`
+	ContractExpiresOn string `json:"contractExpiresOn"`
+	ComplianceStatus  string `json:"complianceStatus"`
+	PerformanceScore  string `json:"performanceScore"`
+	BusinessNote      string `json:"businessNote"`
+	ExpectedVersion   int64  `json:"expectedVersion,omitempty"`
 }
 
 type createPurchaseOrderBody struct {
@@ -170,5 +178,9 @@ func supplierInput(body supplierBody) procurement.SupplierInput {
 		Code: body.Code, Name: body.Name, TaxCode: body.TaxCode,
 		ContactName: body.ContactName, Email: body.Email, Phone: body.Phone,
 		Status: body.Status, RiskLevel: body.RiskLevel,
+		Address: body.Address, BankName: body.BankName, BankAccountNumber: body.BankAccountNumber,
+		ContractReference: body.ContractReference, ContractExpiresOn: body.ContractExpiresOn,
+		ComplianceStatus: body.ComplianceStatus, PerformanceScore: body.PerformanceScore,
+		BusinessNote: body.BusinessNote,
 	}
 }

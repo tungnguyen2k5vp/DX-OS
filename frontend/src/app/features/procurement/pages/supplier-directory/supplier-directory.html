@@ -95,6 +95,78 @@
             <option value="HIGH">Cao</option>
           </select>
         </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Tuân thủ
+          <select
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="complianceStatus()"
+            (change)="complianceStatus.set($any($event.target).value)"
+          >
+            <option value="PENDING">Chờ xác minh</option>
+            <option value="VERIFIED">Đã xác minh</option>
+            <option value="EXPIRED">Hồ sơ hết hạn</option>
+            <option value="BLOCKED">Bị chặn</option>
+          </select>
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium md:col-span-2"
+          >Địa chỉ
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="address()"
+            (input)="address.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Điểm hiệu suất (0–100)
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            inputmode="decimal"
+            [value]="performanceScore()"
+            (input)="performanceScore.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Ngân hàng
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="bankName()"
+            (input)="bankName.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Số tài khoản
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="bankAccountNumber()"
+            (input)="bankAccountNumber.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Mã hợp đồng
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            [value]="contractReference()"
+            (input)="contractReference.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium"
+          >Hợp đồng hết hạn
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3"
+            type="date"
+            [value]="contractExpiresOn()"
+            (input)="contractExpiresOn.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium md:col-span-2 lg:col-span-3"
+          >Ghi chú nghiệp vụ
+          <textarea
+            class="min-h-20 rounded-md border border-input bg-background px-3 py-2"
+            maxlength="5000"
+            [value]="businessNote()"
+            (input)="businessNote.set($any($event.target).value)"
+          ></textarea>
+        </label>
         <div class="flex items-end gap-2 lg:col-span-3">
           <button hlmBtn type="button" [disabled]="saving()" (click)="save()">
             {{ saving() ? 'Đang lưu…' : 'Lưu' }}
@@ -141,6 +213,7 @@
                 <th class="px-3 py-3">Nhà cung cấp</th>
                 <th class="px-3 py-3">Liên hệ</th>
                 <th class="px-3 py-3">Rủi ro</th>
+                <th class="px-3 py-3">Tuân thủ / hợp đồng</th>
                 <th class="px-3 py-3">Trạng thái</th>
                 <th class="px-3 py-3 text-right">Thao tác</th>
               </tr>
@@ -166,6 +239,20 @@
                     }}</span>
                   </td>
                   <td class="px-3 py-4">
+                    <p class="font-medium">{{ supplier.complianceStatus }}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      {{ supplier.contractReference || 'Chưa có hợp đồng' }}
+                      @if (supplier.contractExpiresOn) {
+                        · {{ supplier.contractExpiresOn }}
+                      }
+                    </p>
+                    @if (supplier.performanceScore) {
+                      <p class="mt-1 text-xs text-muted-foreground">
+                        Điểm {{ supplier.performanceScore }}/100
+                      </p>
+                    }
+                  </td>
+                  <td class="px-3 py-4">
                     <span
                       hlmBadge
                       [variant]="supplier.status === 'ACTIVE' ? 'outline' : 'secondary'"
@@ -188,7 +275,7 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td class="px-3 py-10 text-center text-muted-foreground" colspan="5">
+                  <td class="px-3 py-10 text-center text-muted-foreground" colspan="6">
                     Chưa có nhà cung cấp. Finance hãy tạo bản ghi đầu tiên.
                   </td>
                 </tr>

@@ -8,6 +8,7 @@ import { problemMessage } from '../../data-access/problem-details';
 import {
   Supplier,
   SupplierInput,
+  SupplierComplianceStatus,
   SupplierRiskLevel,
   SupplierStatus,
 } from '../../data-access/procurement.models';
@@ -39,6 +40,14 @@ export class SupplierDirectory {
   readonly phone = signal('');
   readonly status = signal<SupplierStatus>('ACTIVE');
   readonly riskLevel = signal<SupplierRiskLevel>('LOW');
+  readonly address = signal('');
+  readonly bankName = signal('');
+  readonly bankAccountNumber = signal('');
+  readonly contractReference = signal('');
+  readonly contractExpiresOn = signal('');
+  readonly complianceStatus = signal<SupplierComplianceStatus>('PENDING');
+  readonly performanceScore = signal('');
+  readonly businessNote = signal('');
 
   constructor() {
     this.load();
@@ -59,6 +68,14 @@ export class SupplierDirectory {
     this.phone.set(supplier.phone ?? '');
     this.status.set(supplier.status);
     this.riskLevel.set(supplier.riskLevel);
+    this.address.set(supplier.address ?? '');
+    this.bankName.set(supplier.bankName ?? '');
+    this.bankAccountNumber.set(supplier.bankAccountNumber ?? '');
+    this.contractReference.set(supplier.contractReference ?? '');
+    this.contractExpiresOn.set(supplier.contractExpiresOn ?? '');
+    this.complianceStatus.set(supplier.complianceStatus);
+    this.performanceScore.set(supplier.performanceScore ?? '');
+    this.businessNote.set(supplier.businessNote ?? '');
     this.error.set(null);
     this.formOpen.set(true);
   }
@@ -83,6 +100,14 @@ export class SupplierDirectory {
       phone: this.phone(),
       status: this.status(),
       riskLevel: this.riskLevel(),
+      address: this.address(),
+      bankName: this.bankName(),
+      bankAccountNumber: this.bankAccountNumber(),
+      contractReference: this.contractReference(),
+      contractExpiresOn: this.contractExpiresOn(),
+      complianceStatus: this.complianceStatus(),
+      performanceScore: this.performanceScore(),
+      businessNote: this.businessNote(),
       expectedVersion: current?.version,
     };
     this.saving.set(true);
@@ -138,6 +163,14 @@ export class SupplierDirectory {
     this.phone.set('');
     this.status.set('ACTIVE');
     this.riskLevel.set('LOW');
+    this.address.set('');
+    this.bankName.set('');
+    this.bankAccountNumber.set('');
+    this.contractReference.set('');
+    this.contractExpiresOn.set('');
+    this.complianceStatus.set('PENDING');
+    this.performanceScore.set('');
+    this.businessNote.set('');
     this.error.set(null);
   }
 }

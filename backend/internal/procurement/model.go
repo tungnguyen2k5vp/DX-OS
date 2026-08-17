@@ -33,33 +33,42 @@ const (
 )
 
 var (
-	ErrForbidden             = errors.New("purchase request access is forbidden")
-	ErrNotFound              = errors.New("purchase request not found")
-	ErrVersionConflict       = errors.New("purchase request version conflict")
-	ErrInvalidTransition     = errors.New("purchase request transition is invalid")
-	ErrIdempotencyConflict   = errors.New("idempotency key has already been used")
-	ErrBudgetNotFound        = errors.New("budget allocation not found")
-	ErrBudgetNotConfigured   = errors.New("budget is not configured")
-	ErrInsufficientBudget    = errors.New("available budget is insufficient")
-	ErrBudgetReservation     = errors.New("budget reservation is missing")
-	ErrBudgetBelowUsage      = errors.New("budget allocation cannot be below reserved and committed amounts")
-	ErrBudgetVersionConflict = errors.New("budget allocation version conflict")
-	ErrAttachmentNotFound    = errors.New("purchase request attachment not found")
-	ErrAttachmentRequired    = errors.New("a required purchase request attachment is missing")
-	ErrDocumentStore         = errors.New("document store operation failed")
-	ErrSupplierNotFound      = errors.New("supplier not found")
-	ErrSupplierConflict      = errors.New("supplier code or tax code already exists")
-	ErrSupplierVersion       = errors.New("supplier version conflict")
-	ErrPurchaseOrderNotFound = errors.New("purchase order not found")
-	ErrPurchaseOrderConflict = errors.New("purchase order already exists or idempotency key conflicts")
-	ErrInvalidFulfillment    = errors.New("purchase order operation is invalid")
-	ErrInvoiceNotFound       = errors.New("purchase invoice not found")
-	ErrInvoiceConflict       = errors.New("purchase invoice already exists or conflicts")
-	ErrInvoiceVersion        = errors.New("purchase invoice version conflict")
-	ErrInvalidInvoiceAction  = errors.New("purchase invoice action is invalid")
-	ErrInvoiceMismatch       = errors.New("purchase invoice does not match the order and receipt")
-	ErrPolicyNotFound        = errors.New("operating policy not found")
-	ErrPolicyVersion         = errors.New("operating policy version conflict")
+	ErrForbidden                = errors.New("purchase request access is forbidden")
+	ErrNotFound                 = errors.New("purchase request not found")
+	ErrVersionConflict          = errors.New("purchase request version conflict")
+	ErrInvalidTransition        = errors.New("purchase request transition is invalid")
+	ErrIdempotencyConflict      = errors.New("idempotency key has already been used")
+	ErrBudgetNotFound           = errors.New("budget allocation not found")
+	ErrBudgetNotConfigured      = errors.New("budget is not configured")
+	ErrInsufficientBudget       = errors.New("available budget is insufficient")
+	ErrBudgetReservation        = errors.New("budget reservation is missing")
+	ErrBudgetBelowUsage         = errors.New("budget allocation cannot be below reserved and committed amounts")
+	ErrBudgetVersionConflict    = errors.New("budget allocation version conflict")
+	ErrAttachmentNotFound       = errors.New("purchase request attachment not found")
+	ErrAttachmentRequired       = errors.New("a required purchase request attachment is missing")
+	ErrDocumentStore            = errors.New("document store operation failed")
+	ErrSupplierNotFound         = errors.New("supplier not found")
+	ErrSupplierConflict         = errors.New("supplier code or tax code already exists")
+	ErrSupplierVersion          = errors.New("supplier version conflict")
+	ErrPurchaseOrderNotFound    = errors.New("purchase order not found")
+	ErrPurchaseOrderConflict    = errors.New("purchase order already exists or idempotency key conflicts")
+	ErrInvalidFulfillment       = errors.New("purchase order operation is invalid")
+	ErrInvoiceNotFound          = errors.New("purchase invoice not found")
+	ErrInvoiceConflict          = errors.New("purchase invoice already exists or conflicts")
+	ErrInvoiceVersion           = errors.New("purchase invoice version conflict")
+	ErrInvalidInvoiceAction     = errors.New("purchase invoice action is invalid")
+	ErrInvoiceMismatch          = errors.New("purchase invoice does not match the order and receipt")
+	ErrPolicyNotFound           = errors.New("operating policy not found")
+	ErrPolicyVersion            = errors.New("operating policy version conflict")
+	ErrAuditCaseNotFound        = errors.New("audit case not found")
+	ErrAuditCaseVersion         = errors.New("audit case version conflict")
+	ErrAIRecommendationNotFound = errors.New("AI recommendation not found")
+	ErrAIRecommendationVersion  = errors.New("AI recommendation version conflict")
+	ErrInvalidAIAction          = errors.New("AI recommendation action is invalid")
+	ErrAdminUserNotFound        = errors.New("admin user not found")
+	ErrAdminDepartmentNotFound  = errors.New("admin department not found")
+	ErrAdminVersion             = errors.New("admin resource version conflict")
+	ErrAdminConflict            = errors.New("admin resource conflict")
 
 	quantityPattern      = regexp.MustCompile(`^(0|[1-9][0-9]{0,10})(\.[0-9]{1,4})?$`)
 	unitPricePattern     = regexp.MustCompile(`^(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$`)
@@ -181,9 +190,19 @@ type PurchaseRequest struct {
 }
 
 type ListInput struct {
-	Page     int
-	PageSize int
-	Status   *Status
+	Page       int
+	PageSize   int
+	Status     *Status
+	Search     string
+	Department string
+	CostCenter string
+	Requester  string
+	From       string
+	To         string
+	MinAmount  string
+	MaxAmount  string
+	Sort       string
+	Direction  string
 }
 
 type ListResult struct {
@@ -262,29 +281,45 @@ type WorkSummary struct {
 }
 
 type Supplier struct {
-	ID          string    `json:"id"`
-	Code        string    `json:"code"`
-	Name        string    `json:"name"`
-	TaxCode     string    `json:"taxCode,omitempty"`
-	ContactName string    `json:"contactName,omitempty"`
-	Email       string    `json:"email,omitempty"`
-	Phone       string    `json:"phone,omitempty"`
-	Status      string    `json:"status"`
-	RiskLevel   string    `json:"riskLevel"`
-	Version     int64     `json:"version"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID                string    `json:"id"`
+	Code              string    `json:"code"`
+	Name              string    `json:"name"`
+	TaxCode           string    `json:"taxCode,omitempty"`
+	ContactName       string    `json:"contactName,omitempty"`
+	Email             string    `json:"email,omitempty"`
+	Phone             string    `json:"phone,omitempty"`
+	Address           string    `json:"address,omitempty"`
+	BankName          string    `json:"bankName,omitempty"`
+	BankAccountNumber string    `json:"bankAccountNumber,omitempty"`
+	ContractReference string    `json:"contractReference,omitempty"`
+	ContractExpiresOn string    `json:"contractExpiresOn,omitempty"`
+	ComplianceStatus  string    `json:"complianceStatus"`
+	PerformanceScore  string    `json:"performanceScore,omitempty"`
+	BusinessNote      string    `json:"businessNote,omitempty"`
+	Status            string    `json:"status"`
+	RiskLevel         string    `json:"riskLevel"`
+	Version           int64     `json:"version"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
 type SupplierInput struct {
-	Code        string
-	Name        string
-	TaxCode     string
-	ContactName string
-	Email       string
-	Phone       string
-	Status      string
-	RiskLevel   string
+	Code              string
+	Name              string
+	TaxCode           string
+	ContactName       string
+	Email             string
+	Phone             string
+	Address           string
+	BankName          string
+	BankAccountNumber string
+	ContractReference string
+	ContractExpiresOn string
+	ComplianceStatus  string
+	PerformanceScore  string
+	BusinessNote      string
+	Status            string
+	RiskLevel         string
 }
 
 type UpdateSupplierInput struct {
@@ -319,9 +354,13 @@ type PurchaseOrder struct {
 	Version            int64      `json:"version"`
 	OrderedAt          *time.Time `json:"orderedAt"`
 	ReceivedAt         *time.Time `json:"receivedAt"`
+	CancelledAt        *time.Time `json:"cancelledAt"`
+	CancellationReason *string    `json:"cancellationReason"`
+	ReceiptCount       int        `json:"receiptCount"`
 	DeliveryOverdue    bool       `json:"deliveryOverdue"`
 	CanPlaceOrder      bool       `json:"canPlaceOrder"`
 	CanConfirmReceipt  bool       `json:"canConfirmReceipt"`
+	CanManageOrder     bool       `json:"canManageOrder"`
 }
 
 type OperationsBoard struct {
@@ -331,6 +370,9 @@ type OperationsBoard struct {
 	InDeliveryCount      int             `json:"inDeliveryCount"`
 	OverdueDeliveryCount int             `json:"overdueDeliveryCount"`
 	ReceivedCount        int             `json:"receivedCount"`
+	PartialCount         int             `json:"partialCount"`
+	ExceptionCount       int             `json:"exceptionCount"`
+	CancelledCount       int             `json:"cancelledCount"`
 }
 
 type CreatePurchaseOrderInput struct {
@@ -376,6 +418,9 @@ type InvoiceBoardItem struct {
 	Version           int64      `json:"version"`
 	PaymentReference  *string    `json:"paymentReference"`
 	PaidOn            *string    `json:"paidOn"`
+	PaidAmount        string     `json:"paidAmount"`
+	RemainingAmount   string     `json:"remainingAmount"`
+	PaymentCount      int        `json:"paymentCount"`
 	InvoiceCreatedAt  *time.Time `json:"invoiceCreatedAt"`
 	InvoiceUpdatedAt  *time.Time `json:"invoiceUpdatedAt"`
 	PaymentOverdue    bool       `json:"paymentOverdue"`
@@ -882,6 +927,17 @@ func ValidateSupplierInput(input *SupplierInput) error {
 	input.Phone = strings.TrimSpace(input.Phone)
 	input.Status = strings.ToUpper(strings.TrimSpace(input.Status))
 	input.RiskLevel = strings.ToUpper(strings.TrimSpace(input.RiskLevel))
+	input.Address = strings.TrimSpace(input.Address)
+	input.BankName = strings.TrimSpace(input.BankName)
+	input.BankAccountNumber = strings.TrimSpace(input.BankAccountNumber)
+	input.ContractReference = strings.TrimSpace(input.ContractReference)
+	input.ContractExpiresOn = strings.TrimSpace(input.ContractExpiresOn)
+	input.ComplianceStatus = strings.ToUpper(strings.TrimSpace(input.ComplianceStatus))
+	input.PerformanceScore = strings.TrimSpace(input.PerformanceScore)
+	input.BusinessNote = strings.TrimSpace(input.BusinessNote)
+	if input.ComplianceStatus == "" {
+		input.ComplianceStatus = "PENDING"
+	}
 	var violations []FieldViolation
 	if !supplierCodePattern.MatchString(input.Code) {
 		violations = append(violations, FieldViolation{Field: "code", Message: "must contain 2 to 50 uppercase letters, digits, dots, underscores, or hyphens"})
@@ -906,6 +962,23 @@ func ValidateSupplierInput(input *SupplierInput) error {
 	}
 	if input.RiskLevel != "LOW" && input.RiskLevel != "MEDIUM" && input.RiskLevel != "HIGH" {
 		violations = append(violations, FieldViolation{Field: "riskLevel", Message: "must be LOW, MEDIUM, or HIGH"})
+	}
+	if len([]rune(input.Address)) > 1000 || len([]rune(input.BankName)) > 255 || len([]rune(input.BankAccountNumber)) > 100 || len([]rune(input.ContractReference)) > 100 || len([]rune(input.BusinessNote)) > 5000 {
+		violations = append(violations, FieldViolation{Field: "supplierProfile", Message: "contains a value longer than the supported limit"})
+	}
+	if input.ContractExpiresOn != "" {
+		if _, err := time.Parse(time.DateOnly, input.ContractExpiresOn); err != nil {
+			violations = append(violations, FieldViolation{Field: "contractExpiresOn", Message: "must use YYYY-MM-DD format"})
+		}
+	}
+	if input.ComplianceStatus != "PENDING" && input.ComplianceStatus != "VERIFIED" && input.ComplianceStatus != "EXPIRED" && input.ComplianceStatus != "BLOCKED" {
+		violations = append(violations, FieldViolation{Field: "complianceStatus", Message: "must be PENDING, VERIFIED, EXPIRED or BLOCKED"})
+	}
+	if input.PerformanceScore != "" {
+		score, ok := new(big.Rat).SetString(input.PerformanceScore)
+		if !ok || score.Sign() < 0 || score.Cmp(big.NewRat(100, 1)) > 0 {
+			violations = append(violations, FieldViolation{Field: "performanceScore", Message: "must be between 0 and 100"})
+		}
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}

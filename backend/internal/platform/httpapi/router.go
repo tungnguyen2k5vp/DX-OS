@@ -67,12 +67,33 @@ type notificationService interface {
 	MarkAllRead(context.Context, auth.Principal) (int64, error)
 }
 
+type enterpriseService interface {
+	RecordReceipt(context.Context, auth.Principal, string, procurement.RecordReceiptInput) (procurement.PurchaseOrder, error)
+	ListReceipts(context.Context, auth.Principal, string) (procurement.ReceiptHistory, error)
+	UpdatePurchaseOrder(context.Context, auth.Principal, string, procurement.UpdatePurchaseOrderInput) (procurement.PurchaseOrder, error)
+	CancelPurchaseOrder(context.Context, auth.Principal, string, procurement.CancelPurchaseOrderInput) (procurement.PurchaseOrder, error)
+	RecordInvoicePayment(context.Context, auth.Principal, string, procurement.RecordPaymentInput) (procurement.InvoiceBoardItem, error)
+	ListInvoicePayments(context.Context, auth.Principal, string) (procurement.InvoicePaymentList, error)
+	ListAuditCases(context.Context, auth.Principal) (procurement.AuditCaseList, error)
+	CreateAuditCase(context.Context, auth.Principal, procurement.AuditCaseInput) (procurement.AuditCase, error)
+	UpdateAuditCase(context.Context, auth.Principal, string, procurement.AuditCaseInput) (procurement.AuditCase, error)
+	EvidencePackage(context.Context, auth.Principal, string) (procurement.EvidencePackage, error)
+	AdminCenter(context.Context, auth.Principal) (procurement.AdminCenter, error)
+	UpdateAdminUser(context.Context, auth.Principal, string, procurement.UpdateAdminUserInput) (procurement.AdminUser, error)
+	CreateDepartment(context.Context, auth.Principal, procurement.SaveDepartmentInput) (procurement.AdminDepartment, error)
+	UpdateDepartment(context.Context, auth.Principal, string, procurement.SaveDepartmentInput) (procurement.AdminDepartment, error)
+	ListAIRecommendations(context.Context, auth.Principal) (procurement.AIRecommendationList, error)
+	GenerateAIRecommendations(context.Context, auth.Principal) (procurement.AIRecommendationList, error)
+	DecideAIRecommendation(context.Context, auth.Principal, string, procurement.DecideAIRecommendationInput) (procurement.AIRecommendation, error)
+}
+
 type Dependencies struct {
 	AllowedOrigin string
 	Database      *pgxpool.Pool
 	Logger        *slog.Logger
 	Notifications notificationService
 	Procurement   purchaseRequestService
+	Enterprise    enterpriseService
 	Reporting     reportingService
 	TokenVerifier tokenVerifier
 	RateLimit     int
@@ -85,6 +106,7 @@ type api struct {
 	logger        *slog.Logger
 	notifications notificationService
 	procurement   purchaseRequestService
+	enterprise    enterpriseService
 	reporting     reportingService
 	tokenVerifier tokenVerifier
 	rateLimiter   *principalRateLimiter
@@ -105,6 +127,7 @@ func New(deps Dependencies) http.Handler {
 		logger:        deps.Logger,
 		notifications: deps.Notifications,
 		procurement:   deps.Procurement,
+		enterprise:    deps.Enterprise,
 		reporting:     deps.Reporting,
 		tokenVerifier: deps.TokenVerifier,
 		rateLimiter:   newPrincipalRateLimiter(rateLimit, rateWindow),
@@ -150,14 +173,31 @@ func New(deps Dependencies) http.Handler {
 		r.Get("/procurement-operations", server.getOperationsBoard)
 		r.Post("/procurement-operations/orders", server.createPurchaseOrder)
 		r.Post("/procurement-operations/orders/{requestID}/receipt", server.confirmPurchaseOrderReceipt)
+		r.Get("/procurement-operations/orders/{requestID}/receipts", server.listPurchaseOrderReceipts)
+		r.Post("/procurement-operations/orders/{requestID}/receipts", server.recordPurchaseOrderReceipt)
+		r.Patch("/procurement-operations/orders/{requestID}", server.updatePurchaseOrder)
+		r.Post("/procurement-operations/orders/{requestID}/transitions", server.transitionPurchaseOrder)
 		r.Get("/invoices", server.getInvoiceBoard)
 		r.Post("/invoices", server.createInvoice)
 		r.Patch("/invoices/{invoiceID}", server.updateInvoice)
 		r.Post("/invoices/{invoiceID}/transitions", server.transitionInvoice)
+		r.Get("/invoices/{invoiceID}/payments", server.listInvoicePayments)
+		r.Post("/invoices/{invoiceID}/payments", server.recordInvoicePayment)
 		r.Get("/admin/policies", server.getPolicyCenter)
 		r.Patch("/admin/policies/sla/{processName}", server.updateSLAPolicy)
 		r.Patch("/admin/policies/attachments/{ruleID}", server.updateAttachmentPolicy)
+		r.Get("/admin/center", server.getAdminCenter)
+		r.Patch("/admin/users/{userID}", server.updateAdminUser)
+		r.Post("/admin/departments", server.createAdminDepartment)
+		r.Patch("/admin/departments/{departmentID}", server.updateAdminDepartment)
+		r.Get("/ai/recommendations", server.listAIRecommendations)
+		r.Post("/ai/recommendations/generate", server.generateAIRecommendations)
+		r.Post("/ai/recommendations/{recommendationID}/decisions", server.decideAIRecommendation)
 		r.Get("/audit/events", server.getAuditEvents)
+		r.Get("/audit/cases", server.listAuditCases)
+		r.Post("/audit/cases", server.createAuditCase)
+		r.Patch("/audit/cases/{caseID}", server.updateAuditCase)
+		r.Get("/audit/evidence/{requestID}", server.downloadEvidencePackage)
 	})
 
 	return router

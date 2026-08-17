@@ -184,20 +184,15 @@ Không cho client tự chọn path tùy ý hoặc ghi trực tiếp vào folder 
 Query hỗ trợ `from`, `to`, `departmentId` theo scope. Metabase đọc curated schema bằng account
 read-only; Angular có thể embed/link dashboard sau khi auth model được chốt.
 
-## 8. AI/RAG API
+## 8. API khuyến nghị có kiểm soát
 
 | Method | Endpoint | Ý nghĩa |
 |---|---|---|
-| `POST` | `/ai/queries` | tạo câu hỏi RAG |
-| `GET` | `/ai/queries/{id}` | kết quả/citation |
-| `POST` | `/purchase-requests/{id}/agent-runs` | phân tích hồ sơ |
-| `GET` | `/agent-recommendations` | danh sách recommendation |
-| `GET` | `/agent-recommendations/{id}` | chi tiết |
-| `POST` | `/agent-recommendations/{id}/decisions` | approve/reject |
-| `POST` | `/agent-recommendations/{id}/executions` | execute đã được duyệt |
+| `GET` | `/api/v1/ai/recommendations` | danh sách recommendation và bằng chứng |
+| `POST` | `/api/v1/ai/recommendations/generate` | quét luật SLA, giá trị lớn, rủi ro supplier |
+| `POST` | `/api/v1/ai/recommendations/{id}/decisions` | approve/reject/dismiss với lý do |
 
-Decision và execution là hai resource riêng. Execute phải kiểm approval chưa hết hạn, input hash và
-business precondition.
+Phiên bản hiện tại là decision support có thể giải thích, không tự execute. Mọi decision dùng optimistic locking và audit log.
 
 ## 9. Health endpoints
 
@@ -234,15 +229,30 @@ Health response không lộ DSN, secret hoặc stack trace.
 | `GET` | `/api/v1/procurement-operations` | employee/manager theo scope; finance; auditor read-only |
 | `POST` | `/api/v1/procurement-operations/orders` | finance |
 | `POST` | `/api/v1/procurement-operations/orders/{requestId}/receipt` | requester hoặc manager cùng phòng; không phải finance |
+| `GET/POST` | `/api/v1/procurement-operations/orders/{requestId}/receipts` | đọc lịch sử / ghi nhận từng phần và ngoại lệ |
+| `PATCH` | `/api/v1/procurement-operations/orders/{requestId}` | finance sửa order trước khi nhận hàng |
+| `POST` | `/api/v1/procurement-operations/orders/{requestId}/transitions` | finance hủy order đủ điều kiện |
 | `GET` | `/api/v1/invoices` | finance; auditor read-only |
 | `POST` | `/api/v1/invoices` | finance + `Idempotency-Key` |
 | `PATCH` | `/api/v1/invoices/{invoiceId}` | finance + `expectedVersion` |
 | `POST` | `/api/v1/invoices/{invoiceId}/transitions` | finance + `Idempotency-Key` + `expectedVersion` |
+| `GET/POST` | `/api/v1/invoices/{invoiceId}/payments` | lịch sử / thanh toán từng phần |
 | `GET` | `/api/v1/me/notifications` | principal hiện tại |
 | `POST` | `/api/v1/me/notifications/{id}/read` | principal sở hữu notification |
 | `POST` | `/api/v1/me/notifications/read-all` | principal hiện tại |
 
-Invoice action: `VERIFY`, `DISPUTE`, `REOPEN`, `MARK_PAID`. `VERIFY` trả `409 invoice-mismatch` nếu order chưa nhận, sai currency hoặc sai amount.
+Invoice action: `VERIFY`, `DISPUTE`, `REOPEN`, `MARK_PAID`. `VERIFY` chấp nhận tổng hóa đơn khớp toàn bộ hoặc hóa đơn hợp lệ từng phần; hệ thống chặn tổng hóa đơn vượt order và thanh toán vượt số dư.
+
+### Kiểm toán và quản trị
+
+| Method | Endpoint | Quyền |
+|---|---|---|
+| `GET/POST` | `/api/v1/audit/cases` | auditor đọc/tạo; dx_admin đọc |
+| `PATCH` | `/api/v1/audit/cases/{caseId}` | auditor |
+| `GET` | `/api/v1/audit/evidence/{requestId}` | auditor |
+| `GET` | `/api/v1/admin/center` | dx_admin |
+| `PATCH` | `/api/v1/admin/users/{userId}` | dx_admin |
+| `POST/PATCH` | `/api/v1/admin/departments[/{id}]` | dx_admin |
 
 ### Chính sách vận hành
 

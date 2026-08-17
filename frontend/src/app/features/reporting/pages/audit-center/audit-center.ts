@@ -5,7 +5,14 @@ import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { problemMessage } from '../../../procurement/data-access/problem-details';
-import { AuditCenter as AuditCenterModel } from '../../data-access/reporting.models';
+import {
+  AuditCase,
+  AuditCaseList,
+  AuditCaseSeverity,
+  AuditCaseStatus,
+  AuditCenter as AuditCenterModel,
+  SaveAuditCase,
+} from '../../data-access/reporting.models';
 import { ReportingService } from '../../data-access/reporting.service';
 
 @Component({
@@ -28,9 +35,120 @@ export class AuditCenter {
   readonly to = signal('');
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly cases = signal<AuditCaseList | null>(null);
+  readonly caseBusy = signal(false);
+  readonly caseTitle = signal('');
+  readonly caseDescription = signal('');
+  readonly caseSeverity = signal<AuditCaseSeverity>('MEDIUM');
+  readonly caseDueOn = signal('');
+  readonly caseResourceId = signal('');
+  readonly evidenceRequestId = signal('');
+  readonly resolutionDrafts = signal<Record<string, string>>({});
 
   constructor() {
     this.load();
+    this.loadCases();
+  }
+
+  createCase(): void {
+    const title = this.caseTitle().trim();
+    const description = this.caseDescription().trim();
+    if (title.length < 3 || description.length < 10) {
+      this.error.set('Tiêu đề cần ít nhất 3 ký tự và mô tả cần ít nhất 10 ký tự.');
+      return;
+    }
+    this.caseBusy.set(true);
+    this.reporting
+      .createAuditCase({
+        title,
+        description,
+        severity: this.caseSeverity(),
+        status: 'OPEN',
+        resourceType: this.caseResourceId().trim() ? 'purchase_request' : '',
+        resourceId: this.caseResourceId().trim(),
+        ownerUserId: '',
+        dueOn: this.caseDueOn(),
+        resolution: '',
+        expectedVersion: 0,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.caseTitle.set('');
+          this.caseDescription.set('');
+          this.caseResourceId.set('');
+          this.caseDueOn.set('');
+          this.caseBusy.set(false);
+          this.loadCases();
+        },
+        error: (error: unknown) => {
+          this.error.set(problemMessage(error, 'Không tạo được hồ sơ kiểm toán.'));
+          this.caseBusy.set(false);
+        },
+      });
+  }
+
+  updateResolution(caseId: string, value: string): void {
+    this.resolutionDrafts.update((current) => ({ ...current, [caseId]: value }));
+  }
+
+  advanceCase(item: AuditCase): void {
+    const target: Record<AuditCaseStatus, AuditCaseStatus | null> = {
+      OPEN: 'IN_REMEDIATION',
+      IN_REMEDIATION: 'RESOLVED',
+      RESOLVED: 'CLOSED',
+      CLOSED: null,
+    };
+    const status = target[item.status];
+    if (!status) return;
+    const resolution = this.resolutionDrafts()[item.id]?.trim() || item.resolution || '';
+    if ((status === 'RESOLVED' || status === 'CLOSED') && resolution.length < 5) {
+      this.error.set('Nhập kết quả khắc phục ít nhất 5 ký tự trước khi giải quyết hồ sơ.');
+      return;
+    }
+    this.caseBusy.set(true);
+    this.reporting
+      .updateAuditCase(item.id, this.casePayload(item, status, resolution))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.caseBusy.set(false);
+          this.loadCases();
+        },
+        error: (error: unknown) => {
+          this.error.set(problemMessage(error, 'Không cập nhật được hồ sơ kiểm toán.'));
+          this.caseBusy.set(false);
+        },
+      });
+  }
+
+  downloadEvidence(): void {
+    const requestId = this.evidenceRequestId().trim();
+    if (!requestId) return;
+    this.reporting
+      .evidencePackage(requestId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = `dx-os-evidence-${requestId}.json`;
+          anchor.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (error: unknown) =>
+          this.error.set(problemMessage(error, 'Không xuất được gói bằng chứng.')),
+      });
+  }
+
+  caseActionLabel(status: AuditCaseStatus): string {
+    return {
+      OPEN: 'Bắt đầu khắc phục',
+      IN_REMEDIATION: 'Đánh dấu đã giải quyết',
+      RESOLVED: 'Đóng hồ sơ',
+      CLOSED: 'Đã đóng',
+    }[status];
   }
 
   applyFilters(): void {
@@ -90,5 +208,31 @@ export class AuditCenter {
           this.loading.set(false);
         },
       });
+  }
+
+  private loadCases(): void {
+    this.reporting
+      .auditCases()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => this.cases.set(result),
+        error: (error: unknown) =>
+          this.error.set(problemMessage(error, 'Không tải được hồ sơ kiểm toán.')),
+      });
+  }
+
+  private casePayload(item: AuditCase, status: AuditCaseStatus, resolution: string): SaveAuditCase {
+    return {
+      title: item.title,
+      description: item.description,
+      severity: item.severity,
+      status,
+      resourceType: item.resourceType || '',
+      resourceId: item.resourceId || '',
+      ownerUserId: item.ownerUserId || '',
+      dueOn: item.dueOn || '',
+      resolution,
+      expectedVersion: item.version,
+    };
   }
 }

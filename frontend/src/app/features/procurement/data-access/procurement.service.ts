@@ -37,12 +37,27 @@ import {
   AttachmentPolicy,
   UpdateSLAPolicy,
   UpdateAttachmentPolicy,
+  ReceiptHistory,
+  RecordReceipt,
+  UpdatePurchaseOrder,
+  RecordInvoicePayment,
+  InvoicePaymentList,
 } from './procurement.models';
 
 export interface ListPurchaseRequestsQuery {
   page?: number;
   pageSize?: number;
   status?: PurchaseRequestStatus;
+  search?: string;
+  department?: string;
+  costCenter?: string;
+  requester?: string;
+  from?: string;
+  to?: string;
+  minAmount?: string;
+  maxAmount?: string;
+  sort?: 'createdAt' | 'updatedAt' | 'amount' | 'code';
+  direction?: 'asc' | 'desc';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -57,6 +72,20 @@ export class ProcurementService {
       .set('pageSize', query.pageSize ?? 20);
     if (query.status) {
       params = params.set('status', query.status);
+    }
+    for (const [key, value] of Object.entries({
+      search: query.search,
+      department: query.department,
+      costCenter: query.costCenter,
+      requester: query.requester,
+      from: query.from,
+      to: query.to,
+      minAmount: query.minAmount,
+      maxAmount: query.maxAmount,
+      sort: query.sort,
+      direction: query.direction,
+    })) {
+      if (value) params = params.set(key, value);
     }
     return this.http.get<PurchaseRequestPage>(this.collectionUrl, { params });
   }
@@ -144,6 +173,44 @@ export class ProcurementService {
     );
   }
 
+  receipts(requestId: string): Observable<ReceiptHistory> {
+    return this.http.get<ReceiptHistory>(
+      `${this.config.apiBaseUrl}/api/v1/procurement-operations/orders/${encodeURIComponent(requestId)}/receipts`,
+    );
+  }
+
+  recordReceipt(
+    requestId: string,
+    input: RecordReceipt,
+    idempotencyKey: string,
+  ): Observable<PurchaseOrder> {
+    return this.http.post<PurchaseOrder>(
+      `${this.config.apiBaseUrl}/api/v1/procurement-operations/orders/${encodeURIComponent(requestId)}/receipts`,
+      input,
+      { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
+    );
+  }
+
+  updatePurchaseOrder(requestId: string, input: UpdatePurchaseOrder): Observable<PurchaseOrder> {
+    return this.http.patch<PurchaseOrder>(
+      `${this.config.apiBaseUrl}/api/v1/procurement-operations/orders/${encodeURIComponent(requestId)}`,
+      input,
+    );
+  }
+
+  cancelPurchaseOrder(
+    requestId: string,
+    expectedVersion: number,
+    reason: string,
+    idempotencyKey: string,
+  ): Observable<PurchaseOrder> {
+    return this.http.post<PurchaseOrder>(
+      `${this.config.apiBaseUrl}/api/v1/procurement-operations/orders/${encodeURIComponent(requestId)}/transitions`,
+      { action: 'CANCEL', expectedVersion, reason },
+      { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
+    );
+  }
+
   invoiceBoard(): Observable<InvoiceBoard> {
     return this.http.get<InvoiceBoard>(`${this.config.apiBaseUrl}/api/v1/invoices`);
   }
@@ -168,6 +235,24 @@ export class ProcurementService {
   ): Observable<InvoiceBoardItem> {
     return this.http.post<InvoiceBoardItem>(
       `${this.config.apiBaseUrl}/api/v1/invoices/${encodeURIComponent(invoiceId)}/transitions`,
+      input,
+      { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
+    );
+  }
+
+  invoicePayments(invoiceId: string): Observable<InvoicePaymentList> {
+    return this.http.get<InvoicePaymentList>(
+      `${this.config.apiBaseUrl}/api/v1/invoices/${encodeURIComponent(invoiceId)}/payments`,
+    );
+  }
+
+  recordInvoicePayment(
+    invoiceId: string,
+    input: RecordInvoicePayment,
+    idempotencyKey: string,
+  ): Observable<InvoiceBoardItem> {
+    return this.http.post<InvoiceBoardItem>(
+      `${this.config.apiBaseUrl}/api/v1/invoices/${encodeURIComponent(invoiceId)}/payments`,
       input,
       { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
     );

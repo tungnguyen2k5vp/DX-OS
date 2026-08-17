@@ -112,3 +112,45 @@ export interface AuditQuery {
   from?: string;
   to?: string;
 }
+
+export type AuditCaseSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type AuditCaseStatus = 'OPEN' | 'IN_REMEDIATION' | 'RESOLVED' | 'CLOSED';
+
+export interface AuditCase {
+  id: string;
+  caseCode: string;
+  title: string;
+  description: string;
+  severity: AuditCaseSeverity;
+  status: AuditCaseStatus;
+  resourceType?: string;
+  resourceId?: string;
+  ownerUserId?: string;
+  ownerName?: string;
+  dueOn?: string;
+  resolution?: string;
+  createdBy: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditCaseList {
+  items: AuditCase[];
+  total: number;
+  canManage: boolean;
+  canExport: boolean;
+}
+
+export interface SaveAuditCase {
+  title: string;
+  description: string;
+  severity: AuditCaseSeverity;
+  status: AuditCaseStatus;
+  resourceType: string;
+  resourceId: string;
+  ownerUserId: string;
+  dueOn: string;
+  resolution: string;
+  expectedVersion: number;
+}

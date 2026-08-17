@@ -174,6 +174,14 @@ describe('ProcurementService', () => {
       contactName: '',
       email: '',
       phone: '',
+      address: '',
+      bankName: '',
+      bankAccountNumber: '',
+      contractReference: '',
+      contractExpiresOn: '',
+      complianceStatus: 'PENDING' as const,
+      performanceScore: '',
+      businessNote: '',
       status: 'ACTIVE' as const,
       riskLevel: 'LOW' as const,
     };
@@ -207,6 +215,43 @@ describe('ProcurementService', () => {
       actualDeliveryOn: '2026-08-14',
     });
     receiptRequest.flush({ status: 'RECEIVED' });
+  });
+
+  it('records line-level receipts and partial invoice payments idempotently', () => {
+    const receipt = {
+      expectedVersion: 2,
+      outcome: 'PARTIAL' as const,
+      receivedOn: '2026-08-17',
+      note: 'Received first shipment.',
+      items: [
+        {
+          purchaseRequestItemId: 'item-id',
+          quantityReceived: '2',
+          condition: 'ACCEPTED' as const,
+          note: '',
+        },
+      ],
+    };
+    service.recordReceipt('request-id', receipt, 'receipt-partial-0001').subscribe();
+    const receiptRequest = http.expectOne(
+      'http://api.test/api/v1/procurement-operations/orders/request-id/receipts',
+    );
+    expect(receiptRequest.request.body).toEqual(receipt);
+    expect(receiptRequest.request.headers.get('Idempotency-Key')).toBe('receipt-partial-0001');
+    receiptRequest.flush({ status: 'PARTIALLY_RECEIVED' });
+
+    const payment = {
+      expectedVersion: 3,
+      amount: '5000000',
+      paidOn: '2026-08-17',
+      paymentReference: 'BANK-0001',
+      note: 'First installment.',
+    };
+    service.recordInvoicePayment('invoice-id', payment, 'payment-partial-0001').subscribe();
+    const paymentRequest = http.expectOne('http://api.test/api/v1/invoices/invoice-id/payments');
+    expect(paymentRequest.request.body).toEqual(payment);
+    expect(paymentRequest.request.headers.get('Idempotency-Key')).toBe('payment-partial-0001');
+    paymentRequest.flush({ invoiceStatus: 'VERIFIED', paidAmount: '5000000' });
   });
 
   it('gets the budget check for a purchase request', () => {

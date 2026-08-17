@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: DX-OS API
-  version: 0.8.0
-  description: Contract cho Go API, Procurement, Budget, Attachment và Reporting của DX-OS.
+  version: 0.9.0
+  description: Contract cho API mua sắm, giao nhận, công nợ, kiểm toán, quản trị và khuyến nghị của DX-OS.
   contact:
     name: DX-OS Engineering
     url: https://docs.dx-os.local
@@ -19,6 +19,11 @@ tags:
   - name: Notifications
   - name: Invoices
   - name: Policies
+  - name: Suppliers
+  - name: Fulfillment
+  - name: Audit
+  - name: Administration
+  - name: AI
 paths:
   /health/live:
     get:
@@ -753,6 +758,181 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/suppliers:
+    get:
+      operationId: listSuppliers
+      tags: [Suppliers]
+      responses:
+        "200": { description: Supplier directory and compliance profiles., content: { application/json: { schema: { $ref: "#/components/schemas/SupplierList" } } } }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createSupplier
+      tags: [Suppliers]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SupplierInput" } } } }
+      responses:
+        "201": { description: Supplier created., content: { application/json: { schema: { $ref: "#/components/schemas/Supplier" } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/suppliers/{supplierId}:
+    patch:
+      operationId: updateSupplier
+      tags: [Suppliers]
+      parameters: [{ name: supplierId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SupplierInput" } } } }
+      responses:
+        "200": { description: Supplier updated., content: { application/json: { schema: { $ref: "#/components/schemas/Supplier" } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/procurement-operations:
+    get:
+      operationId: getProcurementOperations
+      tags: [Fulfillment]
+      responses:
+        "200": { description: Order and delivery board., content: { application/json: { schema: { $ref: "#/components/schemas/OperationsBoard" } } } }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/procurement-operations/orders:
+    post:
+      operationId: createPurchaseOrder
+      tags: [Fulfillment]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreatePurchaseOrder" } } } }
+      responses:
+        "201": { description: Purchase order issued., content: { application/json: { schema: { $ref: "#/components/schemas/PurchaseOrder" } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/procurement-operations/orders/{requestId}:
+    patch:
+      operationId: updatePurchaseOrder
+      tags: [Fulfillment]
+      parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UpdatePurchaseOrder" } } } }
+      responses:
+        "200": { description: Purchase order updated., content: { application/json: { schema: { $ref: "#/components/schemas/PurchaseOrder" } } } }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/procurement-operations/orders/{requestId}/receipts:
+    get:
+      operationId: listPurchaseOrderReceipts
+      tags: [Fulfillment]
+      parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }]
+      responses:
+        "200": { description: Receipt history., content: { application/json: { schema: { $ref: "#/components/schemas/ReceiptHistory" } } } }
+    post:
+      operationId: recordPurchaseOrderReceipt
+      tags: [Fulfillment]
+      parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RecordReceipt" } } } }
+      responses:
+        "201": { description: Receipt recorded., content: { application/json: { schema: { $ref: "#/components/schemas/PurchaseOrder" } } } }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/procurement-operations/orders/{requestId}/transitions:
+    post:
+      operationId: transitionPurchaseOrder
+      tags: [Fulfillment]
+      parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action, expectedVersion, reason], properties: { action: { const: CANCEL }, expectedVersion: { type: integer, minimum: 1 }, reason: { type: string, minLength: 10 } } } } } }
+      responses:
+        "200": { description: Purchase order cancelled. }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/invoices/{invoiceId}/payments:
+    get:
+      operationId: listInvoicePayments
+      tags: [Invoices]
+      parameters: [{ $ref: "#/components/parameters/InvoiceId" }]
+      responses:
+        "200": { description: Payment history., content: { application/json: { schema: { $ref: "#/components/schemas/InvoicePaymentList" } } } }
+    post:
+      operationId: recordInvoicePayment
+      tags: [Invoices]
+      parameters: [{ $ref: "#/components/parameters/InvoiceId" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RecordInvoicePayment" } } } }
+      responses:
+        "201": { description: Partial or final payment recorded. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/audit/cases:
+    get:
+      operationId: listAuditCases
+      tags: [Audit]
+      responses:
+        "200": { description: Audit remediation cases., content: { application/json: { schema: { $ref: "#/components/schemas/AuditCaseList" } } } }
+    post:
+      operationId: createAuditCase
+      tags: [Audit]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveAuditCase" } } } }
+      responses:
+        "201": { description: Audit case created. }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/audit/cases/{caseId}:
+    patch:
+      operationId: updateAuditCase
+      tags: [Audit]
+      parameters: [{ name: caseId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveAuditCase" } } } }
+      responses:
+        "200": { description: Audit case updated. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/audit/evidence/{requestId}:
+    get:
+      operationId: downloadAuditEvidence
+      tags: [Audit]
+      parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }]
+      responses:
+        "200": { description: Complete JSON evidence package., content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/center:
+    get:
+      operationId: getAdministrationCenter
+      tags: [Administration]
+      responses:
+        "200": { description: "Operational health, users and departments.", content: { application/json: { schema: { $ref: "#/components/schemas/AdminCenter" } } } }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/users/{userId}:
+    patch:
+      operationId: updateBusinessUser
+      tags: [Administration]
+      parameters: [{ name: userId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UpdateAdminUser" } } } }
+      responses:
+        "200": { description: Business user profile updated. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/departments:
+    post:
+      operationId: createDepartment
+      tags: [Administration]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveDepartment" } } } }
+      responses:
+        "201": { description: Department created. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/departments/{departmentId}:
+    patch:
+      operationId: updateDepartment
+      tags: [Administration]
+      parameters: [{ name: departmentId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveDepartment" } } } }
+      responses:
+        "200": { description: Department updated. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/ai/recommendations:
+    get:
+      operationId: listAIRecommendations
+      tags: [AI]
+      description: Explainable recommendations that never mutate business data automatically.
+      responses:
+        "200": { description: Recommendations and methodology., content: { application/json: { schema: { $ref: "#/components/schemas/AIRecommendationList" } } } }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/ai/recommendations/generate:
+    post:
+      operationId: generateAIRecommendations
+      tags: [AI]
+      responses:
+        "200": { description: Recommendation list after scanning current data. }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/ai/recommendations/{recommendationId}/decisions:
+    post:
+      operationId: decideAIRecommendation
+      tags: [AI]
+      parameters: [{ name: recommendationId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AIDecision" } } } }
+      responses:
+        "200": { description: Human decision recorded and audited. }
+        "409": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearerAuth:
@@ -848,7 +1028,7 @@ components:
         purchaseRequestId: { type: string, format: uuid }
         requestCode: { type: string }
         orderCode: { type: string }
-        orderStatus: { type: string, enum: [ORDERED, RECEIVED] }
+        orderStatus: { type: string, enum: [ORDERED, PARTIALLY_RECEIVED, RECEIPT_EXCEPTION, RECEIVED, CANCELLED] }
         orderAmount: { type: string, pattern: "^[0-9]+(\\.[0-9]{1,4})?$" }
         orderCurrency: { type: string, pattern: "^[A-Z]{3}$" }
         invoiceId:
@@ -857,7 +1037,10 @@ components:
           anyOf: [{ type: string }, { type: "null" }]
         invoiceStatus:
           anyOf: [{ type: string, enum: [RECORDED, VERIFIED, DISPUTED, PAID] }, { type: "null" }]
-        matchStatus: { type: string, enum: [NOT_RECORDED, WAITING_RECEIPT, CURRENCY_MISMATCH, AMOUNT_MISMATCH, MATCHED] }
+        matchStatus: { type: string, enum: [NOT_RECORDED, WAITING_RECEIPT, CURRENCY_MISMATCH, AMOUNT_MISMATCH, PARTIAL_MATCH, MATCHED] }
+        paidAmount: { type: string }
+        remainingAmount: { type: string }
+        paymentCount: { type: integer, minimum: 0 }
         version: { type: integer, format: int64 }
         canManage: { type: boolean }
     InvoiceBoard:
@@ -1809,6 +1992,203 @@ components:
         generatedAt:
           type: string
           format: date-time
+    SupplierInput:
+      type: object
+      additionalProperties: false
+      required: [code, name, taxCode, contactName, email, phone, address, bankName, bankAccountNumber, contractReference, contractExpiresOn, complianceStatus, performanceScore, businessNote, status, riskLevel]
+      properties:
+        code: { type: string, minLength: 2, maxLength: 50 }
+        name: { type: string, minLength: 2, maxLength: 255 }
+        taxCode: { type: string }
+        contactName: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        address: { type: string }
+        bankName: { type: string }
+        bankAccountNumber: { type: string }
+        contractReference: { type: string }
+        contractExpiresOn: { type: string }
+        complianceStatus: { type: string, enum: [PENDING, VERIFIED, EXPIRED, BLOCKED] }
+        performanceScore: { type: string }
+        businessNote: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        riskLevel: { type: string, enum: [LOW, MEDIUM, HIGH] }
+        expectedVersion: { type: integer, minimum: 1 }
+    Supplier:
+      allOf:
+        - $ref: "#/components/schemas/SupplierInput"
+        - type: object
+          required: [id, version]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer, minimum: 1 }
+    SupplierList:
+      type: object
+      required: [items, total, canManage]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Supplier" } }
+        total: { type: integer, minimum: 0 }
+        canManage: { type: boolean }
+    PurchaseOrder:
+      type: object
+      additionalProperties: true
+      required: [id, purchaseRequestId, status, version]
+      properties:
+        id: { type: string, format: uuid }
+        purchaseRequestId: { type: string, format: uuid }
+        status: { type: string, enum: [ORDERED, PARTIALLY_RECEIVED, RECEIPT_EXCEPTION, RECEIVED, CANCELLED] }
+        receiptCount: { type: integer, minimum: 0 }
+        version: { type: integer, minimum: 1 }
+    OperationsBoard:
+      type: object
+      additionalProperties: true
+      required: [items, total, awaitingOrderCount, inDeliveryCount, receivedCount]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/PurchaseOrder" } }
+        total: { type: integer }
+        awaitingOrderCount: { type: integer }
+        inDeliveryCount: { type: integer }
+        receivedCount: { type: integer }
+        partialCount: { type: integer }
+        exceptionCount: { type: integer }
+        cancelledCount: { type: integer }
+    CreatePurchaseOrder:
+      type: object
+      required: [purchaseRequestId, supplierId, externalReference, expectedDeliveryOn, note]
+      properties:
+        purchaseRequestId: { type: string, format: uuid }
+        supplierId: { type: string, format: uuid }
+        externalReference: { type: string }
+        expectedDeliveryOn: { type: string, format: date }
+        note: { type: string }
+    UpdatePurchaseOrder:
+      type: object
+      required: [supplierId, externalReference, expectedDeliveryOn, note, expectedVersion]
+      properties:
+        supplierId: { type: string, format: uuid }
+        externalReference: { type: string }
+        expectedDeliveryOn: { type: string, format: date }
+        note: { type: string }
+        expectedVersion: { type: integer, minimum: 1 }
+    RecordReceipt:
+      type: object
+      required: [expectedVersion, outcome, receivedOn, note, items]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        outcome: { type: string, enum: [PARTIAL, COMPLETE, DAMAGED, WRONG_ITEM, REJECTED] }
+        receivedOn: { type: string, format: date }
+        note: { type: string, minLength: 5 }
+        items:
+          type: array
+          items:
+            type: object
+            required: [purchaseRequestItemId, quantityReceived, condition, note]
+            properties:
+              purchaseRequestItemId: { type: string, format: uuid }
+              quantityReceived: { type: string }
+              condition: { type: string, enum: [ACCEPTED, DAMAGED, WRONG_ITEM, REJECTED] }
+              note: { type: string }
+    ReceiptHistory:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        total: { type: integer }
+    RecordInvoicePayment:
+      type: object
+      required: [expectedVersion, amount, paidOn, paymentReference, note]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        amount: { type: string }
+        paidOn: { type: string, format: date }
+        paymentReference: { type: string, minLength: 2 }
+        note: { type: string }
+    InvoicePaymentList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        total: { type: integer }
+    AuditCase:
+      type: object
+      additionalProperties: true
+      required: [id, caseCode, title, description, severity, status, version]
+      properties:
+        id: { type: string, format: uuid }
+        caseCode: { type: string }
+        title: { type: string }
+        description: { type: string }
+        severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        status: { type: string, enum: [OPEN, IN_REMEDIATION, RESOLVED, CLOSED] }
+        version: { type: integer, minimum: 1 }
+    AuditCaseList:
+      type: object
+      required: [items, total, canManage, canExport]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AuditCase" } }
+        total: { type: integer }
+        canManage: { type: boolean }
+        canExport: { type: boolean }
+    SaveAuditCase:
+      type: object
+      required: [title, description, severity, resourceType, resourceId, ownerUserId, dueOn, status, resolution, expectedVersion]
+      properties:
+        title: { type: string, minLength: 3 }
+        description: { type: string, minLength: 10 }
+        severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        resourceType: { type: string }
+        resourceId: { type: string }
+        ownerUserId: { type: string }
+        dueOn: { type: string }
+        status: { type: string, enum: [OPEN, IN_REMEDIATION, RESOLVED, CLOSED] }
+        resolution: { type: string }
+        expectedVersion: { type: integer, minimum: 0 }
+    AdminCenter:
+      type: object
+      additionalProperties: true
+      required: [overview, users, departments, roleNotice]
+      properties:
+        overview: { type: object, additionalProperties: true }
+        users: { type: array, items: { type: object, additionalProperties: true } }
+        departments: { type: array, items: { type: object, additionalProperties: true } }
+        roleNotice: { type: string }
+    UpdateAdminUser:
+      type: object
+      required: [displayName, email, departmentId, active, expectedVersion]
+      properties:
+        displayName: { type: string, minLength: 2 }
+        email: { type: string }
+        departmentId: { type: string, format: uuid }
+        active: { type: boolean }
+        expectedVersion: { type: integer, minimum: 1 }
+    SaveDepartment:
+      type: object
+      required: [code, name, costCenter, parentId, active, expectedVersion]
+      properties:
+        code: { type: string, minLength: 2, maxLength: 50 }
+        name: { type: string, minLength: 2, maxLength: 255 }
+        costCenter: { type: string }
+        parentId: { type: string }
+        active: { type: boolean }
+        expectedVersion: { type: integer, minimum: 0 }
+    AIRecommendationList:
+      type: object
+      additionalProperties: true
+      required: [items, total, pending, highRisk, canOperate, methodology]
+      properties:
+        items: { type: array, items: { type: object, additionalProperties: true } }
+        total: { type: integer }
+        pending: { type: integer }
+        highRisk: { type: integer }
+        canOperate: { type: boolean }
+        methodology: { type: string }
+    AIDecision:
+      type: object
+      required: [status, comment, expectedVersion]
+      properties:
+        status: { type: string, enum: [APPROVED, REJECTED, DISMISSED] }
+        comment: { type: string, minLength: 5, maxLength: 2000 }
+        expectedVersion: { type: integer, minimum: 1 }
     FieldViolation:
       type: object
       additionalProperties: false

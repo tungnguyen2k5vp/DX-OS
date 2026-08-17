@@ -378,8 +378,8 @@ func TestValidateCreatePurchaseOrder(t *testing.T) {
 func TestValidateInvoiceInputs(t *testing.T) {
 	create := InvoiceInput{
 		PurchaseOrderID: "00000000-0000-4000-8000-000000000802",
-		InvoiceNumber: " inv-2026/001 ", IssuedOn: time.Now().UTC().Format(time.DateOnly),
-		DueOn: time.Now().UTC().AddDate(0, 1, 0).Format(time.DateOnly),
+		InvoiceNumber:   " inv-2026/001 ", IssuedOn: time.Now().UTC().Format(time.DateOnly),
+		DueOn:  time.Now().UTC().AddDate(0, 1, 0).Format(time.DateOnly),
 		Amount: "27000000", Currency: "vnd", IdempotencyKey: "invoice-create-0001",
 	}
 	if err := ValidateInvoiceInput(&create); err != nil {
@@ -409,7 +409,8 @@ func TestInvoiceMatchStatus(t *testing.T) {
 	}{
 		{"waiting receipt", "ORDERED", "100.0000", "VND", "100.0000", "VND", "WAITING_RECEIPT"},
 		{"currency mismatch", "RECEIVED", "100.0000", "USD", "100.0000", "VND", "CURRENCY_MISMATCH"},
-		{"amount mismatch", "RECEIVED", "99.0000", "VND", "100.0000", "VND", "AMOUNT_MISMATCH"},
+		{"partial invoice", "RECEIVED", "99.0000", "VND", "100.0000", "VND", "PARTIAL_MATCH"},
+		{"amount exceeds order", "RECEIVED", "101.0000", "VND", "100.0000", "VND", "AMOUNT_MISMATCH"},
 		{"matched decimal representations", "RECEIVED", "100", "VND", "100.0000", "VND", "MATCHED"},
 	}
 	for _, test := range cases {
@@ -419,5 +420,54 @@ func TestInvoiceMatchStatus(t *testing.T) {
 				t.Fatalf("expected %s, got %s", test.expected, actual)
 			}
 		})
+	}
+}
+
+func TestValidateEnterpriseCompletionInputs(t *testing.T) {
+	receipt := RecordReceiptInput{
+		ExpectedVersion: 2,
+		Outcome:         "partial",
+		ReceivedOn:      time.Now().UTC().Format(time.DateOnly),
+		Note:            "First shipment received.",
+		IdempotencyKey:  "receipt-partial-0001",
+		Items: []ReceiptItemInput{{
+			PurchaseRequestItemID: "00000000-0000-4000-8000-000000000811",
+			QuantityReceived:      "2.0000",
+			Condition:             "accepted",
+		}},
+	}
+	if err := ValidateRecordReceipt(&receipt); err != nil {
+		t.Fatalf("valid receipt rejected: %v", err)
+	}
+	if receipt.Outcome != "PARTIAL" || receipt.Items[0].Condition != "ACCEPTED" {
+		t.Fatalf("receipt was not normalized: %#v", receipt)
+	}
+
+	payment := RecordPaymentInput{
+		ExpectedVersion:  3,
+		Amount:           "5000000",
+		PaidOn:           time.Now().UTC().Format(time.DateOnly),
+		PaymentReference: " bank-0001 ",
+		Note:             "First installment.",
+		IdempotencyKey:   "payment-partial-0001",
+	}
+	if err := ValidateRecordPayment(&payment); err != nil {
+		t.Fatalf("valid payment rejected: %v", err)
+	}
+	if payment.PaymentReference != "bank-0001" {
+		t.Fatalf("payment reference was not normalized: %#v", payment)
+	}
+
+	auditCase := AuditCaseInput{
+		Title:       "Delivery control",
+		Description: "Review the damaged delivery exception.",
+		Severity:    "high",
+		Status:      "open",
+	}
+	if err := validateAuditCase(&auditCase, false); err != nil {
+		t.Fatalf("valid audit case rejected: %v", err)
+	}
+	if auditCase.Severity != "HIGH" || auditCase.Status != "OPEN" {
+		t.Fatalf("audit case was not normalized: %#v", auditCase)
 	}
 }

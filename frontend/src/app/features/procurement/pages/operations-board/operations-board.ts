@@ -12,6 +12,11 @@ import {
   FulfillmentStatus,
   OperationsBoard as OperationsBoardModel,
   PurchaseOrder,
+  PurchaseRequestItem,
+  ReceiptCondition,
+  ReceiptHistory,
+  ReceiptOutcome,
+  RecordReceiptItem,
   Supplier,
 } from '../../data-access/procurement.models';
 import { ProcurementService } from '../../data-access/procurement.service';
@@ -40,6 +45,22 @@ export class OperationsBoard {
   readonly note = signal('');
   readonly saving = signal(false);
   readonly receivingId = signal<string | null>(null);
+  readonly receiptOrder = signal<PurchaseOrder | null>(null);
+  readonly receiptHistory = signal<ReceiptHistory | null>(null);
+  readonly receiptOutcome = signal<ReceiptOutcome>('COMPLETE');
+  readonly receiptDate = signal(new Date().toISOString().slice(0, 10));
+  readonly receiptNote = signal('Đã kiểm tra hàng hóa và chứng từ giao nhận.');
+  readonly receiptLines = signal<
+    Array<
+      PurchaseRequestItem & { quantityReceived: string; condition: ReceiptCondition; note: string }
+    >
+  >([]);
+  readonly managingOrder = signal<PurchaseOrder | null>(null);
+  readonly manageSupplierId = signal('');
+  readonly manageExternalReference = signal('');
+  readonly manageExpectedDeliveryOn = signal('');
+  readonly manageNote = signal('');
+  readonly cancellationReason = signal('');
 
   constructor() {
     this.load();
@@ -67,6 +88,159 @@ export class OperationsBoard {
 
   cancelOrder(): void {
     this.selected.set(null);
+  }
+
+  async openReceipt(order: PurchaseOrder): Promise<void> {
+    this.receivingId.set(order.purchaseRequestId);
+    this.error.set(null);
+    try {
+      const [request, history] = await Promise.all([
+        firstValueFrom(this.procurement.get(order.purchaseRequestId)),
+        firstValueFrom(this.procurement.receipts(order.purchaseRequestId)),
+      ]);
+      this.receiptOrder.set(order);
+      this.receiptHistory.set(history);
+      this.receiptOutcome.set('COMPLETE');
+      this.receiptDate.set(new Date().toISOString().slice(0, 10));
+      this.receiptNote.set('Đã kiểm tra hàng hóa và chứng từ giao nhận.');
+      this.receiptLines.set(
+        (request.items ?? []).map((item) => ({
+          ...item,
+          quantityReceived: item.quantity,
+          condition: 'ACCEPTED' as ReceiptCondition,
+          note: '',
+        })),
+      );
+    } catch (error: unknown) {
+      this.error.set(problemMessage(error, 'Không tải được thông tin để lập biên bản nhận hàng.'));
+    } finally {
+      this.receivingId.set(null);
+    }
+  }
+
+  closeReceipt(): void {
+    this.receiptOrder.set(null);
+    this.receiptHistory.set(null);
+  }
+
+  changeReceiptOutcome(value: string): void {
+    const outcome = value as ReceiptOutcome;
+    this.receiptOutcome.set(outcome);
+    if (outcome === 'COMPLETE') {
+      this.receiptLines.update((items) =>
+        items.map((item) => ({ ...item, quantityReceived: item.quantity, condition: 'ACCEPTED' })),
+      );
+    }
+  }
+
+  updateReceiptLine(
+    itemId: string,
+    field: 'quantityReceived' | 'condition' | 'note',
+    value: string,
+  ): void {
+    this.receiptLines.update((items) =>
+      items.map((item) => (item.id === itemId ? { ...item, [field]: value } : item)),
+    );
+  }
+
+  async submitReceipt(): Promise<void> {
+    const order = this.receiptOrder();
+    if (!order || this.receiptNote().trim().length < 5) {
+      this.error.set('Ghi chú biên bản phải có ít nhất 5 ký tự.');
+      return;
+    }
+    const items: RecordReceiptItem[] = this.receiptLines().map((item) => ({
+      purchaseRequestItemId: item.id,
+      quantityReceived: item.quantityReceived || '0',
+      condition: item.condition,
+      note: item.note,
+    }));
+    this.receivingId.set(order.purchaseRequestId);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.procurement.recordReceipt(
+          order.purchaseRequestId,
+          {
+            expectedVersion: order.version,
+            outcome: this.receiptOutcome(),
+            receivedOn: this.receiptDate(),
+            note: this.receiptNote(),
+            items,
+          },
+          crypto.randomUUID(),
+        ),
+      );
+      this.closeReceipt();
+      this.load();
+    } catch (error: unknown) {
+      this.error.set(problemMessage(error, 'Không ghi nhận được biên bản giao nhận.'));
+    } finally {
+      this.receivingId.set(null);
+    }
+  }
+
+  openManageOrder(order: PurchaseOrder): void {
+    this.managingOrder.set(order);
+    this.manageSupplierId.set(order.supplierId ?? '');
+    this.manageExternalReference.set(order.externalReference ?? '');
+    this.manageExpectedDeliveryOn.set(order.expectedDeliveryOn ?? this.tomorrow());
+    this.manageNote.set(order.note ?? '');
+    this.cancellationReason.set('');
+  }
+
+  closeManageOrder(): void {
+    this.managingOrder.set(null);
+  }
+
+  async saveOrderChanges(): Promise<void> {
+    const order = this.managingOrder();
+    if (!order || !this.manageSupplierId() || !this.manageExpectedDeliveryOn()) return;
+    this.saving.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.procurement.updatePurchaseOrder(order.purchaseRequestId, {
+          supplierId: this.manageSupplierId(),
+          externalReference: this.manageExternalReference(),
+          expectedDeliveryOn: this.manageExpectedDeliveryOn(),
+          note: this.manageNote(),
+          expectedVersion: order.version,
+        }),
+      );
+      this.closeManageOrder();
+      this.load();
+    } catch (error: unknown) {
+      this.error.set(problemMessage(error, 'Không cập nhật được đơn hàng.'));
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async cancelManagedOrder(): Promise<void> {
+    const order = this.managingOrder();
+    if (!order || this.cancellationReason().trim().length < 10) {
+      this.error.set('Lý do hủy đơn phải có ít nhất 10 ký tự.');
+      return;
+    }
+    this.saving.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.procurement.cancelPurchaseOrder(
+          order.purchaseRequestId,
+          order.version,
+          this.cancellationReason(),
+          crypto.randomUUID(),
+        ),
+      );
+      this.closeManageOrder();
+      this.load();
+    } catch (error: unknown) {
+      this.error.set(problemMessage(error, 'Không hủy được đơn hàng.'));
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   async placeOrder(): Promise<void> {
@@ -122,7 +296,10 @@ export class OperationsBoard {
     return {
       AWAITING_ORDER: 'Chờ đặt hàng',
       ORDERED: 'Đang giao',
+      PARTIALLY_RECEIVED: 'Đã nhận một phần',
+      RECEIPT_EXCEPTION: 'Có sự cố giao nhận',
       RECEIVED: 'Đã nhận',
+      CANCELLED: 'Đã hủy',
     }[status];
   }
 

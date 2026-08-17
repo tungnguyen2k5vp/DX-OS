@@ -58,7 +58,7 @@ func (a *api) createInvoice(w http.ResponseWriter, r *http.Request) {
 		IssuedOn: body.IssuedOn, DueOn: body.DueOn, Amount: body.Amount,
 		Currency: body.Currency, Note: body.Note,
 		IdempotencyKey: strings.TrimSpace(r.Header.Get("Idempotency-Key")),
-		CorrelationID: correlationIDFromContext(r.Context()),
+		CorrelationID:  correlationIDFromContext(r.Context()),
 	})
 	if err != nil {
 		a.writeProcurementError(w, r, err)
@@ -104,7 +104,7 @@ func (a *api) transitionInvoice(w http.ResponseWriter, r *http.Request) {
 		Action: body.Action, ExpectedVersion: body.ExpectedVersion, Comment: body.Comment,
 		PaymentReference: body.PaymentReference, PaidOn: body.PaidOn,
 		IdempotencyKey: strings.TrimSpace(r.Header.Get("Idempotency-Key")),
-		CorrelationID: correlationIDFromContext(r.Context()),
+		CorrelationID:  correlationIDFromContext(r.Context()),
 	})
 	if err != nil {
 		a.writeProcurementError(w, r, err)

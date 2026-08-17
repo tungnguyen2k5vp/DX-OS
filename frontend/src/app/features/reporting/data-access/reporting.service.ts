@@ -3,10 +3,13 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { APP_CONFIG } from '../../../core/config/app-config';
 import {
+  AuditCase,
+  AuditCaseList,
   AuditCenter,
   AuditQuery,
   ProcurementReportDashboard,
   ProcurementReportQuery,
+  SaveAuditCase,
 } from './reporting.models';
 
 @Injectable({ providedIn: 'root' })
@@ -48,5 +51,27 @@ export class ReportingService {
     return this.http.get<AuditCenter>(`${this.config.apiBaseUrl}/api/v1/audit/events`, {
       params,
     });
+  }
+
+  auditCases(): Observable<AuditCaseList> {
+    return this.http.get<AuditCaseList>(`${this.config.apiBaseUrl}/api/v1/audit/cases`);
+  }
+
+  createAuditCase(input: SaveAuditCase): Observable<AuditCase> {
+    return this.http.post<AuditCase>(`${this.config.apiBaseUrl}/api/v1/audit/cases`, input);
+  }
+
+  updateAuditCase(caseId: string, input: SaveAuditCase): Observable<AuditCase> {
+    return this.http.patch<AuditCase>(
+      `${this.config.apiBaseUrl}/api/v1/audit/cases/${encodeURIComponent(caseId)}`,
+      input,
+    );
+  }
+
+  evidencePackage(requestId: string): Observable<Blob> {
+    return this.http.get(
+      `${this.config.apiBaseUrl}/api/v1/audit/evidence/${encodeURIComponent(requestId)}`,
+      { responseType: 'blob' },
+    );
   }
 }

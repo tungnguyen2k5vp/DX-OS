@@ -33,6 +33,156 @@
     </div>
   }
 
+  <div class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_1.9fr]">
+    @if (cases()?.canManage) {
+      <section hlmCard>
+        <div hlmCardHeader class="border-b">
+          <h2 hlmCardTitle>Mở hồ sơ kiểm toán</h2>
+          <p hlmCardDescription>Ghi nhận phát hiện, hạn xử lý và phiếu liên quan.</p>
+        </div>
+        <div hlmCardContent class="grid gap-4">
+          <label class="grid gap-1.5 text-sm font-medium">
+            Tiêu đề
+            <input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              [value]="caseTitle()"
+              (input)="caseTitle.set($any($event.target).value)"
+            />
+          </label>
+          <label class="grid gap-1.5 text-sm font-medium">
+            Mô tả phát hiện
+            <textarea
+              class="min-h-24 rounded-md border border-input bg-background p-3"
+              [value]="caseDescription()"
+              (input)="caseDescription.set($any($event.target).value)"
+            ></textarea>
+          </label>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="grid gap-1.5 text-sm font-medium">
+              Mức độ
+              <select
+                class="h-10 rounded-md border border-input bg-background px-3"
+                [value]="caseSeverity()"
+                (change)="caseSeverity.set($any($event.target).value)"
+              >
+                <option value="LOW">Thấp</option>
+                <option value="MEDIUM">Trung bình</option>
+                <option value="HIGH">Cao</option>
+                <option value="CRITICAL">Nghiêm trọng</option>
+              </select>
+            </label>
+            <label class="grid gap-1.5 text-sm font-medium">
+              Hạn khắc phục
+              <input
+                type="date"
+                class="h-10 rounded-md border border-input bg-background px-3"
+                [value]="caseDueOn()"
+                (input)="caseDueOn.set($any($event.target).value)"
+              />
+            </label>
+          </div>
+          <label class="grid gap-1.5 text-sm font-medium">
+            UUID phiếu mua sắm liên quan (không bắt buộc)
+            <input
+              class="h-10 rounded-md border border-input bg-background px-3 font-mono text-xs"
+              [value]="caseResourceId()"
+              (input)="caseResourceId.set($any($event.target).value)"
+            />
+          </label>
+          <button hlmBtn type="button" [disabled]="caseBusy()" (click)="createCase()">
+            Tạo hồ sơ
+          </button>
+        </div>
+      </section>
+    }
+
+    <section hlmCard>
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Hồ sơ phát hiện và khắc phục</h2>
+        <p hlmCardDescription>{{ cases()?.total ?? 0 }} hồ sơ trong tổ chức</p>
+      </div>
+      <div hlmCardContent class="grid max-h-[520px] gap-4 overflow-y-auto">
+        @for (item of cases()?.items ?? []; track item.id) {
+          <article class="rounded-lg border border-border p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="text-xs font-medium text-primary">{{ item.caseCode }}</p>
+                <h3 class="mt-1 font-semibold">{{ item.title }}</h3>
+              </div>
+              <div class="flex gap-2">
+                <span hlmBadge variant="outline">{{ item.severity }}</span
+                ><span hlmBadge>{{ item.status }}</span>
+              </div>
+            </div>
+            <p class="mt-3 text-sm leading-6 text-muted-foreground">{{ item.description }}</p>
+            <p class="mt-2 text-xs text-muted-foreground">
+              Tạo bởi {{ item.createdBy }} · hạn
+              {{ (item.dueOn | date: 'dd/MM/yyyy') || 'chưa đặt' }}
+            </p>
+            @if (item.resourceId) {
+              <p class="mt-1 truncate font-mono text-xs" [title]="item.resourceId">
+                Phiếu: {{ item.resourceId }}
+              </p>
+            }
+            @if (item.resolution) {
+              <p class="mt-3 rounded-md bg-muted p-3 text-sm">
+                <strong>Kết quả:</strong> {{ item.resolution }}
+              </p>
+            }
+            @if (cases()?.canManage && item.status !== 'CLOSED') {
+              <div class="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+                <input
+                  class="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  placeholder="Kết quả khắc phục (bắt buộc khi giải quyết)"
+                  [value]="resolutionDrafts()[item.id] || ''"
+                  (input)="updateResolution(item.id, $any($event.target).value)"
+                />
+                <button
+                  hlmBtn
+                  type="button"
+                  variant="outline"
+                  [disabled]="caseBusy()"
+                  (click)="advanceCase(item)"
+                >
+                  {{ caseActionLabel(item.status) }}
+                </button>
+              </div>
+            }
+          </article>
+        } @empty {
+          <p class="py-8 text-center text-sm text-muted-foreground">Chưa có hồ sơ kiểm toán.</p>
+        }
+      </div>
+    </section>
+  </div>
+
+  @if (cases()?.canExport) {
+    <section hlmCard class="mt-6">
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Xuất gói bằng chứng</h2>
+        <p hlmCardDescription>
+          JSON bao gồm phiếu, dòng thời gian, tệp đính kèm, giao nhận, hóa đơn và audit log.
+        </p>
+      </div>
+      <div hlmCardContent class="flex flex-col gap-3 sm:flex-row">
+        <input
+          class="h-10 flex-1 rounded-md border border-input bg-background px-3 font-mono text-sm"
+          placeholder="UUID phiếu mua sắm"
+          [value]="evidenceRequestId()"
+          (input)="evidenceRequestId.set($any($event.target).value)"
+        />
+        <button
+          hlmBtn
+          type="button"
+          [disabled]="!evidenceRequestId().trim()"
+          (click)="downloadEvidence()"
+        >
+          Tải gói bằng chứng
+        </button>
+      </div>
+    </section>
+  }
+
   <section hlmCard class="mt-6">
     <div hlmCardHeader class="border-b"><h2 hlmCardTitle>Bộ lọc bằng chứng</h2></div>
     <div hlmCardContent class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">

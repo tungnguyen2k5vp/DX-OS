@@ -5,7 +5,10 @@ import {
   canAccessBudgetManagementGuard,
   canAccessInvoicesGuard,
   canAccessPoliciesGuard,
+  canAccessProcurementGuard,
   canAccessAuditGuard,
+  canAccessAdminGuard,
+  canAccessAIGuard,
   canAccessOperationsGuard,
   canAccessReportsGuard,
   canAccessSupplierDirectoryGuard,
@@ -52,7 +55,7 @@ export const routes: Routes = [
   },
   {
     path: 'work-center',
-    canActivate: [authGuard],
+    canActivate: [authGuard, canAccessProcurementGuard],
     loadComponent: () =>
       import('./features/procurement/pages/work-center/work-center').then(
         (module) => module.WorkCenter,
@@ -114,6 +117,24 @@ export const routes: Routes = [
     title: 'Trung tâm kiểm toán | DX-OS',
   },
   {
+    path: 'admin',
+    canActivate: [authGuard, canAccessAdminGuard],
+    loadComponent: () =>
+      import('./features/admin/pages/admin-center/admin-center').then(
+        (module) => module.AdminCenterPage,
+      ),
+    title: 'Quản trị hệ thống | DX-OS',
+  },
+  {
+    path: 'ai-center',
+    canActivate: [authGuard, canAccessAIGuard],
+    loadComponent: () =>
+      import('./features/ai/pages/recommendation-center/recommendation-center').then(
+        (module) => module.RecommendationCenterPage,
+      ),
+    title: 'Trung tâm khuyến nghị | DX-OS',
+  },
+  {
     path: 'reports',
     canActivate: [authGuard, canAccessReportsGuard],
     loadComponent: () =>
@@ -124,7 +145,7 @@ export const routes: Routes = [
   },
   {
     path: 'purchase-requests',
-    canActivate: [authGuard],
+    canActivate: [authGuard, canAccessProcurementGuard],
     loadChildren: () =>
       import('./features/procurement/procurement.routes').then(
         (module) => module.procurementRoutes,

@@ -17,25 +17,102 @@
   </div>
 
   <section hlmCard class="mt-7">
-    <div hlmCardHeader class="border-b sm:flex-row sm:items-end sm:justify-between">
+    <div hlmCardHeader class="border-b">
       <div>
         <h2 hlmCardTitle>Danh sách phiếu</h2>
         <p hlmCardDescription>{{ total() }} phiếu trong phạm vi hiện tại</p>
       </div>
-      <label class="grid gap-1.5 text-sm font-medium" for="status-filter">
-        Trạng thái
-        <select
-          id="status-filter"
-          class="h-9 min-w-52 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
-          [value]="status()"
-          (change)="changeStatus($event)"
-        >
-          <option value="">Tất cả trạng thái</option>
-          @for (candidate of statusOptions; track candidate.value) {
-            <option [value]="candidate.value">{{ candidate.label }}</option>
-          }
-        </select>
-      </label>
+      <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4" aria-label="Bộ lọc phiếu mua sắm">
+        <label class="grid gap-1.5 text-sm font-medium xl:col-span-2">
+          Tìm kiếm
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            type="search"
+            maxlength="100"
+            placeholder="Mã phiếu, tiêu đề hoặc người tạo"
+            [value]="search()"
+            (input)="search.set($any($event.target).value)"
+            (keydown.enter)="applyFilters()"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium" for="status-filter">
+          Trạng thái
+          <select
+            id="status-filter"
+            class="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            [value]="status()"
+            (change)="changeStatus($event)"
+          >
+            <option value="">Tất cả trạng thái</option>
+            @for (candidate of statusOptions; track candidate.value) {
+              <option [value]="candidate.value">{{ candidate.label }}</option>
+            }
+          </select>
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium">
+          Phòng ban
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            maxlength="100"
+            [value]="department()"
+            (input)="department.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium">
+          Trung tâm chi phí
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            maxlength="100"
+            [value]="costCenter()"
+            (input)="costCenter.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium">
+          Từ ngày
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            type="date"
+            [value]="from()"
+            (input)="from.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium">
+          Đến ngày
+          <input
+            class="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            type="date"
+            [value]="to()"
+            (input)="to.set($any($event.target).value)"
+          />
+        </label>
+        <label class="grid gap-1.5 text-sm font-medium">
+          Sắp xếp
+          <select
+            class="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            [value]="sort()"
+            (change)="sort.set($any($event.target).value)"
+          >
+            <option value="createdAt">Ngày tạo</option>
+            <option value="updatedAt">Ngày cập nhật</option>
+            <option value="amount">Tổng tiền</option>
+            <option value="code">Mã phiếu</option>
+          </select>
+        </label>
+        <div class="flex flex-wrap items-end gap-2 md:col-span-2 xl:col-span-4">
+          <button hlmBtn type="button" (click)="applyFilters()">Áp dụng bộ lọc</button>
+          <button hlmBtn type="button" variant="outline" (click)="clearFilters()">
+            Xóa bộ lọc
+          </button>
+          <button
+            hlmBtn
+            type="button"
+            variant="ghost"
+            (click)="direction.set(direction() === 'asc' ? 'desc' : 'asc'); applyFilters()"
+          >
+            {{ direction() === 'asc' ? 'Tăng dần' : 'Giảm dần' }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <div hlmCardContent>

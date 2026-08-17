@@ -57,6 +57,16 @@ export class PurchaseRequestList {
   readonly total = signal(0);
   readonly pages = signal(0);
   readonly status = signal<PurchaseRequestStatus | ''>('');
+  readonly search = signal('');
+  readonly department = signal('');
+  readonly costCenter = signal('');
+  readonly requester = signal('');
+  readonly from = signal('');
+  readonly to = signal('');
+  readonly minAmount = signal('');
+  readonly maxAmount = signal('');
+  readonly sort = signal<'createdAt' | 'updatedAt' | 'amount' | 'code'>('createdAt');
+  readonly direction = signal<'asc' | 'desc'>('desc');
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly canCreate = computed(() => {
@@ -70,6 +80,16 @@ export class PurchaseRequestList {
       this.pageSize.set(parsePageSize(params.get('pageSize')));
       const rawStatus = params.get('status')?.toUpperCase() ?? '';
       this.status.set(isPurchaseRequestStatus(rawStatus) ? rawStatus : '');
+      this.search.set(params.get('search') ?? '');
+      this.department.set(params.get('department') ?? '');
+      this.costCenter.set(params.get('costCenter') ?? '');
+      this.requester.set(params.get('requester') ?? '');
+      this.from.set(params.get('from') ?? '');
+      this.to.set(params.get('to') ?? '');
+      this.minAmount.set(params.get('minAmount') ?? '');
+      this.maxAmount.set(params.get('maxAmount') ?? '');
+      this.sort.set(parseSort(params.get('sort')));
+      this.direction.set(params.get('direction') === 'asc' ? 'asc' : 'desc');
       this.items.set([]);
       this.load();
     });
@@ -81,14 +101,30 @@ export class PurchaseRequestList {
 
   changeStatus(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
+    this.status.set(isPurchaseRequestStatus(value) ? value : '');
+    this.applyFilters();
+  }
+
+  applyFilters(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {
-        page: 1,
-        pageSize: this.pageSize(),
-        status: value || null,
-      },
+      queryParams: this.filterQuery(1),
     });
+  }
+
+  clearFilters(): void {
+    this.status.set('');
+    this.search.set('');
+    this.department.set('');
+    this.costCenter.set('');
+    this.requester.set('');
+    this.from.set('');
+    this.to.set('');
+    this.minAmount.set('');
+    this.maxAmount.set('');
+    this.sort.set('createdAt');
+    this.direction.set('desc');
+    this.applyFilters();
   }
 
   goToPage(targetPage: number): void {
@@ -97,11 +133,7 @@ export class PurchaseRequestList {
     }
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {
-        page: targetPage,
-        pageSize: this.pageSize(),
-        status: this.status() || null,
-      },
+      queryParams: this.filterQuery(targetPage),
     });
   }
 
@@ -115,6 +147,16 @@ export class PurchaseRequestList {
         page: this.page(),
         pageSize: this.pageSize(),
         status: this.status() || undefined,
+        search: this.search() || undefined,
+        department: this.department() || undefined,
+        costCenter: this.costCenter() || undefined,
+        requester: this.requester() || undefined,
+        from: this.from() || undefined,
+        to: this.to() || undefined,
+        minAmount: this.minAmount() || undefined,
+        maxAmount: this.maxAmount() || undefined,
+        sort: this.sort(),
+        direction: this.direction(),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -138,6 +180,24 @@ export class PurchaseRequestList {
         },
       });
   }
+
+  private filterQuery(page: number): Record<string, string | number | null> {
+    return {
+      page,
+      pageSize: this.pageSize(),
+      status: this.status() || null,
+      search: this.search().trim() || null,
+      department: this.department().trim() || null,
+      costCenter: this.costCenter().trim() || null,
+      requester: this.requester().trim() || null,
+      from: this.from() || null,
+      to: this.to() || null,
+      minAmount: this.minAmount().trim() || null,
+      maxAmount: this.maxAmount().trim() || null,
+      sort: this.sort(),
+      direction: this.direction(),
+    };
+  }
 }
 
 function parsePositiveInteger(value: string | null, fallback: number): number {
@@ -148,4 +208,8 @@ function parsePositiveInteger(value: string | null, fallback: number): number {
 function parsePageSize(value: string | null): number {
   const parsed = parsePositiveInteger(value, 20);
   return Math.min(parsed, 100);
+}
+
+function parseSort(value: string | null): 'createdAt' | 'updatedAt' | 'amount' | 'code' {
+  return value === 'updatedAt' || value === 'amount' || value === 'code' ? value : 'createdAt';
 }

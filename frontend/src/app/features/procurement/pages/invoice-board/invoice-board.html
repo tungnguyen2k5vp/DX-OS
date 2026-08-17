@@ -105,6 +105,13 @@
             ></textarea>
           </label>
         } @else if (mode() === 'PAY') {
+          <label class="grid gap-1.5 text-sm font-medium"
+            >Số tiền đợt này<input
+              class="h-10 rounded-md border border-input bg-background px-3"
+              inputmode="decimal"
+              [value]="paymentAmount()"
+              (input)="paymentAmount.set($any($event.target).value)"
+          /></label>
           <label class="grid gap-1.5 text-sm font-medium md:col-span-2"
             >Mã tham chiếu thanh toán<input
               class="h-10 rounded-md border border-input bg-background px-3"
@@ -119,6 +126,20 @@
               [value]="paidOn()"
               (input)="paidOn.set($any($event.target).value)"
           /></label>
+          <label class="grid gap-1.5 text-sm font-medium md:col-span-2 lg:col-span-4"
+            >Ghi chú thanh toán<textarea
+              class="min-h-20 rounded-md border border-input bg-background px-3 py-2"
+              maxlength="2000"
+              [value]="comment()"
+              (input)="comment.set($any($event.target).value)"
+            ></textarea>
+          </label>
+          @if (paymentHistory(); as history) {
+            <p class="text-sm text-muted-foreground md:col-span-2 lg:col-span-4">
+              Đã có {{ history.total }} đợt thanh toán · Còn lại
+              {{ item.remainingAmount | dxMoney: item.invoiceCurrency || item.orderCurrency }}
+            </p>
+          }
         } @else {
           <label class="grid gap-1.5 text-sm font-medium md:col-span-2 lg:col-span-4"
             >Lý do tranh chấp<textarea
@@ -135,13 +156,8 @@
               {{ saving() ? 'Đang lưu…' : 'Lưu hóa đơn' }}
             </button>
           } @else if (mode() === 'PAY') {
-            <button
-              hlmBtn
-              type="button"
-              [disabled]="saving()"
-              (click)="transition(item, 'MARK_PAID')"
-            >
-              Xác nhận đã thanh toán
+            <button hlmBtn type="button" [disabled]="saving()" (click)="recordPayment(item)">
+              Ghi nhận đợt thanh toán
             </button>
           } @else {
             <button
@@ -201,7 +217,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-border">
-              @for (item of current.items; track item.purchaseOrderId) {
+              @for (item of current.items; track item.invoiceId || item.purchaseOrderId) {
                 <tr class="hover:bg-muted/40">
                   <td class="px-3 py-4">
                     <a
@@ -226,6 +242,10 @@
                       <p class="mt-1 text-xs text-muted-foreground">
                         {{ item.invoiceAmount | dxMoney: item.invoiceCurrency }}
                       </p>
+                      <p class="mt-1 text-xs text-muted-foreground">
+                        Đã trả {{ item.paidAmount | dxMoney: item.invoiceCurrency }} · Còn
+                        {{ item.remainingAmount | dxMoney: item.invoiceCurrency }}
+                      </p>
                     }
                     <span hlmBadge class="mt-2" [variant]="statusVariant(item.invoiceStatus)">{{
                       statusLabel(item.invoiceStatus)
@@ -234,7 +254,11 @@
                   <td class="px-3 py-4">
                     <span
                       hlmBadge
-                      [variant]="item.matchStatus === 'MATCHED' ? 'secondary' : 'outline'"
+                      [variant]="
+                        item.matchStatus === 'MATCHED' || item.matchStatus === 'PARTIAL_MATCH'
+                          ? 'secondary'
+                          : 'outline'
+                      "
                       >{{ matchLabel(item.matchStatus) }}</span
                     >
                     @if (item.matchStatus === 'WAITING_RECEIPT') {
@@ -258,6 +282,17 @@
                           Ghi hóa đơn
                         </button>
                       }
+                      @if (current.canManage && item.invoiceId) {
+                        <button
+                          hlmBtn
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                          (click)="openNewInvoice(item)"
+                        >
+                          Thêm hóa đơn
+                        </button>
+                      }
                       @if (
                         current.canManage &&
                         item.invoiceId &&
@@ -277,7 +312,7 @@
                         current.canManage &&
                         item.invoiceId &&
                         item.invoiceStatus === 'RECORDED' &&
-                        item.matchStatus === 'MATCHED'
+                        (item.matchStatus === 'MATCHED' || item.matchStatus === 'PARTIAL_MATCH')
                       ) {
                         <button
                           hlmBtn
@@ -293,7 +328,8 @@
                         current.canManage &&
                         item.invoiceId &&
                         item.invoiceStatus === 'RECORDED' &&
-                        item.matchStatus !== 'MATCHED'
+                        item.matchStatus !== 'MATCHED' &&
+                        item.matchStatus !== 'PARTIAL_MATCH'
                       ) {
                         <button
                           hlmBtn

@@ -63,12 +63,14 @@ func main() {
 		cfg.NextcloudRoot,
 	)
 
+	procurementStore := procurement.NewStore(database, documents)
 	handler := httpapi.New(httpapi.Dependencies{
 		AllowedOrigin: cfg.AllowedOrigin,
 		Database:      database,
 		Logger:        logger,
 		Notifications: notifications.NewStore(database),
-		Procurement:   procurement.NewStore(database, documents),
+		Procurement:   procurementStore,
+		Enterprise:    procurementStore,
 		Reporting:     reporting.NewStore(database),
 		TokenVerifier: tokenVerifier,
 	})

@@ -46,7 +46,8 @@ finance theo phạm vi tài chính. Auditor chỉ đọc. Mỗi comment được
 4. Auditor mở cùng phiếu để xác nhận đọc được trao đổi nhưng không có nút gửi.
 5. Kiểm tra timeline có event `COMMENT_ADDED` và các transition tương ứng.
 
-## Phần chưa triển khai
+## Khả năng vận hành liên quan
 
-Worker notification/outbox, email và AI Agent vẫn là roadmap. Work Center hiện đọc dữ liệu trực tiếp
-từ PostgreSQL qua Go API; không tuyên bố có thông báo nền hoặc retry queue.
+- Thông báo trong ứng dụng được ghi vào outbox cùng transaction nghiệp vụ và worker xử lý lại khi có lỗi tạm thời.
+- Trung tâm AI đưa ra khuyến nghị theo luật có giải thích; quyết định cuối cùng luôn do người dùng có thẩm quyền xác nhận.
+- Email ra ngoài hệ thống chưa được cấu hình mặc định. Khi triển khai thực tế cần nối worker với nhà cung cấp email và quản lý secret ở môi trường vận hành.

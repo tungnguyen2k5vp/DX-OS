@@ -81,4 +81,27 @@ describe('ReportingService', () => {
     request.flush({ items: [], page: 2, pageSize: 10, total: 0, pages: 0 });
     http.verify();
   });
+
+  it('manages audit cases and downloads the evidence package as a blob', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: APP_CONFIG,
+          useValue: { apiBaseUrl: 'http://api.test' },
+        },
+      ],
+    });
+    const service = TestBed.inject(ReportingService);
+    const http = TestBed.inject(HttpTestingController);
+    service.auditCases().subscribe();
+    http.expectOne('http://api.test/api/v1/audit/cases').flush({ items: [], total: 0 });
+
+    service.evidencePackage('request-id').subscribe();
+    const evidence = http.expectOne('http://api.test/api/v1/audit/evidence/request-id');
+    expect(evidence.request.responseType).toBe('blob');
+    evidence.flush(new Blob(['{}'], { type: 'application/json' }));
+    http.verify();
+  });
 });

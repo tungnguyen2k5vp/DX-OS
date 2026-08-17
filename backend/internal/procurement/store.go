@@ -169,6 +169,32 @@ func (s *Store) List(
 	if input.Status != nil {
 		conditions = append(conditions, "pr.status = "+addArgument(string(*input.Status)))
 	}
+	if input.Search != "" {
+		placeholder := addArgument("%" + input.Search + "%")
+		conditions = append(conditions, "(pr.request_code ILIKE "+placeholder+
+			" OR pr.title ILIKE "+placeholder+" OR u.display_name ILIKE "+placeholder+")")
+	}
+	if input.Department != "" {
+		conditions = append(conditions, "d.name ILIKE "+addArgument("%"+input.Department+"%"))
+	}
+	if input.CostCenter != "" {
+		conditions = append(conditions, "pr.cost_center ILIKE "+addArgument("%"+input.CostCenter+"%"))
+	}
+	if input.Requester != "" {
+		conditions = append(conditions, "u.display_name ILIKE "+addArgument("%"+input.Requester+"%"))
+	}
+	if input.From != "" {
+		conditions = append(conditions, "pr.created_at >= "+addArgument(input.From)+"::date")
+	}
+	if input.To != "" {
+		conditions = append(conditions, "pr.created_at < ("+addArgument(input.To)+"::date + interval '1 day')")
+	}
+	if input.MinAmount != "" {
+		conditions = append(conditions, "pr.total_amount >= "+addArgument(input.MinAmount)+"::numeric")
+	}
+	if input.MaxAmount != "" {
+		conditions = append(conditions, "pr.total_amount <= "+addArgument(input.MaxAmount)+"::numeric")
+	}
 
 	where := ""
 	if len(conditions) > 0 {
@@ -176,6 +202,19 @@ func (s *Store) List(
 	}
 	limitPlaceholder := addArgument(input.PageSize)
 	offsetPlaceholder := addArgument((input.Page - 1) * input.PageSize)
+	orderColumn := map[string]string{
+		"createdAt": "pr.created_at",
+		"updatedAt": "pr.updated_at",
+		"amount":    "pr.total_amount",
+		"code":      "pr.request_code",
+	}[input.Sort]
+	if orderColumn == "" {
+		orderColumn = "pr.created_at"
+	}
+	direction := "DESC"
+	if input.Direction == "asc" {
+		direction = "ASC"
+	}
 
 	rows, err := s.database.Query(ctx, `
 		SELECT
@@ -199,7 +238,7 @@ func (s *Store) List(
 		JOIN users u ON u.id = pr.requester_id
 		JOIN departments d ON d.id = pr.department_id
 		`+where+`
-		ORDER BY pr.created_at DESC, pr.id DESC
+		ORDER BY `+orderColumn+` `+direction+`, pr.id `+direction+`
 		LIMIT `+limitPlaceholder+` OFFSET `+offsetPlaceholder,
 		args...,
 	)
@@ -627,7 +666,11 @@ func (s *Store) ListSuppliers(
 	}
 	rows, err := s.database.Query(ctx, `
 		SELECT id, code, name, COALESCE(tax_code, ''), COALESCE(contact_name, ''),
-			COALESCE(email, ''), COALESCE(phone, ''), status, risk_level, version,
+			COALESCE(email, ''), COALESCE(phone, ''), COALESCE(address, ''),
+			COALESCE(bank_name, ''), COALESCE(bank_account_number, ''),
+			COALESCE(contract_reference, ''), COALESCE(contract_expires_on::text, ''),
+			compliance_status, COALESCE(performance_score::text, ''), COALESCE(business_note, ''),
+			status, risk_level, version,
 			created_at, updated_at
 		FROM suppliers
 		WHERE organization_id = $1
@@ -644,8 +687,11 @@ func (s *Store) ListSuppliers(
 		var supplier Supplier
 		if err = rows.Scan(
 			&supplier.ID, &supplier.Code, &supplier.Name, &supplier.TaxCode,
-			&supplier.ContactName, &supplier.Email, &supplier.Phone, &supplier.Status,
-			&supplier.RiskLevel, &supplier.Version, &supplier.CreatedAt, &supplier.UpdatedAt,
+			&supplier.ContactName, &supplier.Email, &supplier.Phone,
+			&supplier.Address, &supplier.BankName, &supplier.BankAccountNumber,
+			&supplier.ContractReference, &supplier.ContractExpiresOn, &supplier.ComplianceStatus,
+			&supplier.PerformanceScore, &supplier.BusinessNote,
+			&supplier.Status, &supplier.RiskLevel, &supplier.Version, &supplier.CreatedAt, &supplier.UpdatedAt,
 		); err != nil {
 			return SupplierList{}, fmt.Errorf("scan supplier: %w", err)
 		}
@@ -683,13 +729,19 @@ func (s *Store) CreateSupplier(
 	err = tx.QueryRow(ctx, `
 		INSERT INTO suppliers (
 			organization_id, code, name, tax_code, contact_name, email, phone,
+			address, bank_name, bank_account_number, contract_reference,
+			contract_expires_on, compliance_status, performance_score, business_note,
 			status, risk_level, created_by
 		)
 		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''),
-			NULLIF($7, ''), $8, $9, $10)
+			NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''), NULLIF($10, ''),
+			NULLIF($11, ''), NULLIF($12, '')::date, $13, NULLIF($14, '')::numeric,
+			NULLIF($15, ''), $16, $17, $18)
 		RETURNING id
 	`, user.OrganizationID, input.Code, input.Name, input.TaxCode, input.ContactName,
-		input.Email, input.Phone, input.Status, input.RiskLevel, user.ID).Scan(&supplierID)
+		input.Email, input.Phone, input.Address, input.BankName, input.BankAccountNumber,
+		input.ContractReference, input.ContractExpiresOn, input.ComplianceStatus,
+		input.PerformanceScore, input.BusinessNote, input.Status, input.RiskLevel, user.ID).Scan(&supplierID)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return Supplier{}, ErrSupplierConflict
@@ -750,10 +802,16 @@ func (s *Store) UpdateSupplier(
 		UPDATE suppliers
 		SET code = $2, name = $3, tax_code = NULLIF($4, ''),
 			contact_name = NULLIF($5, ''), email = NULLIF($6, ''), phone = NULLIF($7, ''),
-			status = $8, risk_level = $9, version = version + 1, updated_at = now()
+			address = NULLIF($8, ''), bank_name = NULLIF($9, ''), bank_account_number = NULLIF($10, ''),
+			contract_reference = NULLIF($11, ''), contract_expires_on = NULLIF($12, '')::date,
+			compliance_status = $13, performance_score = NULLIF($14, '')::numeric,
+			business_note = NULLIF($15, ''), status = $16, risk_level = $17,
+			version = version + 1, updated_at = now()
 		WHERE id = $1
 	`, supplierID, input.Code, input.Name, input.TaxCode, input.ContactName,
-		input.Email, input.Phone, input.Status, input.RiskLevel)
+		input.Email, input.Phone, input.Address, input.BankName, input.BankAccountNumber,
+		input.ContractReference, input.ContractExpiresOn, input.ComplianceStatus,
+		input.PerformanceScore, input.BusinessNote, input.Status, input.RiskLevel)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return Supplier{}, ErrSupplierConflict
@@ -776,13 +834,20 @@ func (s *Store) getSupplier(ctx context.Context, organizationID, supplierID stri
 	var supplier Supplier
 	err := s.database.QueryRow(ctx, `
 		SELECT id, code, name, COALESCE(tax_code, ''), COALESCE(contact_name, ''),
-			COALESCE(email, ''), COALESCE(phone, ''), status, risk_level, version,
+			COALESCE(email, ''), COALESCE(phone, ''), COALESCE(address, ''),
+			COALESCE(bank_name, ''), COALESCE(bank_account_number, ''),
+			COALESCE(contract_reference, ''), COALESCE(contract_expires_on::text, ''),
+			compliance_status, COALESCE(performance_score::text, ''), COALESCE(business_note, ''),
+			status, risk_level, version,
 			created_at, updated_at
 		FROM suppliers WHERE id = $1 AND organization_id = $2
 	`, supplierID, organizationID).Scan(
 		&supplier.ID, &supplier.Code, &supplier.Name, &supplier.TaxCode,
-		&supplier.ContactName, &supplier.Email, &supplier.Phone, &supplier.Status,
-		&supplier.RiskLevel, &supplier.Version, &supplier.CreatedAt, &supplier.UpdatedAt,
+		&supplier.ContactName, &supplier.Email, &supplier.Phone,
+		&supplier.Address, &supplier.BankName, &supplier.BankAccountNumber,
+		&supplier.ContractReference, &supplier.ContractExpiresOn, &supplier.ComplianceStatus,
+		&supplier.PerformanceScore, &supplier.BusinessNote,
+		&supplier.Status, &supplier.RiskLevel, &supplier.Version, &supplier.CreatedAt, &supplier.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Supplier{}, ErrSupplierNotFound
@@ -830,15 +895,19 @@ func (s *Store) OperationsBoard(
 			COALESCE(po.version, 0),
 			po.ordered_at,
 			po.received_at,
-			COALESCE(po.status = 'ORDERED' AND po.expected_delivery_on < CURRENT_DATE, false),
+			po.cancelled_at,
+			po.cancellation_reason,
+			COALESCE((SELECT count(*) FROM purchase_order_receipts por WHERE por.purchase_order_id = po.id), 0),
+			COALESCE(po.status IN ('ORDERED', 'PARTIALLY_RECEIVED', 'RECEIPT_EXCEPTION') AND po.expected_delivery_on < CURRENT_DATE, false),
 			($4::boolean AND po.id IS NULL AND d.organization_id = $6),
 			COALESCE(
-				po.status = 'ORDERED' AND (
+				po.status IN ('ORDERED', 'PARTIALLY_RECEIVED', 'RECEIPT_EXCEPTION') AND (
 					(($2::boolean OR $3::boolean) AND pr.requester_id = $1)
 					OR ($3::boolean AND pr.department_id = $5)
 				),
 				false
-			)
+			),
+			COALESCE($4::boolean AND po.status IN ('ORDERED', 'PARTIALLY_RECEIVED', 'RECEIPT_EXCEPTION'), false)
 		FROM purchase_requests pr
 		JOIN users ru ON ru.id = pr.requester_id
 		JOIN departments d ON d.id = pr.department_id
@@ -852,9 +921,11 @@ func (s *Store) OperationsBoard(
 			OR ($2::boolean AND pr.requester_id = $1)
 		  )
 		ORDER BY
-			CASE WHEN po.status = 'ORDERED' AND po.expected_delivery_on < CURRENT_DATE THEN 1 ELSE 2 END,
+			CASE WHEN po.status IN ('ORDERED', 'PARTIALLY_RECEIVED', 'RECEIPT_EXCEPTION') AND po.expected_delivery_on < CURRENT_DATE THEN 1 ELSE 2 END,
 			CASE COALESCE(po.status, 'AWAITING_ORDER')
-				WHEN 'AWAITING_ORDER' THEN 1 WHEN 'ORDERED' THEN 2 ELSE 3 END,
+				WHEN 'RECEIPT_EXCEPTION' THEN 1 WHEN 'AWAITING_ORDER' THEN 2
+				WHEN 'ORDERED' THEN 3 WHEN 'PARTIALLY_RECEIVED' THEN 4
+				WHEN 'RECEIVED' THEN 5 ELSE 6 END,
 			COALESCE(po.expected_delivery_on, CURRENT_DATE + 3650), pr.updated_at DESC
 		LIMIT 200
 	`, user.ID, isEmployee, isManager, isFinance, user.DepartmentID, user.OrganizationID, isAuditor)
@@ -871,7 +942,8 @@ func (s *Store) OperationsBoard(
 			&order.OrderCode, &order.SupplierID, &order.SupplierCode, &order.SupplierName,
 			&order.ExternalReference, &order.ExpectedDeliveryOn, &order.ActualDeliveryOn,
 			&order.Status, &order.Note, &order.Version, &order.OrderedAt, &order.ReceivedAt,
-			&order.DeliveryOverdue, &order.CanPlaceOrder, &order.CanConfirmReceipt,
+			&order.CancelledAt, &order.CancellationReason, &order.ReceiptCount,
+			&order.DeliveryOverdue, &order.CanPlaceOrder, &order.CanConfirmReceipt, &order.CanManageOrder,
 		); err != nil {
 			return OperationsBoard{}, fmt.Errorf("scan procurement operation: %w", err)
 		}
@@ -886,6 +958,12 @@ func (s *Store) OperationsBoard(
 			}
 		case "RECEIVED":
 			result.ReceivedCount++
+		case "PARTIALLY_RECEIVED":
+			result.PartialCount++
+		case "RECEIPT_EXCEPTION":
+			result.ExceptionCount++
+		case "CANCELLED":
+			result.CancelledCount++
 		}
 	}
 	if err = rows.Err(); err != nil {
@@ -1104,7 +1182,9 @@ func (s *Store) loadPurchaseOrder(ctx context.Context, requestID string) (Purcha
 			s.code, s.name, po.external_reference, po.expected_delivery_on::text,
 			po.actual_delivery_on::text, po.status, po.note, po.version,
 			po.ordered_at, po.received_at,
-			(po.status = 'ORDERED' AND po.expected_delivery_on < CURRENT_DATE)
+			po.cancelled_at, po.cancellation_reason,
+			(SELECT count(*) FROM purchase_order_receipts por WHERE por.purchase_order_id = po.id),
+			(po.status IN ('ORDERED', 'PARTIALLY_RECEIVED', 'RECEIPT_EXCEPTION') AND po.expected_delivery_on < CURRENT_DATE)
 		FROM purchase_orders po
 		JOIN purchase_requests pr ON pr.id = po.purchase_request_id
 		JOIN users ru ON ru.id = pr.requester_id
@@ -1117,7 +1197,7 @@ func (s *Store) loadPurchaseOrder(ctx context.Context, requestID string) (Purcha
 		&order.OrderCode, &order.SupplierID, &order.SupplierCode, &order.SupplierName,
 		&order.ExternalReference, &order.ExpectedDeliveryOn, &order.ActualDeliveryOn,
 		&order.Status, &order.Note, &order.Version, &order.OrderedAt, &order.ReceivedAt,
-		&order.DeliveryOverdue,
+		&order.CancelledAt, &order.CancellationReason, &order.ReceiptCount, &order.DeliveryOverdue,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PurchaseOrder{}, ErrPurchaseOrderNotFound
@@ -2037,7 +2117,7 @@ func queueCommentNotification(
 		ResourceID: requestID, OrganizationID: request.OrganizationID,
 		DepartmentID: request.DepartmentID, ActorID: actorID,
 		Title: "Phiếu mua sắm có bình luận mới",
-		Body: request.RequestCode + " - " + request.Title,
+		Body:  request.RequestCode + " - " + request.Title,
 	}
 	if actorID != request.RequesterID {
 		input.RecipientUserID = request.RequesterID

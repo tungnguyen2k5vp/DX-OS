@@ -12,6 +12,7 @@ import {
   InvoiceBoard,
   InvoiceBoardItem,
   InvoiceMatchStatus,
+  InvoicePaymentList,
   InvoiceStatus,
 } from '../../data-access/procurement.models';
 import { ProcurementService } from '../../data-access/procurement.service';
@@ -42,6 +43,8 @@ export class InvoiceBoardPage {
   readonly currency = signal('VND');
   readonly note = signal('');
   readonly paymentReference = signal('');
+  readonly paymentAmount = signal('');
+  readonly paymentHistory = signal<InvoicePaymentList | null>(null);
   readonly paidOn = signal(this.today());
   readonly comment = signal('');
 
@@ -59,10 +62,29 @@ export class InvoiceBoardPage {
     this.currency.set(item.invoiceCurrency ?? item.orderCurrency);
     this.note.set(item.note ?? '');
     this.paymentReference.set('');
+    this.paymentAmount.set(item.remainingAmount || item.invoiceAmount || '');
+    this.paymentHistory.set(null);
     this.paidOn.set(this.today());
     this.comment.set('');
     this.error.set(null);
     this.success.set(null);
+    if (mode === 'PAY' && item.invoiceId) {
+      this.procurement
+        .invoicePayments(item.invoiceId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({ next: (history) => this.paymentHistory.set(history) });
+    }
+  }
+
+  openNewInvoice(item: InvoiceBoardItem): void {
+    this.open(item, 'CREATE');
+    this.invoiceNumber.set('');
+    this.amount.set(
+      item.remainingAmount && item.remainingAmount !== '0'
+        ? item.remainingAmount
+        : item.orderAmount,
+    );
+    this.note.set('Hóa đơn bổ sung cho ' + item.orderCode);
   }
 
   close(): void {
@@ -136,6 +158,28 @@ export class InvoiceBoardPage {
     });
   }
 
+  async recordPayment(item: InvoiceBoardItem): Promise<void> {
+    if (!item.invoiceId || !this.paymentReference().trim() || !this.paymentAmount().trim()) {
+      this.error.set('Vui lòng nhập số tiền và mã tham chiếu thanh toán.');
+      return;
+    }
+    await this.execute('Đã ghi nhận đợt thanh toán.', async () => {
+      await firstValueFrom(
+        this.procurement.recordInvoicePayment(
+          item.invoiceId!,
+          {
+            expectedVersion: item.version,
+            amount: this.paymentAmount(),
+            paidOn: this.paidOn(),
+            paymentReference: this.paymentReference(),
+            note: this.comment(),
+          },
+          crypto.randomUUID(),
+        ),
+      );
+    });
+  }
+
   statusLabel(status: InvoiceStatus | null): string {
     if (!status) return 'Chưa ghi nhận';
     return {
@@ -152,6 +196,7 @@ export class InvoiceBoardPage {
       WAITING_RECEIPT: 'Chờ nhận hàng',
       CURRENCY_MISMATCH: 'Lệch tiền tệ',
       AMOUNT_MISMATCH: 'Lệch số tiền',
+      PARTIAL_MATCH: 'Hóa đơn từng phần',
       MATCHED: 'Khớp ba bên',
     }[status];
   }

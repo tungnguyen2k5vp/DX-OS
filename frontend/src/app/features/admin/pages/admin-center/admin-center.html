@@ -1,0 +1,229 @@
+<section aria-labelledby="admin-heading">
+  <header class="border-b border-border pb-7">
+    <p class="mb-2 text-sm font-medium text-primary">Quản trị nền tảng</p>
+    <h1 id="admin-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+      Trung tâm quản trị DX-OS
+    </h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+      Quản lý người dùng nghiệp vụ, cơ cấu phòng ban và theo dõi sức khỏe xử lý nền.
+    </p>
+  </header>
+
+  @if (error()) {
+    <p
+      role="alert"
+      class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+    >
+      {{ error() }}
+    </p>
+  }
+  @if (center(); as current) {
+    <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Người dùng hoạt động</p>
+          <p class="text-3xl font-semibold">{{ current.overview.activeUsers }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Đã khóa</p>
+          <p class="text-3xl font-semibold">{{ current.overview.inactiveUsers }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Phòng ban</p>
+          <p class="text-3xl font-semibold">{{ current.overview.activeDepartments }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Phiếu đang mở</p>
+          <p class="text-3xl font-semibold">{{ current.overview.openRequests }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Thông báo chờ</p>
+          <p class="text-3xl font-semibold">{{ current.overview.pendingNotifications }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Thông báo lỗi</p>
+          <p class="text-3xl font-semibold text-destructive">
+            {{ current.overview.deadNotifications }}
+          </p>
+        </div>
+      </section>
+    </div>
+    <p class="mt-4 rounded-lg bg-muted p-4 text-sm text-muted-foreground">
+      {{ current.roleNotice }}
+    </p>
+
+    <div class="mt-6 grid gap-6 xl:grid-cols-[2fr_1fr]">
+      <section hlmCard>
+        <div hlmCardHeader class="border-b">
+          <h2 hlmCardTitle>Người dùng nghiệp vụ</h2>
+          <p hlmCardDescription>{{ current.users.length }} tài khoản đã truy cập DX-OS</p>
+        </div>
+        <div hlmCardContent class="overflow-x-auto">
+          <table class="w-full min-w-[760px] text-left text-sm">
+            <thead class="border-b text-xs uppercase text-muted-foreground">
+              <tr>
+                <th class="p-3">Tài khoản</th>
+                <th class="p-3">Tên hiển thị</th>
+                <th class="p-3">Phòng ban</th>
+                <th class="p-3">Trạng thái</th>
+                <th class="p-3">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              @for (item of current.users; track item.id) {
+                <tr>
+                  <td class="p-3">
+                    <strong>{{ item.username }}</strong>
+                    <p class="text-xs text-muted-foreground">{{ item.email || 'Chưa có email' }}</p>
+                  </td>
+                  <td class="p-3">{{ item.displayName }}</td>
+                  <td class="p-3">{{ item.departmentName }}</td>
+                  <td class="p-3">
+                    <span hlmBadge [variant]="item.active ? 'secondary' : 'outline'">{{
+                      item.active ? 'Hoạt động' : 'Đã khóa'
+                    }}</span>
+                  </td>
+                  <td class="p-3">
+                    <button
+                      hlmBtn
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      (click)="editUser(item)"
+                    >
+                      Chỉnh sửa
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader class="border-b">
+          <h2 hlmCardTitle>{{ editingUser() ? 'Cập nhật người dùng' : 'Chọn một người dùng' }}</h2>
+        </div>
+        <div hlmCardContent class="grid gap-4">
+          @if (editingUser()) {
+            <label class="grid gap-1.5 text-sm font-medium"
+              >Tên hiển thị<input
+                class="h-10 rounded-md border px-3"
+                [value]="editDisplayName()"
+                (input)="editDisplayName.set($any($event.target).value)"
+            /></label>
+            <label class="grid gap-1.5 text-sm font-medium"
+              >Email<input
+                class="h-10 rounded-md border px-3"
+                [value]="editEmail()"
+                (input)="editEmail.set($any($event.target).value)"
+            /></label>
+            <label class="grid gap-1.5 text-sm font-medium"
+              >Phòng ban<select
+                class="h-10 rounded-md border px-3"
+                [value]="editDepartmentId()"
+                (change)="editDepartmentId.set($any($event.target).value)"
+              >
+                @for (department of current.departments; track department.id) {
+                  @if (department.active) {
+                    <option [value]="department.id">
+                      {{ department.code }} - {{ department.name }}
+                    </option>
+                  }
+                }
+              </select></label
+            >
+            <label class="flex items-center gap-2 text-sm font-medium"
+              ><input
+                type="checkbox"
+                [checked]="editActive()"
+                (change)="editActive.set($any($event.target).checked)"
+              />
+              Cho phép truy cập</label
+            >
+            <div class="flex gap-2">
+              <button hlmBtn type="button" [disabled]="busy()" (click)="saveUser()">Lưu</button
+              ><button hlmBtn variant="outline" type="button" (click)="editingUser.set(null)">
+                Hủy
+              </button>
+            </div>
+          } @else {
+            <p class="text-sm text-muted-foreground">
+              Chọn “Chỉnh sửa” để đổi hồ sơ, phòng ban hoặc trạng thái truy cập.
+            </p>
+          }
+        </div>
+      </section>
+    </div>
+
+    <section hlmCard class="mt-6">
+      <div hlmCardHeader class="border-b"><h2 hlmCardTitle>Cơ cấu phòng ban</h2></div>
+      <div hlmCardContent>
+        <div class="grid gap-3 md:grid-cols-5">
+          <input
+            class="h-10 rounded-md border px-3"
+            placeholder="Mã phòng ban"
+            [value]="departmentCode()"
+            (input)="departmentCode.set($any($event.target).value)"
+          /><input
+            class="h-10 rounded-md border px-3"
+            placeholder="Tên phòng ban"
+            [value]="departmentName()"
+            (input)="departmentName.set($any($event.target).value)"
+          /><input
+            class="h-10 rounded-md border px-3"
+            placeholder="Trung tâm chi phí"
+            [value]="departmentCostCenter()"
+            (input)="departmentCostCenter.set($any($event.target).value)"
+          /><select
+            class="h-10 rounded-md border px-3"
+            [value]="departmentParentId()"
+            (change)="departmentParentId.set($any($event.target).value)"
+          >
+            <option value="">Không có cấp trên</option>
+            @for (item of current.departments; track item.id) {
+              @if (item.active) {
+                <option [value]="item.id">{{ item.code }}</option>
+              }
+            }</select
+          ><button hlmBtn type="button" [disabled]="busy()" (click)="createDepartment()">
+            Thêm phòng ban
+          </button>
+        </div>
+        <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          @for (item of current.departments; track item.id) {
+            <article class="flex items-center justify-between rounded-lg border p-4">
+              <div>
+                <strong>{{ item.code }} · {{ item.name }}</strong>
+                <p class="mt-1 text-xs text-muted-foreground">
+                  {{ item.costCenter || 'Chưa đặt trung tâm chi phí' }}
+                </p>
+              </div>
+              <button
+                hlmBtn
+                size="sm"
+                variant="outline"
+                [disabled]="busy()"
+                (click)="toggleDepartment(item)"
+              >
+                {{ item.active ? 'Vô hiệu' : 'Kích hoạt' }}
+              </button>
+            </article>
+          }
+        </div>
+      </div>
+    </section>
+  } @else if (loading()) {
+    <div class="mt-7 h-40 animate-pulse rounded-xl bg-muted"></div>
+  }
+</section>

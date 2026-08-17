@@ -11,6 +11,7 @@ describe('AuditCenter', () => {
         {
           provide: ReportingService,
           useValue: {
+            auditCases: () => of({ items: [], total: 0, canManage: false, canExport: false }),
             auditEvents: () =>
               of({
                 items: [],

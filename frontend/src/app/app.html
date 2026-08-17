@@ -25,20 +25,22 @@
         >
           Tổng quan
         </a>
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          routerLink="/purchase-requests"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Phiếu mua sắm
-        </a>
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          routerLink="/work-center"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Việc của tôi
-        </a>
+        @if (canAccessProcurement()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/purchase-requests"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Phiếu mua sắm
+          </a>
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/work-center"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Việc của tôi
+          </a>
+        }
         @if (canAccessOperations()) {
           <a
             class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -107,6 +109,24 @@
             Chính sách
           </a>
         }
+        @if (canAccessAdmin()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/admin"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Quản trị
+          </a>
+        }
+        @if (canAccessAI()) {
+          <a
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            routerLink="/ai-center"
+            routerLinkActive="bg-muted text-foreground"
+          >
+            Khuyến nghị
+          </a>
+        }
         @if (canAccessReports()) {
           <a
             class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -159,20 +179,22 @@
       >
         Tổng quan
       </a>
-      <a
-        class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-        routerLink="/purchase-requests"
-        routerLinkActive="bg-muted text-foreground"
-      >
-        Phiếu mua sắm
-      </a>
-      <a
-        class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-        routerLink="/work-center"
-        routerLinkActive="bg-muted text-foreground"
-      >
-        Việc của tôi
-      </a>
+      @if (canAccessProcurement()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/purchase-requests"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Phiếu mua sắm
+        </a>
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/work-center"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Việc của tôi
+        </a>
+      }
       <a
         class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
         routerLink="/notifications"
@@ -249,6 +271,24 @@
           routerLinkActive="bg-muted text-foreground"
         >
           Chính sách
+        </a>
+      }
+      @if (canAccessAdmin()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/admin"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Quản trị
+        </a>
+      }
+      @if (canAccessAI()) {
+        <a
+          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          routerLink="/ai-center"
+          routerLinkActive="bg-muted text-foreground"
+        >
+          Khuyến nghị
         </a>
       }
       @if (canAccessReports()) {

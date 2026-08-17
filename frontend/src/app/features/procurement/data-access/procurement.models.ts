@@ -110,6 +110,7 @@ export interface WorkSummary {
 
 export type SupplierStatus = 'ACTIVE' | 'INACTIVE';
 export type SupplierRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+export type SupplierComplianceStatus = 'PENDING' | 'VERIFIED' | 'EXPIRED' | 'BLOCKED';
 
 export interface Supplier {
   id: string;
@@ -119,6 +120,14 @@ export interface Supplier {
   contactName?: string;
   email?: string;
   phone?: string;
+  address?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  contractReference?: string;
+  contractExpiresOn?: string;
+  complianceStatus: SupplierComplianceStatus;
+  performanceScore?: string;
+  businessNote?: string;
   status: SupplierStatus;
   riskLevel: SupplierRiskLevel;
   version: number;
@@ -133,6 +142,14 @@ export interface SupplierInput {
   contactName: string;
   email: string;
   phone: string;
+  address: string;
+  bankName: string;
+  bankAccountNumber: string;
+  contractReference: string;
+  contractExpiresOn: string;
+  complianceStatus: SupplierComplianceStatus;
+  performanceScore: string;
+  businessNote: string;
   status: SupplierStatus;
   riskLevel: SupplierRiskLevel;
   expectedVersion?: number;
@@ -144,7 +161,13 @@ export interface SupplierList {
   canManage: boolean;
 }
 
-export type FulfillmentStatus = 'AWAITING_ORDER' | 'ORDERED' | 'RECEIVED';
+export type FulfillmentStatus =
+  | 'AWAITING_ORDER'
+  | 'ORDERED'
+  | 'PARTIALLY_RECEIVED'
+  | 'RECEIPT_EXCEPTION'
+  | 'RECEIVED'
+  | 'CANCELLED';
 
 export interface PurchaseOrder {
   id: string;
@@ -167,9 +190,13 @@ export interface PurchaseOrder {
   version: number;
   orderedAt: string | null;
   receivedAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  receiptCount: number;
   deliveryOverdue: boolean;
   canPlaceOrder: boolean;
   canConfirmReceipt: boolean;
+  canManageOrder: boolean;
 }
 
 export interface OperationsBoard {
@@ -179,6 +206,9 @@ export interface OperationsBoard {
   inDeliveryCount: number;
   overdueDeliveryCount: number;
   receivedCount: number;
+  partialCount: number;
+  exceptionCount: number;
+  cancelledCount: number;
 }
 
 export interface CreatePurchaseOrder {
@@ -189,9 +219,58 @@ export interface CreatePurchaseOrder {
   note: string;
 }
 
+export type ReceiptOutcome = 'PARTIAL' | 'COMPLETE' | 'DAMAGED' | 'WRONG_ITEM' | 'REJECTED';
+export type ReceiptCondition = 'ACCEPTED' | 'DAMAGED' | 'WRONG_ITEM' | 'REJECTED';
+
+export interface RecordReceiptItem {
+  purchaseRequestItemId: string;
+  quantityReceived: string;
+  condition: ReceiptCondition;
+  note: string;
+}
+
+export interface RecordReceipt {
+  expectedVersion: number;
+  outcome: ReceiptOutcome;
+  receivedOn: string;
+  note: string;
+  items: RecordReceiptItem[];
+}
+
+export interface ReceiptItem extends RecordReceiptItem {
+  lineNumber: number;
+  description: string;
+  orderedQuantity: string;
+}
+
+export interface ReceiptRecord {
+  id: string;
+  receiptNumber: string;
+  outcome: ReceiptOutcome;
+  receivedOn: string;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+  items: ReceiptItem[];
+}
+
+export interface ReceiptHistory {
+  items: ReceiptRecord[];
+  total: number;
+}
+
+export interface UpdatePurchaseOrder extends Omit<CreatePurchaseOrder, 'purchaseRequestId'> {
+  expectedVersion: number;
+}
+
 export type InvoiceStatus = 'RECORDED' | 'VERIFIED' | 'DISPUTED' | 'PAID';
 export type InvoiceMatchStatus =
-  'NOT_RECORDED' | 'WAITING_RECEIPT' | 'CURRENCY_MISMATCH' | 'AMOUNT_MISMATCH' | 'MATCHED';
+  | 'NOT_RECORDED'
+  | 'WAITING_RECEIPT'
+  | 'CURRENCY_MISMATCH'
+  | 'AMOUNT_MISMATCH'
+  | 'PARTIAL_MATCH'
+  | 'MATCHED';
 
 export interface InvoiceBoardItem {
   purchaseOrderId: string;
@@ -220,6 +299,9 @@ export interface InvoiceBoardItem {
   version: number;
   paymentReference: string | null;
   paidOn: string | null;
+  paidAmount: string;
+  remainingAmount: string;
+  paymentCount: number;
   invoiceCreatedAt: string | null;
   invoiceUpdatedAt: string | null;
   paymentOverdue: boolean;
@@ -259,6 +341,29 @@ export interface TransitionInvoice {
   comment?: string;
   paymentReference?: string;
   paidOn?: string;
+}
+
+export interface RecordInvoicePayment {
+  expectedVersion: number;
+  amount: string;
+  paidOn: string;
+  paymentReference: string;
+  note: string;
+}
+
+export interface InvoicePayment {
+  id: string;
+  amount: string;
+  paidOn: string;
+  paymentReference: string;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface InvoicePaymentList {
+  items: InvoicePayment[];
+  total: number;
 }
 
 export interface SLAPolicy {

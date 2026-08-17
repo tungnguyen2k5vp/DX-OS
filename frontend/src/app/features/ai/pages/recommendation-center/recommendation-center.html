@@ -1,0 +1,143 @@
+<section aria-labelledby="ai-heading">
+  <header
+    class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
+  >
+    <div>
+      <p class="mb-2 text-sm font-medium text-primary">Hỗ trợ quyết định có kiểm soát</p>
+      <h1 id="ai-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+        Trung tâm khuyến nghị
+      </h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+        Phát hiện rủi ro SLA, phiếu giá trị lớn và nhà cung cấp cần kiểm soát. Mọi kết quả đều cần
+        con người quyết định.
+      </p>
+    </div>
+    @if (result()?.canOperate) {
+      <button hlmBtn type="button" [disabled]="busy()" (click)="generate()">
+        Quét dữ liệu mới
+      </button>
+    }
+  </header>
+  @if (error()) {
+    <p
+      role="alert"
+      class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+    >
+      {{ error() }}
+    </p>
+  }
+  @if (result(); as current) {
+    <div class="mt-7 grid gap-4 sm:grid-cols-3">
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Tổng khuyến nghị</p>
+          <p class="text-3xl font-semibold">{{ current.total }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Chờ quyết định</p>
+          <p class="text-3xl font-semibold">{{ current.pending }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Rủi ro cao/nghiêm trọng</p>
+          <p class="text-3xl font-semibold text-destructive">{{ current.highRisk }}</p>
+        </div>
+      </section>
+    </div>
+    <p class="mt-4 rounded-lg bg-muted p-4 text-sm text-muted-foreground">
+      <strong>Phương pháp:</strong> {{ current.methodology }}
+    </p>
+    <div class="mt-6 grid gap-4 xl:grid-cols-2">
+      @for (item of current.items; track item.id) {
+        <article hlmCard>
+          <div hlmCardHeader class="border-b">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="text-xs font-medium text-primary">{{ item.recommendationType }}</p>
+                <h2 hlmCardTitle class="mt-1">{{ item.title }}</h2>
+              </div>
+              <div class="flex gap-2">
+                <span hlmBadge variant="outline">{{ item.riskLevel }}</span
+                ><span hlmBadge>{{ item.status }}</span>
+              </div>
+            </div>
+          </div>
+          <div hlmCardContent>
+            <p class="text-sm leading-6 text-muted-foreground">{{ item.summary }}</p>
+            @if (item.purchaseRequestId) {
+              <a
+                class="mt-3 inline-block text-sm font-medium text-primary hover:underline"
+                [routerLink]="['/purchase-requests', item.purchaseRequestId]"
+                >{{ item.purchaseRequestCode }} · {{ item.purchaseRequestTitle }}</a
+              >
+            }
+            <details class="mt-4 rounded-md border p-3">
+              <summary class="cursor-pointer text-sm font-medium">
+                Bằng chứng có thể giải thích
+              </summary>
+              <pre class="mt-3 overflow-x-auto whitespace-pre-wrap text-xs">{{
+                item.evidence | json
+              }}</pre>
+            </details>
+            <p class="mt-3 text-xs text-muted-foreground">
+              Tạo bởi {{ item.generatedBy }} lúc {{ item.generatedAt | date: 'dd/MM/yyyy HH:mm' }}
+            </p>
+            @if (item.status === 'PENDING' && current.canOperate) {
+              <div class="mt-4 grid gap-3">
+                <label class="grid gap-1.5 text-sm font-medium"
+                  >Lý do quyết định<input
+                    class="h-10 rounded-md border border-input bg-background px-3"
+                    [value]="comments()[item.id] || ''"
+                    (input)="updateComment(item.id, $any($event.target).value)"
+                /></label>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    hlmBtn
+                    size="sm"
+                    type="button"
+                    [disabled]="busy()"
+                    (click)="decide(item, 'APPROVED')"
+                  >
+                    Chấp nhận</button
+                  ><button
+                    hlmBtn
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    [disabled]="busy()"
+                    (click)="decide(item, 'REJECTED')"
+                  >
+                    Bác bỏ</button
+                  ><button
+                    hlmBtn
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    [disabled]="busy()"
+                    (click)="decide(item, 'DISMISSED')"
+                  >
+                    Bỏ qua
+                  </button>
+                </div>
+              </div>
+            }
+            @if (item.decisionComment) {
+              <p class="mt-4 rounded-md bg-muted p-3 text-sm">
+                <strong>{{ item.decidedBy }}:</strong> {{ item.decisionComment }}
+              </p>
+            }
+          </div>
+        </article>
+      } @empty {
+        <p class="col-span-full py-14 text-center text-sm text-muted-foreground">
+          Chưa có khuyến nghị. Người vận hành AI có thể chạy quét dữ liệu.
+        </p>
+      }
+    </div>
+  } @else if (loading()) {
+    <div class="mt-7 h-40 animate-pulse rounded-xl bg-muted"></div>
+  }
+</section>

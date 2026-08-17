@@ -37,14 +37,19 @@ describe('NotificationService', () => {
 
   it('marks one or all notifications read', () => {
     service.list().subscribe();
-    http.expectOne((request) => request.url.endsWith('/me/notifications')).flush({
-      items: [], page: 1, pageSize: 20, total: 0, pages: 0, unreadCount: 2,
-    });
+    http
+      .expectOne((request) => request.url.endsWith('/me/notifications'))
+      .flush({
+        items: [],
+        page: 1,
+        pageSize: 20,
+        total: 0,
+        pages: 0,
+        unreadCount: 2,
+      });
 
     service.markRead('notification-id').subscribe();
-    const single = http.expectOne(
-      'http://api.test/api/v1/me/notifications/notification-id/read',
-    );
+    const single = http.expectOne('http://api.test/api/v1/me/notifications/notification-id/read');
     expect(single.request.method).toBe('POST');
     single.flush({ read: true });
     expect(service.unreadCount()).toBe(1);
