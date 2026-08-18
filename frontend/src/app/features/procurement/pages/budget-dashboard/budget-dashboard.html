@@ -1,9 +1,7 @@
 <section aria-labelledby="budget-heading">
-  <header
-    class="flex flex-col gap-4 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between"
-  >
+  <header class="budget-page-header flex flex-col gap-4 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between">
     <div>
-      <p class="text-sm font-semibold text-primary">Kiểm soát tài chính</p>
+      <p class="budget-page-header__eyebrow"><app-icon name="budget" size="sm" /> Kiểm soát tài chính</p>
       <h1 id="budget-heading" class="mt-2 text-3xl font-semibold tracking-tight">
         Quản lý ngân sách
       </h1>
@@ -13,10 +11,10 @@
     </div>
     <div class="flex flex-wrap gap-2">
       <button hlmBtn type="button" [disabled]="loading() || !dashboard()" (click)="exportCsv()">
-        Xuất CSV
+        <app-icon name="reports" size="sm" /> Xuất CSV
       </button>
       <button hlmBtn type="button" variant="outline" [disabled]="loading()" (click)="retry()">
-        Làm mới
+        <app-icon name="tasks" size="sm" /> Làm mới
       </button>
     </div>
   </header>
@@ -66,33 +64,33 @@
             <span hlmBadge variant="outline">Tổng hợp tổ chức</span>
           </div>
           <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article hlmCard>
+            <article hlmCard class="budget-metric budget-metric--primary">
               <div hlmCardHeader>
-                <p hlmCardDescription>Tổng hạn mức</p>
+                <div class="budget-metric__heading"><p hlmCardDescription>Tổng hạn mức</p><span><app-icon name="budget" /></span></div>
                 <p hlmCardTitle class="text-2xl tabular-nums">
                   {{ total.allocatedAmount | dxMoney: total.currency }}
                 </p>
               </div>
             </article>
-            <article hlmCard>
+            <article hlmCard class="budget-metric budget-metric--amber">
               <div hlmCardHeader>
-                <p hlmCardDescription>Đang giữ</p>
+                <div class="budget-metric__heading"><p hlmCardDescription>Đang giữ</p><span><app-icon name="requests" /></span></div>
                 <p hlmCardTitle class="text-2xl tabular-nums">
                   {{ total.reservedAmount | dxMoney: total.currency }}
                 </p>
               </div>
             </article>
-            <article hlmCard>
+            <article hlmCard class="budget-metric budget-metric--neutral">
               <div hlmCardHeader>
-                <p hlmCardDescription>Đã cam kết</p>
+                <div class="budget-metric__heading"><p hlmCardDescription>Đã cam kết</p><span><app-icon name="approval" /></span></div>
                 <p hlmCardTitle class="text-2xl tabular-nums">
                   {{ total.committedAmount | dxMoney: total.currency }}
                 </p>
               </div>
             </article>
-            <article hlmCard>
+            <article hlmCard class="budget-metric budget-metric--success">
               <div hlmCardHeader>
-                <p hlmCardDescription>Còn khả dụng</p>
+                <div class="budget-metric__heading"><p hlmCardDescription>Còn khả dụng</p><span><app-icon name="reports" /></span></div>
                 <p hlmCardTitle class="text-2xl tabular-nums text-primary">
                   {{ total.availableAmount | dxMoney: total.currency }}
                 </p>
@@ -121,10 +119,17 @@
         </div>
       }
 
-      <section hlmCard>
-        <div hlmCardHeader class="border-b">
-          <h2 hlmCardTitle>Phân bổ đang hoạt động</h2>
-          <p hlmCardDescription>Cảnh báo ở mức 75% và chuyển nghiêm trọng từ 90% mức sử dụng.</p>
+      <section hlmCard class="budget-allocation-card">
+        <div hlmCardHeader class="border-b budget-allocation-card__header">
+          <div>
+            <h2 hlmCardTitle>Phân bổ đang hoạt động</h2>
+            <p hlmCardDescription>Cảnh báo ở mức 75% và chuyển nghiêm trọng từ 90% mức sử dụng.</p>
+          </div>
+          <label class="budget-search" for="budget-allocation-search">
+            <app-icon name="audit" size="sm" />
+            <span class="sr-only">Tìm trung tâm chi phí</span>
+            <input id="budget-allocation-search" name="budgetAllocationSearch" type="search" autocomplete="off" [value]="allocationSearch()" (input)="allocationSearch.set($any($event.target).value)" placeholder="Tìm trung tâm chi phí…" />
+          </label>
         </div>
         <div hlmCardContent class="overflow-x-auto">
           <table class="w-full min-w-[980px] text-left text-sm">
@@ -140,7 +145,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-border">
-              @for (allocation of current.allocations; track allocation.id) {
+              @for (allocation of filteredAllocations(); track allocation.id) {
                 <tr>
                   <td class="px-3 py-4">
                     <div class="flex items-center gap-2">
@@ -182,7 +187,12 @@
                   <td class="px-3 py-4 text-right font-medium text-primary tabular-nums">
                     {{ allocation.availableAmount | dxMoney: allocation.currency }}
                   </td>
-                  <td class="px-3 py-4 text-right tabular-nums">{{ allocation.utilization }}%</td>
+                  <td class="px-3 py-4 text-right">
+                    <div class="budget-utilization">
+                      <span class="tabular-nums">{{ allocation.utilization }}%</span>
+                      <span class="budget-utilization__track" aria-hidden="true"><span class="budget-utilization__bar" [class.budget-utilization__bar--warning]="allocationProgress(allocation) >= 75 && allocationProgress(allocation) < 90" [class.budget-utilization__bar--critical]="allocationProgress(allocation) >= 90" [style.width.%]="allocationProgress(allocation)"></span></span>
+                    </div>
+                  </td>
                   <td class="px-3 py-4 text-right">
                     @if (current.canManage) {
                       <button
@@ -199,10 +209,13 @@
                     }
                   </td>
                 </tr>
+              } @empty {
+                <tr><td colspan="7" class="px-3 py-10 text-center text-muted-foreground">Không tìm thấy phân bổ phù hợp với từ khóa “{{ allocationSearch() }}”.</td></tr>
               }
             </tbody>
           </table>
         </div>
+        <div class="budget-allocation-card__footer">Hiển thị {{ filteredAllocations().length }} / {{ current.allocations.length }} phân bổ đang hoạt động.</div>
       </section>
 
       @if (adjustingId()) {

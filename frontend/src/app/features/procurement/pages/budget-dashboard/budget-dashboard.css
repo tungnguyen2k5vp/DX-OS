@@ -1,0 +1,27 @@
+.budget-page-header__eyebrow { display: flex; align-items: center; gap: 0.4rem; color: var(--primary); font-size: 0.75rem; font-weight: 750; }
+.budget-page-header [data-slot='button'] { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+.budget-metric { position: relative; overflow: hidden; }
+.budget-metric::before { position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--primary); content: ''; }
+.budget-metric__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.budget-metric__heading > span { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 0.6rem; background: oklch(0.91 0.04 208); color: var(--primary); }
+.budget-metric--amber::before { background: oklch(0.72 0.14 72); }
+.budget-metric--amber .budget-metric__heading > span { background: oklch(0.95 0.045 85); color: oklch(0.55 0.11 70); }
+.budget-metric--neutral::before { background: oklch(0.58 0.035 245); }
+.budget-metric--neutral .budget-metric__heading > span { background: oklch(0.93 0.016 245); color: oklch(0.4 0.04 245); }
+.budget-metric--success::before { background: oklch(0.62 0.14 155); }
+.budget-metric--success .budget-metric__heading > span { background: oklch(0.91 0.06 155); color: oklch(0.42 0.11 155); }
+
+.budget-allocation-card__header { display: flex; gap: 1rem; align-items: center; justify-content: space-between; }
+.budget-search { display: flex; width: min(100%, 18rem); align-items: center; gap: 0.45rem; padding: 0 0.7rem; border: 1px solid var(--input); border-radius: 0.65rem; background: var(--background); color: var(--muted-foreground); }
+.budget-search:focus-within { border-color: var(--ring); box-shadow: 0 0 0 3px oklch(0.55 0.12 193 / 14%); }
+.budget-search input { width: 100%; height: 2.25rem; border: 0; background: transparent; box-shadow: none; outline: none; }
+.budget-search input:focus-visible { border: 0; box-shadow: none; }
+.budget-utilization { display: grid; justify-items: end; gap: 0.35rem; min-width: 6.5rem; }
+.budget-utilization__track { display: block; width: 6.5rem; height: 0.32rem; overflow: hidden; border-radius: 99px; background: oklch(0.9 0.01 235); }
+.budget-utilization__bar { display: block; height: 100%; border-radius: inherit; background: oklch(0.55 0.11 208); }
+.budget-utilization__bar--warning { background: oklch(0.73 0.14 72); }
+.budget-utilization__bar--critical { background: var(--destructive); }
+.budget-allocation-card__footer { padding: 0.85rem 1.5rem; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 0.75rem; }
+
+@media (max-width: 640px) { .budget-allocation-card__header { align-items: stretch; flex-direction: column; } .budget-search { width: 100%; } }

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -12,6 +12,7 @@ import { problemMessage } from '../../data-access/problem-details';
 import { BudgetAllocation, BudgetDashboard } from '../../data-access/procurement.models';
 import { ProcurementService } from '../../data-access/procurement.service';
 import { MoneyPipe } from '../../ui/money.pipe';
+import { AppIcon } from '../../../../shared/ui/app-icon/app-icon';
 
 @Component({
   selector: 'app-budget-dashboard',
@@ -23,8 +24,10 @@ import { MoneyPipe } from '../../ui/money.pipe';
     HlmButton,
     ...HlmCardImports,
     MoneyPipe,
+    AppIcon,
   ],
   templateUrl: './budget-dashboard.html',
+  styleUrl: './budget-dashboard.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BudgetDashboardPage {
@@ -40,6 +43,20 @@ export class BudgetDashboardPage {
   readonly saving = signal(false);
   readonly saveError = signal<string | null>(null);
   readonly success = signal<string | null>(null);
+  readonly allocationSearch = signal('');
+  readonly filteredAllocations = computed(() => {
+    const query = this.allocationSearch().trim().toLocaleLowerCase('vi-VN');
+    const allocations = this.dashboard()?.allocations ?? [];
+    if (!query) {
+      return allocations;
+    }
+    return allocations.filter((allocation) =>
+      [allocation.costCenter, allocation.periodCode, allocation.currency]
+        .join(' ')
+        .toLocaleLowerCase('vi-VN')
+        .includes(query),
+    );
+  });
 
   readonly adjustmentForm = this.formBuilder.nonNullable.group({
     allocatedAmount: [
@@ -176,6 +193,10 @@ export class BudgetDashboardPage {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  allocationProgress(allocation: BudgetAllocation): number {
+    return Math.max(0, Math.min(100, Number(allocation.utilization)));
   }
 
   private load(): void {

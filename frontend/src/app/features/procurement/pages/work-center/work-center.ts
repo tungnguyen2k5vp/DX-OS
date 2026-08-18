@@ -10,6 +10,7 @@ import { WorkSummary, WorkTaskType, WorkTaskUrgency } from '../../data-access/pr
 import { ProcurementService } from '../../data-access/procurement.service';
 import { MoneyPipe } from '../../ui/money.pipe';
 import { PurchaseRequestStatusBadge } from '../../ui/purchase-request-status-badge';
+import { AppIcon } from '../../../../shared/ui/app-icon/app-icon';
 
 const taskLabels: Record<WorkTaskType, string> = {
   COMPLETE_REQUEST: 'Hoàn thiện và gửi phiếu',
@@ -34,6 +35,7 @@ const urgencyLabels: Record<WorkTaskUrgency, string> = {
     ...HlmCardImports,
     MoneyPipe,
     PurchaseRequestStatusBadge,
+    AppIcon,
   ],
   templateUrl: './work-center.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

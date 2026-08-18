@@ -26,6 +26,7 @@ import { MoneyPipe } from '../../procurement/ui/money.pipe';
 import { PurchaseRequestStatusBadge } from '../../procurement/ui/purchase-request-status-badge';
 import { ProcurementReportDashboard } from '../../reporting/data-access/reporting.models';
 import { ReportingService } from '../../reporting/data-access/reporting.service';
+import { AppIcon } from '../../../shared/ui/app-icon/app-icon';
 
 interface RoleWorkspace {
   name: string;
@@ -86,6 +87,7 @@ const defaultWorkspace: RoleWorkspace = {
     ...HlmCardImports,
     MoneyPipe,
     PurchaseRequestStatusBadge,
+    AppIcon,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',

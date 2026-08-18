@@ -17,6 +17,7 @@ import { PurchaseRequest, PurchaseRequestStatus } from '../../data-access/procur
 import { ProcurementService } from '../../data-access/procurement.service';
 import { MoneyPipe } from '../../ui/money.pipe';
 import { PurchaseRequestStatusBadge } from '../../ui/purchase-request-status-badge';
+import { AppIcon } from '../../../../shared/ui/app-icon/app-icon';
 
 @Component({
   selector: 'app-approval-inbox',
@@ -27,6 +28,7 @@ import { PurchaseRequestStatusBadge } from '../../ui/purchase-request-status-bad
     ...HlmCardImports,
     MoneyPipe,
     PurchaseRequestStatusBadge,
+    AppIcon,
   ],
   templateUrl: './approval-inbox.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

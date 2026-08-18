@@ -3,7 +3,7 @@
     class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
   >
     <div>
-      <p class="mb-2 text-sm font-medium text-primary">{{ reviewRoleLabel() }}</p>
+      <p class="flex items-center gap-2 text-sm font-medium text-primary"><app-icon name="approval" size="sm" /> {{ reviewRoleLabel() }}</p>
       <h1 id="approval-inbox-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
         Chờ tôi phê duyệt
       </h1>
@@ -11,7 +11,7 @@
         {{ scopeDescription() }} Mở một phiếu để phê duyệt, từ chối hoặc yêu cầu chỉnh sửa.
       </p>
     </div>
-    <a hlmBtn variant="outline" routerLink="/purchase-requests">Tất cả phiếu</a>
+    <a hlmBtn variant="outline" routerLink="/purchase-requests"><app-icon name="requests" size="sm" /> Tất cả phiếu</a>
   </header>
 
   <section hlmCard class="mt-7">
@@ -41,11 +41,7 @@
           class="grid min-h-72 place-items-center rounded-lg border border-dashed border-border p-8"
         >
           <div class="max-w-md text-center">
-            <span
-              class="mx-auto grid size-12 place-items-center rounded-full bg-primary/5 font-semibold text-primary"
-              aria-hidden="true"
-              >✓</span
-            >
+            <span class="mx-auto grid size-12 place-items-center rounded-full bg-primary/5 text-primary" aria-hidden="true"><app-icon name="approval" size="lg" /></span>
             <h2 class="mt-4 text-lg font-semibold">Không còn phiếu chờ xử lý</h2>
             <p class="mt-2 text-sm leading-6 text-muted-foreground">
               Hàng đợi của bạn đang trống. Phiếu mới sẽ xuất hiện khi tới đúng vòng phê duyệt.

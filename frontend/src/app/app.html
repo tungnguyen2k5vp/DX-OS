@@ -1,313 +1,100 @@
 <div class="app-shell bg-background text-foreground">
-  <header class="app-topbar">
-    <div class="app-topbar__inner mx-auto flex max-w-[1760px] items-center gap-4 px-4 sm:px-6">
-      <a
-        class="app-brand flex items-center gap-3"
-        routerLink="/dashboard"
-        aria-label="DX-OS - Trang chủ"
-      >
-        <span
-          class="app-brand__mark grid size-10 place-items-center rounded-xl text-sm font-extrabold tracking-tight text-primary-foreground"
-          aria-hidden="true"
-        >
-          DX
-        </span>
-        <span>
-          <strong class="block text-sm leading-none">DX-OS</strong>
-          <span class="mt-1 block text-xs text-muted-foreground">Vận hành doanh nghiệp số</span>
-        </span>
-      </a>
+  <a class="app-skip-link" href="#main-content">Đi thẳng đến nội dung chính</a>
+  @if (isNavigationOpen()) {
+    <button
+      class="app-nav-backdrop"
+      type="button"
+      aria-label="Đóng điều hướng"
+      (click)="closeNavigation()"
+    ></button>
+  }
 
-      <nav
-        class="app-navigation ml-3 hidden min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap md:flex"
-        aria-label="Điều hướng chính"
-      >
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          routerLink="/dashboard"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Tổng quan
-        </a>
-        @if (canAccessProcurement()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/purchase-requests"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Phiếu mua sắm
-          </a>
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/work-center"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Việc của tôi
-          </a>
-        }
-        @if (canAccessOperations()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/operations"
-            routerLinkActive="bg-muted text-foreground"
-            >Giao nhận</a
-          >
-        }
-        @if (isEmployee()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/employee-guide"
-            routerLinkActive="bg-muted text-foreground"
-            >Hướng dẫn</a
-          >
-        }
-        @if (canAccessSuppliers()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/suppliers"
-            routerLinkActive="bg-muted text-foreground"
-            >Nhà cung cấp</a
-          >
-        }
-        @if (canReview()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/approvals"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Phê duyệt
-          </a>
-        }
-        @if (canAccessBudgets()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/budgets"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Ngân sách
-          </a>
-        }
-        @if (canAccessInvoices()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/invoices"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Hóa đơn
-          </a>
-        }
-        @if (canAccessAudit()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/audit"
-            routerLinkActive="bg-muted text-foreground"
-            >Kiểm toán</a
-          >
-        }
-        @if (canAccessPolicies()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/policies"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Chính sách
-          </a>
-        }
-        @if (canAccessAdmin()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/admin"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Quản trị
-          </a>
-        }
-        @if (canAccessAI()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/ai-center"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Khuyến nghị
-          </a>
-        }
-        @if (canAccessReports()) {
-          <a
-            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            routerLink="/reports"
-            routerLinkActive="bg-muted text-foreground"
-          >
-            Báo cáo
-          </a>
-        }
-      </nav>
+  <aside class="app-sidebar" [class.app-sidebar--open]="isNavigationOpen()" aria-label="Điều hướng DX-OS">
+    <a class="app-brand" routerLink="/dashboard" (click)="closeNavigation()" aria-label="DX-OS - Tổng quan">
+      <span class="app-brand__mark" aria-hidden="true">DX</span>
+      <span class="min-w-0">
+        <strong>DX-OS</strong>
+        <span>Vận hành doanh nghiệp</span>
+      </span>
+    </a>
 
-      <div class="app-account ml-auto flex items-center gap-3">
+    <nav id="primary-navigation" class="app-sidebar__navigation" aria-label="Các phân hệ">
+      @for (group of navigationGroups(); track group.label) {
+        <section class="app-nav-group" [attr.aria-label]="group.label">
+          <p class="app-nav-group__label">{{ group.label }}</p>
+          <div class="app-nav-group__items">
+            @for (item of group.items; track item.route) {
+              <a
+                class="app-nav-link"
+                [routerLink]="item.route"
+                routerLinkActive="app-nav-link--active"
+                #activeLink="routerLinkActive"
+                [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
+                [attr.aria-current]="activeLink.isActive ? 'page' : null"
+                (click)="closeNavigation()"
+              >
+                <app-icon [name]="item.icon" />
+                <span>{{ item.label }}</span>
+              </a>
+            }
+          </div>
+        </section>
+      }
+    </nav>
+
+    <div class="app-sidebar__footer">
+      <div class="app-sidebar__hint">
+        <span class="app-sidebar__hint-dot" aria-hidden="true"></span>
+        <span>Hệ thống đang hoạt động</span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="app-workspace">
+    <header class="app-topbar">
+      <button
+        class="app-menu-button"
+        type="button"
+        [attr.aria-expanded]="isNavigationOpen()"
+        aria-controls="primary-navigation"
+        aria-label="Mở điều hướng"
+        (click)="toggleNavigation()"
+      >
+        <span></span><span></span><span></span>
+      </button>
+
+      <div class="app-topbar__context">
+        <span class="app-topbar__eyebrow">KHÔNG GIAN VẬN HÀNH</span>
+        <span class="app-topbar__title">DX-OS</span>
+      </div>
+
+      <div class="app-account">
         <a
-          hlmBtn
-          variant="ghost"
-          size="sm"
+          class="app-notification-button"
           routerLink="/notifications"
-          routerLinkActive="bg-muted"
           aria-label="Mở trung tâm thông báo"
+          title="Thông báo"
         >
-          Thông báo
+          <app-icon name="notifications" />
           @if (notifications.unreadCount() > 0) {
-            <span hlmBadge class="ml-2 min-w-6 justify-center" aria-label="Số thông báo chưa đọc">
+            <span class="app-notification-button__count" aria-label="Số thông báo chưa đọc">
               {{ notifications.unreadCount() > 99 ? '99+' : notifications.unreadCount() }}
             </span>
           }
         </a>
-        <span hlmBadge variant="secondary" class="hidden sm:inline-flex">
-          {{ primaryRoleLabel() }}
-        </span>
-        <div class="hidden text-right sm:block">
-          <p class="max-w-40 truncate text-sm font-medium">
-            {{ auth.username() }}
-          </p>
-          <p class="text-xs text-muted-foreground">Không gian đăng nhập: dx-os</p>
+        <div class="app-user-summary">
+          <span class="app-user-summary__avatar" aria-hidden="true">{{ userInitials() }}</span>
+          <span class="app-user-summary__text">
+            <strong>{{ auth.username() }}</strong>
+            <span hlmBadge variant="secondary">{{ primaryRoleLabel() }}</span>
+          </span>
         </div>
-        <button hlmBtn variant="outline" size="sm" type="button" (click)="logout()">
-          Đăng xuất
-        </button>
+        <button hlmBtn variant="outline" size="sm" type="button" (click)="logout()">Đăng xuất</button>
       </div>
-    </div>
-    <nav
-      class="app-mobile-navigation app-navigation mx-auto flex max-w-[1600px] gap-1 overflow-x-auto whitespace-nowrap px-4 py-2 md:hidden"
-      aria-label="Điều hướng trên thiết bị di động"
-    >
-      <a
-        class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-        routerLink="/dashboard"
-        routerLinkActive="bg-muted text-foreground"
-      >
-        Tổng quan
-      </a>
-      @if (canAccessProcurement()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/purchase-requests"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Phiếu mua sắm
-        </a>
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/work-center"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Việc của tôi
-        </a>
-      }
-      <a
-        class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-        routerLink="/notifications"
-        routerLinkActive="bg-muted text-foreground"
-      >
-        Thông báo
-        @if (notifications.unreadCount() > 0) {
-          <span class="ml-1 font-semibold text-primary">{{ notifications.unreadCount() }}</span>
-        }
-      </a>
-      @if (canAccessOperations()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/operations"
-          routerLinkActive="bg-muted text-foreground"
-          >Giao nhận</a
-        >
-      }
-      @if (isEmployee()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/employee-guide"
-          routerLinkActive="bg-muted text-foreground"
-          >Hướng dẫn</a
-        >
-      }
-      @if (canAccessSuppliers()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/suppliers"
-          routerLinkActive="bg-muted text-foreground"
-          >Nhà cung cấp</a
-        >
-      }
-      @if (canReview()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/approvals"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Phê duyệt
-        </a>
-      }
-      @if (canAccessBudgets()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/budgets"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Ngân sách
-        </a>
-      }
-      @if (canAccessInvoices()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/invoices"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Hóa đơn
-        </a>
-      }
-      @if (canAccessAudit()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/audit"
-          routerLinkActive="bg-muted text-foreground"
-          >Kiểm toán</a
-        >
-      }
-      @if (canAccessPolicies()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/policies"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Chính sách
-        </a>
-      }
-      @if (canAccessAdmin()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/admin"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Quản trị
-        </a>
-      }
-      @if (canAccessAI()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/ai-center"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Khuyến nghị
-        </a>
-      }
-      @if (canAccessReports()) {
-        <a
-          class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
-          routerLink="/reports"
-          routerLinkActive="bg-muted text-foreground"
-        >
-          Báo cáo
-        </a>
-      }
-    </nav>
-  </header>
+    </header>
 
-  <main class="app-main mx-auto max-w-[1600px] px-4 sm:px-6">
-    <router-outlet />
-  </main>
+    <main id="main-content" class="app-main" tabindex="-1">
+      <router-outlet />
+    </main>
+  </div>
 </div>

@@ -3,7 +3,7 @@
     class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
   >
     <div>
-      <p class="mb-2 text-sm font-medium text-primary">Không gian làm việc theo vai trò</p>
+      <p class="flex items-center gap-2 text-sm font-medium text-primary"><app-icon name="tasks" size="sm" /> Không gian làm việc theo vai trò</p>
       <h1 id="work-center-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
         Việc của tôi
       </h1>
@@ -13,29 +13,29 @@
       </p>
     </div>
     <button hlmBtn type="button" variant="outline" [disabled]="loading()" (click)="refresh()">
-      {{ loading() ? 'Đang cập nhật…' : 'Làm mới' }}
+      <app-icon name="tasks" size="sm" /> {{ loading() ? 'Đang cập nhật…' : 'Làm mới' }}
     </button>
   </header>
 
   @if (summary(); as current) {
     <div class="mt-7 grid gap-4 sm:grid-cols-3">
-      <section hlmCard>
+      <section hlmCard class="border-l-[3px] border-l-primary">
         <div hlmCardHeader>
-          <p hlmCardDescription>Tổng việc cần chú ý</p>
+          <div class="flex items-start justify-between gap-3"><p hlmCardDescription>Tổng việc cần chú ý</p><span class="grid size-8 place-items-center rounded-lg bg-primary/10 text-primary"><app-icon name="tasks" size="sm" /></span></div>
           <p class="text-3xl font-semibold tabular-nums">{{ current.total }}</p>
         </div>
       </section>
-      <section hlmCard>
+      <section hlmCard class="border-l-[3px] border-l-amber-500">
         <div hlmCardHeader>
-          <p hlmCardDescription>Sắp đến hạn trong 24 giờ</p>
+          <div class="flex items-start justify-between gap-3"><p hlmCardDescription>Sắp đến hạn trong 24 giờ</p><span class="grid size-8 place-items-center rounded-lg bg-amber-500/10 text-amber-700"><app-icon name="notifications" size="sm" /></span></div>
           <p class="text-3xl font-semibold tabular-nums text-amber-600">
             {{ current.dueSoonCount }}
           </p>
         </div>
       </section>
-      <section hlmCard>
+      <section hlmCard class="border-l-[3px] border-l-destructive">
         <div hlmCardHeader>
-          <p hlmCardDescription>Đã quá SLA</p>
+          <div class="flex items-start justify-between gap-3"><p hlmCardDescription>Đã quá SLA</p><span class="grid size-8 place-items-center rounded-lg bg-destructive/10 text-destructive"><app-icon name="approval" size="sm" /></span></div>
           <p class="text-3xl font-semibold tabular-nums text-destructive">
             {{ current.overdueCount }}
           </p>
@@ -72,11 +72,7 @@
             class="grid min-h-64 place-items-center rounded-lg border border-dashed border-border p-8 text-center"
           >
             <div class="max-w-lg">
-              <span
-                class="mx-auto grid size-12 place-items-center rounded-full bg-primary/10 font-semibold text-primary"
-                aria-hidden="true"
-                >✓</span
-              >
+              <span class="mx-auto grid size-12 place-items-center rounded-full bg-primary/10 text-primary" aria-hidden="true"><app-icon name="approval" size="lg" /></span>
               <h3 class="mt-4 text-lg font-semibold">Hiện không có việc tồn đọng</h3>
               <p class="mt-2 text-sm leading-6 text-muted-foreground">
                 Tài khoản quản trị/AI có thể không có tác vụ mua sắm. Với các vai trò nghiệp vụ,

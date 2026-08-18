@@ -1,0 +1,8 @@
+.app-icon {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.app-icon--sm { width: 1rem; height: 1rem; }
+.app-icon--md { width: 1.125rem; height: 1.125rem; }
+.app-icon--lg { width: 1.375rem; height: 1.375rem; }

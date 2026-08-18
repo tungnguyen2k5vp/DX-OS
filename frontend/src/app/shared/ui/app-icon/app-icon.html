@@ -1,0 +1,29 @@
+<svg
+  class="app-icon app-icon--{{ size() }}"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.8"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  focusable="false"
+>
+  @switch (name()) {
+    @case ('home') { <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10Z" /> }
+    @case ('tasks') { <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /> }
+    @case ('approval') { <path d="M7 12.5 10 15l7-7M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /> }
+    @case ('notifications') { <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /> }
+    @case ('requests') { <path d="M5 3h10l4 4v14H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M14 3v5h5M7 13h10M7 17h7" /> }
+    @case ('operations') { <path d="M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 20h.01M18 20h.01" /><circle cx="7" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /> }
+    @case ('suppliers') { <path d="M4 21V7l8-4 8 4v14M4 11h16M8 21v-5h8v5M8 8h.01M12 8h.01M16 8h.01" /> }
+    @case ('budget') { <path d="M3 21h18M6 18V9M12 18V3M18 18v-6" /><path d="M4 8 9 5l4 2 7-4" /> }
+    @case ('invoices') { <path d="M7 3h10a2 2 0 0 1 2 2v16l-3-2-4 2-4-2-3 2V5a2 2 0 0 1 2-2Z" /><path d="M9 8h6M9 12h6" /> }
+    @case ('reports') { <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /> }
+    @case ('audit') { <circle cx="11" cy="11" r="6" /><path d="m16 16 4 4M8.5 11l1.5 1.5 3-3" /> }
+    @case ('policies') { <path d="M12 3 4 7v5c0 4.8 3.3 7.8 8 9 4.7-1.2 8-4.2 8-9V7l-8-4Z" /><path d="M9 12h6M12 9v6" /> }
+    @case ('ai') { <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" /><circle cx="12" cy="12" r="4" /> }
+    @case ('admin') { <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V20.3h-3v-.09A1.7 1.7 0 0 0 10.68 18.66a1.7 1.7 0 0 0-1.88.34l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 7.02 15 1.7 1.7 0 0 0 5.47 14H5.4v-3h.07A1.7 1.7 0 0 0 7.02 9.97 1.7 1.7 0 0 0 6.68 8.1l-.06-.06 2.12-2.12.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.55V4.7h3v.07a1.7 1.7 0 0 0 1.03 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.12 2.12-.06.06A1.7 1.7 0 0 0 19.4 9.97 1.7 1.7 0 0 0 20.95 11h.07v3h-.07A1.7 1.7 0 0 0 19.4 15Z" /> }
+    @case ('help') { <circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.6 2.6 0 1 1 4.5 1.75c-1.1 1.05-2 1.45-2 3.25M12 17h.01" /> }
+  }
+</svg>
