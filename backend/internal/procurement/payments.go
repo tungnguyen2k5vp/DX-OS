@@ -46,25 +46,25 @@ func ValidateRecordPayment(input *RecordPaymentInput) error {
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	var violations []FieldViolation
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than zero"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn 0."})
 	}
 	if !unitPricePattern.MatchString(input.Amount) || mustRat(input.Amount).Sign() <= 0 {
-		violations = append(violations, FieldViolation{Field: "amount", Message: "must be a positive monetary amount"})
+		violations = append(violations, FieldViolation{Field: "amount", Message: "Phải là số tiền lớn hơn 0."})
 	}
 	paidOn, err := time.Parse(time.DateOnly, input.PaidOn)
 	if err != nil {
-		violations = append(violations, FieldViolation{Field: "paidOn", Message: "must use YYYY-MM-DD format"})
+		violations = append(violations, FieldViolation{Field: "paidOn", Message: "Phải có định dạng YYYY-MM-DD."})
 	} else if paidOn.After(time.Now().UTC().Truncate(24 * time.Hour)) {
-		violations = append(violations, FieldViolation{Field: "paidOn", Message: "must not be in the future"})
+		violations = append(violations, FieldViolation{Field: "paidOn", Message: "Không được là ngày trong tương lai."})
 	}
 	if length := len([]rune(input.PaymentReference)); length < 2 || length > 100 || strings.ContainsAny(input.PaymentReference, "\r\n") {
-		violations = append(violations, FieldViolation{Field: "paymentReference", Message: "must contain between 2 and 100 characters on one line"})
+		violations = append(violations, FieldViolation{Field: "paymentReference", Message: "Phải có từ 2 đến 100 ký tự trên một dòng."})
 	}
 	if len([]rune(input.Note)) > 2000 {
-		violations = append(violations, FieldViolation{Field: "note", Message: "must not exceed 2000 characters"})
+		violations = append(violations, FieldViolation{Field: "note", Message: "Không được vượt quá 2.000 ký tự."})
 	}
 	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
-		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters"})
+		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "Phải có từ 8 đến 255 ký tự ASCII an toàn."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -104,10 +104,16 @@ func (s *Store) RecordInvoicePayment(ctx context.Context, principal auth.Princip
 	if err != nil {
 		return InvoiceBoardItem{}, fmt.Errorf("lock invoice payment: %w", err)
 	}
-	var existingInvoiceID string
-	err = tx.QueryRow(ctx, `SELECT invoice_id FROM invoice_payments WHERE idempotency_key=$1`, input.IdempotencyKey).Scan(&existingInvoiceID)
+	var existingInvoiceID, existingAmount, existingPaidOn, existingReference, existingNote string
+	err = tx.QueryRow(ctx, `
+		SELECT invoice_id, amount::text, paid_on::text, payment_reference, COALESCE(note, '')
+		FROM invoice_payments WHERE idempotency_key=$1
+	`, input.IdempotencyKey).Scan(&existingInvoiceID, &existingAmount, &existingPaidOn, &existingReference, &existingNote)
 	if err == nil {
-		if existingInvoiceID != invoiceID {
+		if existingInvoiceID != invoiceID ||
+			normalizedMoney(existingAmount) != normalizedMoney(input.Amount) ||
+			existingPaidOn != input.PaidOn || existingReference != input.PaymentReference ||
+			existingNote != input.Note {
 			return InvoiceBoardItem{}, ErrIdempotencyConflict
 		}
 		if err = tx.Commit(ctx); err != nil {
@@ -126,7 +132,7 @@ func (s *Store) RecordInvoicePayment(ctx context.Context, principal auth.Princip
 	}
 	remaining := new(big.Rat).Sub(mustRat(amount), mustRat(paidAmount))
 	if mustRat(input.Amount).Cmp(remaining) > 0 {
-		return InvoiceBoardItem{}, &ValidationError{Violations: []FieldViolation{{Field: "amount", Message: "must not exceed the remaining invoice balance"}}}
+		return InvoiceBoardItem{}, &ValidationError{Violations: []FieldViolation{{Field: "amount", Message: "Không được vượt quá số dư hóa đơn còn lại."}}}
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO invoice_payments (

@@ -1,6 +1,6 @@
 <section aria-labelledby="dashboard-heading">
   <header
-    class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
+    class="dashboard-hero flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
   >
     <div>
       <p class="mb-2 text-sm font-medium text-primary">Không gian vận hành theo vai trò</p>
@@ -28,7 +28,7 @@
   }
 
   <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <article hlmCard size="sm">
+    <article hlmCard size="sm" class="metric-card">
       <div hlmCardHeader>
         <p hlmCardDescription>Phiếu trong phạm vi</p>
         <p hlmCardTitle class="text-3xl tabular-nums">
@@ -44,7 +44,7 @@
       </div>
     </article>
 
-    <article hlmCard size="sm">
+    <article hlmCard size="sm" class="metric-card">
       <div hlmCardHeader>
         <p hlmCardDescription>{{ actionLabel() }}</p>
         <p hlmCardTitle class="text-3xl tabular-nums">
@@ -66,7 +66,7 @@
       </div>
     </article>
 
-    <article hlmCard size="sm">
+    <article hlmCard size="sm" class="metric-card">
       <div hlmCardHeader>
         <p hlmCardDescription>Đã duyệt{{ canAccessReports() ? ' (30 ngày)' : '' }}</p>
         <p hlmCardTitle class="text-3xl tabular-nums">
@@ -84,7 +84,7 @@
       </div>
     </article>
 
-    <article hlmCard size="sm">
+    <article hlmCard size="sm" class="metric-card">
       <div hlmCardHeader>
         <p hlmCardDescription>{{ attentionLabel() }}</p>
         <p
@@ -280,7 +280,7 @@
         </li>
         <li>
           <p class="font-medium">PostgreSQL</p>
-          <span hlmBadge class="mt-2" variant="secondary">Healthy</span>
+          <span hlmBadge class="mt-2" variant="secondary">Hoạt động tốt</span>
         </li>
       </ul>
     </div>

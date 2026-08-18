@@ -41,7 +41,6 @@ func Ensure(
 		ON CONFLICT (keycloak_subject) DO UPDATE
 		SET username = EXCLUDED.username,
 			email = COALESCE(EXCLUDED.email, users.email),
-			display_name = EXCLUDED.display_name,
 			updated_at = now()
 		RETURNING
 			users.id,

@@ -1,6 +1,6 @@
 # Kiến trúc hệ thống mục tiêu
 
-## 1. System context
+## 1. Bối cảnh hệ thống
 
 ```mermaid
 flowchart LR

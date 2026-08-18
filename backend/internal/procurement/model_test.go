@@ -91,6 +91,9 @@ func TestCanCreateRequiresEmployeeOrManager(t *testing.T) {
 	if CanCreate(auth.Principal{Roles: []string{"auditor", "dx_admin"}}) {
 		t.Fatal("auditor/admin should not implicitly create a purchase request")
 	}
+	if CanCreate(auth.Principal{Roles: []string{"auditor", "employee"}}) {
+		t.Fatal("auditor role must remain read-only when combined with an employee role")
+	}
 }
 
 func TestValidateCreateRejectsMoneyOverflow(t *testing.T) {
@@ -319,6 +322,32 @@ func TestValidateAttachmentRejectsUnsafeFile(t *testing.T) {
 	}
 }
 
+func TestValidateAttachmentRejectsSpoofedContentType(t *testing.T) {
+	input := UploadAttachmentInput{
+		DocumentType: DocumentTypeQuotation,
+		FileName:     "bao-gia.pdf",
+		ContentType:  "application/pdf",
+		Content:      []byte("not a real PDF"),
+	}
+	err := ValidateAttachment(&input)
+	var validationError *ValidationError
+	if !errors.As(err, &validationError) || len(validationError.Violations) != 1 {
+		t.Fatalf("expected one signature violation, got %#v", err)
+	}
+}
+
+func TestValidateAttachmentRejectsMismatchedExtension(t *testing.T) {
+	input := UploadAttachmentInput{
+		DocumentType: DocumentTypeQuotation,
+		FileName:     "payload.exe",
+		ContentType:  "application/pdf",
+		Content:      []byte("%PDF-test"),
+	}
+	if err := ValidateAttachment(&input); err == nil {
+		t.Fatal("expected a mismatched filename extension to be rejected")
+	}
+}
+
 func TestValidateCommentNormalizesBody(t *testing.T) {
 	input := CommentInput{Body: "  Please check the quotation.  "}
 	if err := ValidateComment(&input); err != nil {
@@ -406,16 +435,18 @@ func TestValidateInvoiceInputs(t *testing.T) {
 func TestInvoiceMatchStatus(t *testing.T) {
 	cases := []struct {
 		name, orderStatus, invoiceAmount, invoiceCurrency, orderAmount, orderCurrency, expected string
+		allCurrenciesMatch                                                                      bool
 	}{
-		{"waiting receipt", "ORDERED", "100.0000", "VND", "100.0000", "VND", "WAITING_RECEIPT"},
-		{"currency mismatch", "RECEIVED", "100.0000", "USD", "100.0000", "VND", "CURRENCY_MISMATCH"},
-		{"partial invoice", "RECEIVED", "99.0000", "VND", "100.0000", "VND", "PARTIAL_MATCH"},
-		{"amount exceeds order", "RECEIVED", "101.0000", "VND", "100.0000", "VND", "AMOUNT_MISMATCH"},
-		{"matched decimal representations", "RECEIVED", "100", "VND", "100.0000", "VND", "MATCHED"},
+		{"waiting receipt", "ORDERED", "100.0000", "VND", "100.0000", "VND", "WAITING_RECEIPT", true},
+		{"currency mismatch", "RECEIVED", "100.0000", "USD", "100.0000", "VND", "CURRENCY_MISMATCH", true},
+		{"other invoice currency mismatch", "RECEIVED", "100.0000", "VND", "100.0000", "VND", "CURRENCY_MISMATCH", false},
+		{"partial invoice", "RECEIVED", "99.0000", "VND", "100.0000", "VND", "PARTIAL_MATCH", true},
+		{"amount exceeds order", "RECEIVED", "101.0000", "VND", "100.0000", "VND", "AMOUNT_MISMATCH", true},
+		{"matched decimal representations", "RECEIVED", "100", "VND", "100.0000", "VND", "MATCHED", true},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			actual := invoiceMatchStatus(test.orderStatus, test.invoiceAmount, test.invoiceCurrency, test.orderAmount, test.orderCurrency)
+			actual := invoiceMatchStatus(test.orderStatus, test.invoiceAmount, test.invoiceCurrency, test.orderAmount, test.orderCurrency, test.allCurrenciesMatch)
 			if actual != test.expected {
 				t.Fatalf("expected %s, got %s", test.expected, actual)
 			}

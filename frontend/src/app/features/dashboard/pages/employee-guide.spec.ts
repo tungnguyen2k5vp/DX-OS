@@ -15,8 +15,10 @@ describe('EmployeeGuide', () => {
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.querySelector('h1')?.textContent).toContain('Hướng dẫn công việc Employee');
-    expect(element.textContent).toContain('Employee → Manager → Finance → Employee');
+    expect(element.querySelector('h1')?.textContent).toContain(
+      'Hướng dẫn công việc dành cho Nhân viên',
+    );
+    expect(element.textContent).toContain('Nhân viên → Trưởng bộ phận → Tài chính → Nhân viên');
     expect(element.textContent).toContain('Chỉ lưu bản nháp');
     expect(element.textContent).toContain('CHANGES_REQUESTED');
     expect(element.textContent).toContain('Xác nhận đã nhận');

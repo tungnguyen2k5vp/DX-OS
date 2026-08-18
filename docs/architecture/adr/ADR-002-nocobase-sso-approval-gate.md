@@ -1,10 +1,10 @@
 # ADR-002: Gate SSO và Approval của NocoBase
 
-## Status
+## Trạng thái
 
 Superseded by [ADR-004](ADR-004-go-angular-application.md)
 
-## Context
+## Bối cảnh
 
 MVP yêu cầu Keycloak SSO và workflow phê duyệt. Tại ngày 2026-07-29, tài liệu NocoBase ghi
 `Auth: OIDC` và `Workflow: Approval` thuộc Professional Edition. Community Edition vẫn có

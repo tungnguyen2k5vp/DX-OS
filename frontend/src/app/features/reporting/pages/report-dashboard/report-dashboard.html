@@ -44,7 +44,7 @@
       />
     </label>
     <label class="grid gap-1.5 text-sm font-medium">
-      Cost center
+      Trung tâm chi phí
       <input
         class="h-10 rounded-md border border-input bg-background px-3 font-mono text-sm uppercase outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
         formControlName="costCenter"
@@ -116,7 +116,7 @@
         </article>
         <article hlmCard>
           <div hlmCardHeader>
-            <p hlmCardDescription>Lead time trung bình</p>
+            <p hlmCardDescription>Thời gian xử lý trung bình</p>
             <p hlmCardTitle class="text-3xl tabular-nums">
               {{ current.summary.averageLeadTimeHours | number: '1.0-1' }}h
             </p>
@@ -178,7 +178,7 @@
         <section hlmCard>
           <div hlmCardHeader class="border-b">
             <h2 hlmCardTitle>Phân bố trạng thái</h2>
-            <p hlmCardDescription>Số lượng và giá trị theo trạng thái workflow.</p>
+            <p hlmCardDescription>Số lượng và giá trị theo trạng thái quy trình.</p>
           </div>
           <div hlmCardContent class="space-y-4">
             @for (status of statusViews(); track status.status + status.currency) {
@@ -202,7 +202,7 @@
         <section hlmCard>
           <div hlmCardHeader class="border-b">
             <h2 hlmCardTitle>Sức khỏe quy trình</h2>
-            <p hlmCardDescription>Return, reject, SLA và bằng chứng tài liệu.</p>
+            <p hlmCardDescription>Yêu cầu chỉnh sửa, từ chối, SLA và bằng chứng tài liệu.</p>
           </div>
           <div hlmCardContent>
             <dl class="grid grid-cols-2 gap-4 text-sm">
@@ -325,7 +325,7 @@
         <section hlmCard>
           <div hlmCardHeader class="border-b">
             <h2 hlmCardTitle>Sử dụng ngân sách</h2>
-            <p hlmCardDescription>Allocation đang hoạt động theo cost center.</p>
+            <p hlmCardDescription>Hạn mức đang hoạt động theo trung tâm chi phí.</p>
           </div>
           <div hlmCardContent class="space-y-4">
             @for (
@@ -361,7 +361,9 @@
                 </div>
               </article>
             } @empty {
-              <p class="text-sm text-muted-foreground">Không có allocation đang hoạt động.</p>
+              <p class="text-sm text-muted-foreground">
+                Không có hạn mức ngân sách đang hoạt động.
+              </p>
             }
           </div>
         </section>

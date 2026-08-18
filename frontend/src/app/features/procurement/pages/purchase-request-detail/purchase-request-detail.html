@@ -634,12 +634,12 @@
 
         <section hlmCard>
           <div hlmCardHeader class="border-b">
-            <h2 hlmCardTitle>Timeline</h2>
+            <h2 hlmCardTitle>Lịch sử xử lý</h2>
             <p hlmCardDescription>{{ timelineTotal() }} sự kiện nghiệp vụ được ghi nhận.</p>
           </div>
           <div hlmCardContent class="space-y-4">
             @if (timelineLoading() && timelineItems().length === 0) {
-              <div class="space-y-3" aria-label="Đang tải timeline" aria-live="polite">
+              <div class="space-y-3" aria-label="Đang tải lịch sử xử lý" aria-live="polite">
                 @for (placeholder of [1, 2, 3]; track placeholder) {
                   <div class="h-16 animate-pulse rounded-lg bg-muted"></div>
                 }

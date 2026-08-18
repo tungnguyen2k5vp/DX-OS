@@ -82,8 +82,14 @@ func (n *Nextcloud) ensureCollections(ctx context.Context, path string) error {
 		if err != nil {
 			return fmt.Errorf("%w: create document collection: %v", ErrUnavailable, err)
 		}
-		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-		response.Body.Close()
+		_, copyErr := io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
+		closeErr := response.Body.Close()
+		if copyErr != nil {
+			return fmt.Errorf("%w: read create collection response: %v", ErrUnavailable, copyErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("%w: close create collection response: %v", ErrUnavailable, closeErr)
+		}
 		if response.StatusCode != http.StatusCreated &&
 			response.StatusCode != http.StatusMethodNotAllowed {
 			return fmt.Errorf(

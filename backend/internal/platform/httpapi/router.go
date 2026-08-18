@@ -211,7 +211,7 @@ func (a *api) ready(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	if err := a.database.Ping(ctx); err != nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "dependency-unavailable", "Service unavailable", "Database readiness check failed.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "dependency-unavailable", "Dịch vụ chưa sẵn sàng", "Kiểm tra trạng thái sẵn sàng của cơ sở dữ liệu không thành công.")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
@@ -220,7 +220,7 @@ func (a *api) ready(w http.ResponseWriter, r *http.Request) {
 func (a *api) me(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return
 	}
 	writeJSON(w, http.StatusOK, principal)
@@ -231,14 +231,14 @@ func (a *api) authenticate(next http.Handler) http.Handler {
 		header := r.Header.Get("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") || len(header) <= len("Bearer ") {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="dx-os"`)
-			writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A bearer access token is required.")
+			writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần Bearer access token để tiếp tục.")
 			return
 		}
 
 		principal, err := a.tokenVerifier.Verify(r.Context(), strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
 		if err != nil {
 			w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
-			writeProblem(w, r, http.StatusUnauthorized, "invalid-token", "Invalid access token", "The access token is invalid or expired.")
+			writeProblem(w, r, http.StatusUnauthorized, "invalid-token", "Access token không hợp lệ", "Access token không hợp lệ hoặc đã hết hạn.")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(withPrincipal(r.Context(), principal)))
@@ -292,7 +292,7 @@ func (a *api) cors(next http.Handler) http.Handler {
 		}
 		if r.Method == http.MethodOptions {
 			if origin != a.allowedOrigin {
-				writeProblem(w, r, http.StatusForbidden, "cors-denied", "Origin denied", "The request origin is not allowed.")
+				writeProblem(w, r, http.StatusForbidden, "cors-denied", "Nguồn yêu cầu bị từ chối", "Nguồn gửi yêu cầu không nằm trong danh sách được phép.")
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -320,7 +320,7 @@ func (a *api) recoverer(next http.Handler) http.Handler {
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				a.logger.Error("panic recovered", "panic", recovered, "stack", string(debug.Stack()))
-				writeProblem(w, r, http.StatusInternalServerError, "internal", "Internal server error", "An unexpected error occurred.")
+				writeProblem(w, r, http.StatusInternalServerError, "internal", "Lỗi máy chủ", "Đã xảy ra lỗi không mong đợi.")
 			}
 		}()
 		next.ServeHTTP(w, r)
@@ -363,7 +363,7 @@ func writeValidationProblem(
 	w.WriteHeader(http.StatusUnprocessableEntity)
 	_ = json.NewEncoder(w).Encode(problem{
 		Type:          "https://docs.dx-os.local/problems/" + code,
-		Title:         "Validation failed",
+		Title:         "Dữ liệu không hợp lệ",
 		Status:        http.StatusUnprocessableEntity,
 		Detail:        detail,
 		Instance:      r.URL.Path,

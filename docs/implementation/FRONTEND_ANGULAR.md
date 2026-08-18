@@ -5,7 +5,7 @@
 Angular cung cấp một giao diện thống nhất cho quy trình, dashboard, tài liệu, AI và audit. Frontend
 không chứa business rule độc quyền; mọi transition vẫn được backend xác thực.
 
-## 2. Baseline
+## 2. Phiên bản chuẩn
 
 - Angular 22, Standalone Components.
 - Spartan UI 1.1.x cho accessible primitives và copy-owned helm components.
@@ -55,7 +55,7 @@ copy vào `shared/ui` để nhóm sở hữu và tùy chỉnh source.
 
 ## 4. Route map
 
-| Route | Màn hình | Role |
+| Đường dẫn | Màn hình | Vai trò |
 |---|---|---|
 | `/dashboard` | KPI và việc cần làm | authenticated |
 | `/purchase-requests` | danh sách phiếu | employee+ |

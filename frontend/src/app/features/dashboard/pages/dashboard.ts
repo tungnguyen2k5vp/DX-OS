@@ -88,6 +88,7 @@ const defaultWorkspace: RoleWorkspace = {
     PurchaseRequestStatusBadge,
   ],
   templateUrl: './dashboard.html',
+  styleUrl: './dashboard.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Dashboard {

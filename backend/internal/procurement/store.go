@@ -164,7 +164,8 @@ func (s *Store) List(
 		conditions = append(conditions, "d.organization_id = "+addArgument(user.OrganizationID))
 		conditions = append(conditions, "pr.status IN ('MANAGER_APPROVED', 'APPROVED', 'REJECTED')")
 	case ScopeAll:
-		// Auditor scope is read-only across the application database.
+		// Auditor access is read-only and remains isolated to the user's organization.
+		conditions = append(conditions, "d.organization_id = "+addArgument(user.OrganizationID))
 	}
 	if input.Status != nil {
 		conditions = append(conditions, "pr.status = "+addArgument(string(*input.Status)))
@@ -327,6 +328,14 @@ func (s *Store) Get(
 			return PurchaseRequest{}, ErrNotFound
 		}
 	case ScopeAll:
+		var organizationID string
+		err = s.database.QueryRow(ctx,
+			"SELECT organization_id FROM departments WHERE id = $1",
+			request.DepartmentID,
+		).Scan(&organizationID)
+		if err != nil || organizationID != user.OrganizationID {
+			return PurchaseRequest{}, ErrNotFound
+		}
 	}
 	return request, nil
 }
@@ -547,9 +556,9 @@ func (s *Store) TaskSummary(
 	}
 
 	canOwn := CanCreate(principal)
-	isManager := hasRole(principal.Roles, "department_manager")
-	isFinance := hasRole(principal.Roles, "finance")
 	isAuditor := hasRole(principal.Roles, "auditor")
+	isManager := hasRole(principal.Roles, "department_manager") && !isAuditor
+	isFinance := hasRole(principal.Roles, "finance") && !isAuditor
 	rows, err := s.database.Query(ctx, `
 		WITH scoped_tasks AS (
 			SELECT
@@ -589,7 +598,8 @@ func (s *Store) TaskSummary(
 				($2::boolean AND pr.requester_id = $1 AND pr.status IN ('DRAFT', 'CHANGES_REQUESTED'))
 				OR ($3::boolean AND pr.department_id = $5 AND pr.requester_id <> $1 AND pr.status = 'SUBMITTED')
 				OR ($4::boolean AND d.organization_id = $6 AND pr.requester_id <> $1 AND pr.status = 'MANAGER_APPROVED')
-				OR ($7::boolean AND pr.status IN ('SUBMITTED', 'MANAGER_APPROVED', 'CHANGES_REQUESTED'))
+				OR ($7::boolean AND d.organization_id = $6
+					AND pr.status IN ('SUBMITTED', 'MANAGER_APPROVED', 'CHANGES_REQUESTED'))
 		)
 		SELECT
 			id,
@@ -682,7 +692,7 @@ func (s *Store) ListSuppliers(
 		return SupplierList{}, fmt.Errorf("list suppliers: %w", err)
 	}
 	defer rows.Close()
-	result := SupplierList{Items: make([]Supplier, 0), CanManage: hasRole(principal.Roles, "finance")}
+	result := SupplierList{Items: make([]Supplier, 0), CanManage: hasRole(principal.Roles, "finance") && !hasRole(principal.Roles, "auditor")}
 	for rows.Next() {
 		var supplier Supplier
 		if err = rows.Scan(
@@ -710,7 +720,7 @@ func (s *Store) CreateSupplier(
 	input SupplierInput,
 	correlationID string,
 ) (Supplier, error) {
-	if !hasRole(principal.Roles, "finance") {
+	if !hasRole(principal.Roles, "finance") || hasRole(principal.Roles, "auditor") {
 		return Supplier{}, ErrForbidden
 	}
 	if err := ValidateSupplierInput(&input); err != nil {
@@ -767,7 +777,7 @@ func (s *Store) UpdateSupplier(
 	input UpdateSupplierInput,
 	correlationID string,
 ) (Supplier, error) {
-	if !hasRole(principal.Roles, "finance") {
+	if !hasRole(principal.Roles, "finance") || hasRole(principal.Roles, "auditor") {
 		return Supplier{}, ErrForbidden
 	}
 	if err := ValidateUpdateSupplierInput(&input); err != nil {
@@ -862,10 +872,10 @@ func (s *Store) OperationsBoard(
 	ctx context.Context,
 	principal auth.Principal,
 ) (OperationsBoard, error) {
-	isEmployee := hasRole(principal.Roles, "employee")
-	isManager := hasRole(principal.Roles, "department_manager")
-	isFinance := hasRole(principal.Roles, "finance")
 	isAuditor := hasRole(principal.Roles, "auditor")
+	isEmployee := hasRole(principal.Roles, "employee") && !isAuditor
+	isManager := hasRole(principal.Roles, "department_manager") && !isAuditor
+	isFinance := hasRole(principal.Roles, "finance") && !isAuditor
 	if !isEmployee && !isManager && !isFinance && !isAuditor {
 		return OperationsBoard{}, ErrForbidden
 	}
@@ -914,9 +924,10 @@ func (s *Store) OperationsBoard(
 		LEFT JOIN purchase_orders po ON po.purchase_request_id = pr.id
 		LEFT JOIN suppliers s ON s.id = po.supplier_id
 		WHERE pr.status = 'APPROVED'
+		  AND d.organization_id = $6
 		  AND (
 			$7::boolean
-			OR ($4::boolean AND d.organization_id = $6)
+			OR $4::boolean
 			OR ($3::boolean AND pr.department_id = $5)
 			OR ($2::boolean AND pr.requester_id = $1)
 		  )
@@ -1000,13 +1011,18 @@ func (s *Store) CreatePurchaseOrder(
 	if current.OrganizationID != user.OrganizationID || current.Status != StatusApproved {
 		return PurchaseOrder{}, ErrInvalidFulfillment
 	}
-	var existingRequestID string
+	var existingRequestID, existingSupplierID, existingExternalReference, existingDeliveryOn, existingNote string
 	err = tx.QueryRow(ctx, `
-		SELECT purchase_request_id FROM purchase_orders WHERE idempotency_key = $1
-	`, input.IdempotencyKey).Scan(&existingRequestID)
+		SELECT purchase_request_id, supplier_id, COALESCE(external_reference, ''),
+			expected_delivery_on::text, COALESCE(note, '')
+		FROM purchase_orders WHERE idempotency_key = $1
+	`, input.IdempotencyKey).Scan(&existingRequestID, &existingSupplierID,
+		&existingExternalReference, &existingDeliveryOn, &existingNote)
 	switch {
 	case err == nil:
-		if existingRequestID != input.PurchaseRequestID {
+		if existingRequestID != input.PurchaseRequestID || existingSupplierID != input.SupplierID ||
+			existingExternalReference != input.ExternalReference ||
+			existingDeliveryOn != input.ExpectedDeliveryOn || existingNote != input.Note {
 			return PurchaseOrder{}, ErrPurchaseOrderConflict
 		}
 		if err = tx.Commit(ctx); err != nil {
@@ -1090,6 +1106,9 @@ func (s *Store) ConfirmReceipt(
 	requestID string,
 	input ConfirmReceiptInput,
 ) (PurchaseOrder, error) {
+	if hasRole(principal.Roles, "auditor") {
+		return PurchaseOrder{}, ErrForbidden
+	}
 	if err := ValidateConfirmReceipt(&input); err != nil {
 		return PurchaseOrder{}, err
 	}
@@ -1353,7 +1372,7 @@ func (s *Store) BudgetDashboard(
 		Totals:       make([]BudgetCurrencyTotal, 0),
 		Reservations: make([]BudgetReservation, 0),
 		Adjustments:  make([]BudgetAdjustment, 0),
-		CanManage:    hasRole(principal.Roles, "finance"),
+		CanManage:    hasRole(principal.Roles, "finance") && !hasRole(principal.Roles, "auditor"),
 	}
 
 	rows, err := s.database.Query(ctx, budgetAllocationSelect+`
@@ -1527,7 +1546,7 @@ func (s *Store) AdjustBudget(
 	allocationID string,
 	input AdjustBudgetInput,
 ) (BudgetAllocation, error) {
-	if !hasRole(principal.Roles, "finance") {
+	if !hasRole(principal.Roles, "finance") || hasRole(principal.Roles, "auditor") {
 		return BudgetAllocation{}, ErrForbidden
 	}
 	if err := ValidateAdjustBudgetInput(&input); err != nil {
@@ -1637,6 +1656,7 @@ func (s *Store) AdjustBudget(
 	}
 	if _, err = tx.Exec(ctx, `
 		INSERT INTO audit_logs (
+			organization_id,
 			resource_type,
 			resource_id,
 			action,
@@ -1646,6 +1666,7 @@ func (s *Store) AdjustBudget(
 			metadata
 		)
 		VALUES (
+			$8,
 			'budget_allocation',
 			$1,
 			'BUDGET_ALLOCATION_ADJUSTED',
@@ -1659,7 +1680,7 @@ func (s *Store) AdjustBudget(
 			)
 		)
 	`, allocationID, user.ID, principal.Roles, input.CorrelationID,
-		previousAmount, input.AllocatedAmount, input.Reason); err != nil {
+		previousAmount, input.AllocatedAmount, input.Reason, user.OrganizationID); err != nil {
 		return BudgetAllocation{}, fmt.Errorf("insert budget adjustment audit: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -1764,6 +1785,9 @@ func (s *Store) Update(
 	input UpdateInput,
 	correlationID string,
 ) (PurchaseRequest, error) {
+	if hasRole(principal.Roles, "auditor") || !CanCreate(principal) {
+		return PurchaseRequest{}, ErrForbidden
+	}
 	if err := ValidateUpdate(&input); err != nil {
 		return PurchaseRequest{}, err
 	}
@@ -1849,6 +1873,9 @@ func (s *Store) Transition(
 	requestID string,
 	input TransitionInput,
 ) (PurchaseRequest, error) {
+	if hasRole(principal.Roles, "auditor") {
+		return PurchaseRequest{}, ErrForbidden
+	}
 	if err := ValidateTransition(&input); err != nil {
 		return PurchaseRequest{}, err
 	}
@@ -2060,7 +2087,7 @@ func canAccessLockedRequest(scope ScopeKind, user userProfile, request lockedReq
 				request.Status == StatusApproved ||
 				request.Status == StatusRejected)
 	case ScopeAll:
-		return true
+		return request.OrganizationID == user.OrganizationID
 	default:
 		return false
 	}
@@ -2534,6 +2561,7 @@ func insertResourceAudit(
 ) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO audit_logs (
+			organization_id,
 			resource_type,
 			resource_id,
 			action,
@@ -2545,6 +2573,7 @@ func insertResourceAudit(
 			metadata
 		)
 		VALUES (
+			(SELECT d.organization_id FROM users u JOIN departments d ON d.id = u.department_id WHERE u.id = $4),
 			$1,
 			$2,
 			$3,

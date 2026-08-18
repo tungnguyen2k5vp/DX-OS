@@ -1,5 +1,4 @@
-# syntax=docker/dockerfile:1
-ARG GO_BUILDER_IMAGE=golang:1.26.5-alpine
+ARG GO_BUILDER_IMAGE=golang:1.26.6-alpine
 
 FROM ${GO_BUILDER_IMAGE} AS build
 WORKDIR /src

@@ -110,7 +110,7 @@ func (a *api) transitionPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.ToUpper(strings.TrimSpace(body.Action)) != "CANCEL" {
-		writeValidationProblem(w, r, "invalid-order-action", "Only CANCEL is supported for this endpoint.", nil)
+		writeValidationProblem(w, r, "invalid-order-action", "Endpoint này chỉ hỗ trợ thao tác CANCEL (hủy đơn).", nil)
 		return
 	}
 	result, err := a.enterprise.CancelPurchaseOrder(r.Context(), principal, requestID, procurement.CancelPurchaseOrderInput{
@@ -128,12 +128,12 @@ func (a *api) transitionPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 func (a *api) enterpriseRequestContext(w http.ResponseWriter, r *http.Request) (auth.Principal, string, bool) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.enterprise == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Enterprise procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm doanh nghiệp hiện không sẵn sàng.")
 		return auth.Principal{}, "", false
 	}
 	requestID := strings.TrimSpace(chi.URLParam(r, "requestID"))
 	if !uuidPattern.MatchString(requestID) {
-		writeValidationProblem(w, r, "invalid-request-id", "The purchase request ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-request-id", "Mã phiếu mua sắm phải là UUID hợp lệ.", nil)
 		return auth.Principal{}, "", false
 	}
 	return principal, requestID, true

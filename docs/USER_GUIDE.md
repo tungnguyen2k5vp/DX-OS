@@ -1,7 +1,7 @@
 ---
 id: user-guide
 title: Hướng dẫn sử dụng DX-OS Lab
-description: Hướng dẫn toàn bộ quy trình nghiệp vụ và quyền của sáu role.
+description: Hướng dẫn toàn bộ quy trình nghiệp vụ và quyền của sáu vai trò.
 slug: /huong-dan-su-dung
 sidebar_position: 3
 ---
@@ -9,7 +9,7 @@ sidebar_position: 3
 # Hướng dẫn sử dụng DX-OS Lab
 
 Tài liệu này hướng dẫn sử dụng phiên bản hiện tại của DX-OS Lab từ lúc đăng nhập đến khi một phiếu
-mua sắm được duyệt, đồng thời giải thích quyền của sáu role trong realm Keycloak **dx-os**.
+mua sắm được duyệt, đồng thời giải thích quyền của sáu vai trò trong realm Keycloak **dx-os**.
 
 ## 1. Phạm vi hiện tại
 
@@ -47,7 +47,7 @@ cục bộ. Không chỉ đóng tab khi dùng máy dùng chung.
 Hệ thống có sáu **role**, không phải chỉ có sáu account cố định. Quản trị viên có thể tạo nhiều
 tài khoản và gán role phù hợp. Bộ account demo nên tách riêng như sau:
 
-| Username gợi ý   | Role               | Mục đích kiểm thử                     |
+| Tên đăng nhập gợi ý | Vai trò          | Mục đích kiểm thử                     |
 | ---------------- | ------------------ | ------------------------------------- |
 | employee.demo    | employee           | Tạo, sửa và gửi phiếu của mình        |
 | manager.demo     | department_manager | Duyệt phiếu của phòng ban             |
@@ -59,7 +59,7 @@ tài khoản và gán role phù hợp. Bộ account demo nên tách riêng như 
 Cách tạo tài khoản và vị trí file mật khẩu được mô tả trong [Bắt đầu với DX-OS](GETTING_STARTED.md). Sau khi role
 của một user thay đổi, user phải đăng xuất rồi đăng nhập lại để access token chứa role mới.
 
-## 3. Role và quyền hiện hành
+## 3. Vai trò và quyền hiện hành
 
 | Chức năng                | Employee |     Manager     |        Finance         |     Auditor      |   AI operator   |     DX admin      |
 | ------------------------ | :------: | :-------------: | :--------------------: | :--------------: | :-------------: | :---------------: |
@@ -403,7 +403,7 @@ Nên chạy thêm các smoke test trong README để xác nhận cả positive v
 | Sai username/password        | Nhờ tạo lại user local; mật khẩu đổi mỗi lần script chạy                         |
 | Đổi role nhưng menu chưa đổi | Đăng xuất và đăng nhập lại để nhận token mới                                     |
 | 401 Unauthorized             | Phiên hết hạn/không hợp lệ; đăng nhập lại                                        |
-| 403 Forbidden                | Role hoặc data scope không cho phép; không phải lỗi mật khẩu                     |
+| 403 Không có quyền truy cập  | Vai trò hoặc phạm vi dữ liệu không cho phép; không phải lỗi mật khẩu             |
 | Không submit được phiếu      | Kiểm tra trạng thái, báo giá, dữ liệu và phiên bản phiếu                         |
 | Không duyệt được             | Kiểm tra đúng bước, đúng department/organization, không tự duyệt và đủ ngân sách |
 | Không thấy menu Ngân sách    | Chỉ finance/auditor có quyền; đăng nhập lại sau khi gán role                     |

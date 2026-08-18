@@ -45,7 +45,7 @@ thương mại và giúp đồ án thể hiện rõ năng lực lập trình Go 
 
 | Thành phần   | Baseline phát triển                    |
 | ------------ | -------------------------------------- |
-| Go           | 1.26.5                                 |
+| Go           | 1.26.6                                 |
 | Angular      | 22.0.x                                 |
 | Angular CLI  | 22.0.x                                 |
 | Spartan UI   | 1.1.2                                  |

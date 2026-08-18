@@ -71,7 +71,7 @@ Reverse proxy:
 - WebSocket chỉ bật route cần;
 - access log có request ID nhưng không có token/query nhạy cảm.
 
-## 5. Deployment order
+## 5. Thứ tự triển khai
 
 ```text
 1. backup và preflight
@@ -129,7 +129,7 @@ Redis. Không copy riêng container RAGFlow vào base compose mà bỏ dependenc
 - Backup knowledge configuration và nguồn gốc tài liệu.
 - Tool execution đi qua Go API, không cấp database/shell.
 
-## 10. Rollback
+## 10. Khôi phục phiên bản
 
 ### App-only
 
@@ -148,7 +148,7 @@ Redis. Không copy riêng container RAGFlow vào base compose mà bỏ dependenc
 - backup trước;
 - test realm/client flow trên Dev/UAT.
 
-## 11. Production readiness gate
+## 11. Điều kiện sẵn sàng vận hành thật
 
 - TLS/domain và secret manager.
 - RBAC/ownership negative test pass.

@@ -1,4 +1,4 @@
-# Runbook: Application Skeleton
+# Hướng dẫn vận hành: Khung ứng dụng
 
 ## 1. Thành phần
 
@@ -59,7 +59,7 @@ Smoke test OIDC thực hiện Authorization Code + PKCE bằng user local, đổ
 Backend:
 
 ```powershell
-docker run --rm -v "${PWD}/backend:/src" -w /src golang:1.26.5-alpine `
+docker run --rm -v "${PWD}/backend:/src" -w /src golang:1.26.6-alpine `
   sh -c "gofmt -w cmd internal && go vet ./... && go test ./..."
 ```
 

@@ -31,7 +31,7 @@ việc dựng skeleton nhưng phải chốt trước giai đoạn tương ứng.
 4. RAGFlow chạy máy 32 GB riêng hay chỉ bật theo lịch demo?
 5. Ngưỡng chất lượng/refusal cho bộ câu hỏi chuẩn?
 
-## P2 — Trước Production pilot
+## P2 — Trước giai đoạn thử nghiệm vận hành thật
 
 1. Số user đồng thời, dung lượng và transaction rate?
 2. RTO/RPO?

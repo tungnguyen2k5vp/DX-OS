@@ -24,7 +24,7 @@ type attachmentPolicyBody struct {
 func (a *api) getPolicyCenter(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	result, err := a.procurement.PolicyCenter(r.Context(), principal)
@@ -38,12 +38,12 @@ func (a *api) getPolicyCenter(w http.ResponseWriter, r *http.Request) {
 func (a *api) updateSLAPolicy(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	processName := strings.TrimSpace(chi.URLParam(r, "processName"))
 	if processName == "" || len(processName) > 80 {
-		writeValidationProblem(w, r, "invalid-policy-id", "The process name is invalid.", nil)
+		writeValidationProblem(w, r, "invalid-policy-id", "Tên quy trình không hợp lệ.", nil)
 		return
 	}
 	var body slaPolicyBody
@@ -65,12 +65,12 @@ func (a *api) updateSLAPolicy(w http.ResponseWriter, r *http.Request) {
 func (a *api) updateAttachmentPolicy(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	ruleID := strings.TrimSpace(chi.URLParam(r, "ruleID"))
 	if !uuidPattern.MatchString(ruleID) {
-		writeValidationProblem(w, r, "invalid-policy-id", "The attachment policy ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-policy-id", "Mã quy tắc tài liệu phải là UUID hợp lệ.", nil)
 		return
 	}
 	var body attachmentPolicyBody

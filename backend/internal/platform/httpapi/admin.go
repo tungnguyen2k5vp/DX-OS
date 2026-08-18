@@ -44,7 +44,7 @@ func (a *api) updateAdminUser(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := chi.URLParam(r, "userID")
 	if !uuidPattern.MatchString(userID) {
-		writeValidationProblem(w, r, "invalid-user-id", "The user ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-user-id", "Mã người dùng phải là UUID hợp lệ.", nil)
 		return
 	}
 	var body adminUserBody
@@ -85,7 +85,7 @@ func (a *api) updateAdminDepartment(w http.ResponseWriter, r *http.Request) {
 	}
 	departmentID := chi.URLParam(r, "departmentID")
 	if !uuidPattern.MatchString(departmentID) {
-		writeValidationProblem(w, r, "invalid-department-id", "The department ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-department-id", "Mã phòng ban phải là UUID hợp lệ.", nil)
 		return
 	}
 	var body adminDepartmentBody

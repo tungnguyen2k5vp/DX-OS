@@ -1,4 +1,4 @@
-# Runbook: Foundation
+# Hướng dẫn vận hành: Hạ tầng nền tảng
 
 ## 1. Kiểm tra điều kiện
 

@@ -44,7 +44,7 @@ type confirmReceiptBody struct {
 func (a *api) listSuppliers(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	result, err := a.procurement.ListSuppliers(r.Context(), principal)
@@ -58,7 +58,7 @@ func (a *api) listSuppliers(w http.ResponseWriter, r *http.Request) {
 func (a *api) createSupplier(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	var body supplierBody
@@ -80,12 +80,12 @@ func (a *api) createSupplier(w http.ResponseWriter, r *http.Request) {
 func (a *api) updateSupplier(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	supplierID := strings.TrimSpace(chi.URLParam(r, "supplierID"))
 	if !uuidPattern.MatchString(supplierID) {
-		writeValidationProblem(w, r, "invalid-supplier-id", "The supplier ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-supplier-id", "Mã nhà cung cấp phải là UUID hợp lệ.", nil)
 		return
 	}
 	var body supplierBody
@@ -108,7 +108,7 @@ func (a *api) updateSupplier(w http.ResponseWriter, r *http.Request) {
 func (a *api) getOperationsBoard(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	result, err := a.procurement.OperationsBoard(r.Context(), principal)
@@ -122,7 +122,7 @@ func (a *api) getOperationsBoard(w http.ResponseWriter, r *http.Request) {
 func (a *api) createPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	var body createPurchaseOrderBody
@@ -131,7 +131,7 @@ func (a *api) createPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !uuidPattern.MatchString(strings.TrimSpace(body.PurchaseRequestID)) {
-		writeValidationProblem(w, r, "invalid-request-id", "The purchase request ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-request-id", "Mã phiếu mua sắm phải là UUID hợp lệ.", nil)
 		return
 	}
 	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))

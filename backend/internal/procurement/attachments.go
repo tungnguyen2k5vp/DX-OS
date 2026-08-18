@@ -28,6 +28,9 @@ func (s *Store) UploadAttachment(
 	requestID string,
 	input UploadAttachmentInput,
 ) (Attachment, error) {
+	if hasRole(principal.Roles, "auditor") {
+		return Attachment{}, ErrForbidden
+	}
 	if err := ValidateAttachment(&input); err != nil {
 		return Attachment{}, err
 	}
@@ -310,6 +313,9 @@ func (s *Store) DeleteAttachment(
 	attachmentID string,
 	correlationID string,
 ) error {
+	if hasRole(principal.Roles, "auditor") {
+		return ErrForbidden
+	}
 	tx, err := s.database.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin attachment delete: %w", err)

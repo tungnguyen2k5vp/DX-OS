@@ -40,7 +40,7 @@ Không có đủ lịch sử commit để quy trách nhiệm hoặc suy ra thờ
 | Hóa đơn và thanh toán | `purchase_invoices` + `invoice_events`, procurement store và trang `/invoices` | Match status được tính từ state order/receipt/invoice hiện tại, không lưu bản sao dễ lệch |
 | Bằng chứng kiểm toán | Mutation ghi `audit_logs`; reporting chỉ cung cấp query read-only | Hai phía có mục đích khác nhau và thống nhất schema, không phải duplicate mutation path |
 
-## 4. Risk view
+## 4. Tổng hợp rủi ro
 
 | Rủi ro | Kiểm tra | Kết luận |
 |---|---|---|

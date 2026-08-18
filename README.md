@@ -54,7 +54,7 @@ Browser
 
 | Lớp           | Công nghệ                                             |
 | ------------- | ----------------------------------------------------- |
-| Backend       | Go 1.26.5, modular monolith, REST API                 |
+| Backend       | Go 1.26.6, modular monolith, REST API                 |
 | Frontend      | Angular 22, TypeScript 6, Spartan UI, Tailwind CSS v4 |
 | Identity      | Keycloak 26.7, OIDC/OAuth 2.0, PKCE S256              |
 | Database      | PostgreSQL 18.4                                       |
@@ -100,7 +100,7 @@ docker compose version
 $PSVersionTable.PSVersion
 ```
 
-Nếu chạy source trực tiếp ngoài container, cần thêm Go 1.26.5, Node.js 24.15+ và npm 11.12.1.
+Nếu chạy source trực tiếp ngoài container, cần thêm Go 1.26.6, Node.js 24.15+ và npm 11.12.1.
 
 ## Cài đặt nhanh bằng Docker
 

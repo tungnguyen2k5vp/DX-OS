@@ -79,23 +79,23 @@ func ValidateRecordReceipt(input *RecordReceiptInput) error {
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	var violations []FieldViolation
 	if input.ExpectedVersion <= 0 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than zero"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn 0."})
 	}
 	validOutcome := map[string]bool{"PARTIAL": true, "COMPLETE": true, "DAMAGED": true, "WRONG_ITEM": true, "REJECTED": true}
 	if !validOutcome[input.Outcome] {
-		violations = append(violations, FieldViolation{Field: "outcome", Message: "must be PARTIAL, COMPLETE, DAMAGED, WRONG_ITEM or REJECTED"})
+		violations = append(violations, FieldViolation{Field: "outcome", Message: "Phải là PARTIAL (nhận một phần), COMPLETE (nhận đủ), DAMAGED (hư hỏng), WRONG_ITEM (sai hàng) hoặc REJECTED (từ chối nhận)."})
 	}
 	if _, err := time.Parse("2006-01-02", input.ReceivedOn); err != nil {
-		violations = append(violations, FieldViolation{Field: "receivedOn", Message: "must use YYYY-MM-DD format"})
+		violations = append(violations, FieldViolation{Field: "receivedOn", Message: "Phải có định dạng YYYY-MM-DD."})
 	}
 	if length := len([]rune(input.Note)); length < 5 || length > 5000 {
-		violations = append(violations, FieldViolation{Field: "note", Message: "must contain between 5 and 5000 characters"})
+		violations = append(violations, FieldViolation{Field: "note", Message: "Phải có từ 5 đến 5.000 ký tự."})
 	}
 	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
-		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "must contain 8 to 255 safe characters"})
+		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "Phải có từ 8 đến 255 ký tự an toàn."})
 	}
 	if len(input.Items) == 0 || len(input.Items) > 100 {
-		violations = append(violations, FieldViolation{Field: "items", Message: "must contain between 1 and 100 receipt lines"})
+		violations = append(violations, FieldViolation{Field: "items", Message: "Phải có từ 1 đến 100 dòng giao nhận."})
 	}
 	seen := map[string]bool{}
 	for index := range input.Items {
@@ -106,17 +106,17 @@ func ValidateRecordReceipt(input *RecordReceiptInput) error {
 		item.Note = strings.TrimSpace(item.Note)
 		prefix := fmt.Sprintf("items[%d]", index)
 		if !uuidPatternForDomain.MatchString(item.PurchaseRequestItemID) || seen[item.PurchaseRequestItemID] {
-			violations = append(violations, FieldViolation{Field: prefix + ".purchaseRequestItemId", Message: "must be a unique valid UUID"})
+			violations = append(violations, FieldViolation{Field: prefix + ".purchaseRequestItemId", Message: "Phải là UUID hợp lệ và không trùng lặp."})
 		}
 		seen[item.PurchaseRequestItemID] = true
 		if !quantityPattern.MatchString(item.QuantityReceived) {
-			violations = append(violations, FieldViolation{Field: prefix + ".quantityReceived", Message: "must be a non-negative quantity with up to 4 decimals"})
+			violations = append(violations, FieldViolation{Field: prefix + ".quantityReceived", Message: "Phải là số lượng không âm và có tối đa 4 chữ số thập phân."})
 		}
 		if item.Condition != "ACCEPTED" && item.Condition != "DAMAGED" && item.Condition != "WRONG_ITEM" && item.Condition != "REJECTED" {
-			violations = append(violations, FieldViolation{Field: prefix + ".condition", Message: "must be ACCEPTED, DAMAGED, WRONG_ITEM or REJECTED"})
+			violations = append(violations, FieldViolation{Field: prefix + ".condition", Message: "Phải là ACCEPTED (đã nhận), DAMAGED (hư hỏng), WRONG_ITEM (sai hàng) hoặc REJECTED (từ chối nhận)."})
 		}
 		if len([]rune(item.Note)) > 1000 {
-			violations = append(violations, FieldViolation{Field: prefix + ".note", Message: "must not exceed 1000 characters"})
+			violations = append(violations, FieldViolation{Field: prefix + ".note", Message: "Không được vượt quá 1.000 ký tự."})
 		}
 	}
 	if len(violations) > 0 {
@@ -126,6 +126,9 @@ func ValidateRecordReceipt(input *RecordReceiptInput) error {
 }
 
 func (s *Store) RecordReceipt(ctx context.Context, principal auth.Principal, requestID string, input RecordReceiptInput) (PurchaseOrder, error) {
+	if hasRole(principal.Roles, "auditor") {
+		return PurchaseOrder{}, ErrForbidden
+	}
 	if err := ValidateRecordReceipt(&input); err != nil {
 		return PurchaseOrder{}, err
 	}
@@ -205,13 +208,13 @@ func (s *Store) RecordReceipt(ctx context.Context, principal auth.Principal, req
 			WHERE pri.id = $1 AND pri.purchase_request_id = $4
 		`, item.PurchaseRequestItemID, orderID, receiptID, requestID).Scan(&ordered, &alreadyReceived)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "items", Message: "contains an item outside this purchase order"}}}
+			return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "items", Message: "Có dòng hàng không thuộc đơn hàng này."}}}
 		}
 		if err != nil {
 			return PurchaseOrder{}, fmt.Errorf("load receipt line: %w", err)
 		}
 		if item.Condition == "ACCEPTED" && addRat(alreadyReceived, item.QuantityReceived).Cmp(mustRat(ordered)) > 0 {
-			return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "items", Message: "accepted quantity exceeds the ordered quantity"}}}
+			return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "items", Message: "Số lượng nhận vượt quá số lượng đã đặt."}}}
 		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO purchase_order_receipt_items (
@@ -239,7 +242,7 @@ func (s *Store) RecordReceipt(ctx context.Context, principal auth.Principal, req
 		return PurchaseOrder{}, fmt.Errorf("reconcile receipt quantities: %w", err)
 	}
 	if input.Outcome == "COMPLETE" && !allReceived {
-		return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "outcome", Message: "COMPLETE requires every ordered line to be fully received"}}}
+		return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "outcome", Message: "Trạng thái COMPLETE yêu cầu mọi dòng hàng đã được nhận đủ."}}}
 	}
 	toStatus := "PARTIALLY_RECEIVED"
 	if allReceived {
@@ -359,7 +362,7 @@ func (s *Store) UpdatePurchaseOrder(ctx context.Context, principal auth.Principa
 		return PurchaseOrder{}, err
 	}
 	if input.ExpectedVersion <= 0 {
-		return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "expectedVersion", Message: "must be greater than zero"}}}
+		return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "expectedVersion", Message: "Phải lớn hơn 0."}}}
 	}
 	tx, err := s.database.Begin(ctx)
 	if err != nil {
@@ -413,7 +416,7 @@ func (s *Store) CancelPurchaseOrder(ctx context.Context, principal auth.Principa
 	input.Reason = strings.TrimSpace(input.Reason)
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	if input.ExpectedVersion <= 0 || len([]rune(input.Reason)) < 10 || len([]rune(input.Reason)) > 2000 || !idempotencyPattern.MatchString(input.IdempotencyKey) {
-		return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "reason", Message: "reason must contain 10 to 2000 characters and a valid Idempotency-Key is required"}}}
+		return PurchaseOrder{}, &ValidationError{Violations: []FieldViolation{{Field: "reason", Message: "Lý do phải có từ 10 đến 2.000 ký tự và cần Idempotency-Key hợp lệ."}}}
 	}
 	tx, err := s.database.Begin(ctx)
 	if err != nil {

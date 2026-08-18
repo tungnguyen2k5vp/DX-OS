@@ -77,13 +77,13 @@ func (s *Store) UpdateSLAPolicy(ctx context.Context, principal auth.Principal, p
 	processName = strings.ToUpper(strings.TrimSpace(processName))
 	violations := []FieldViolation{}
 	if processName == "" || len(processName) > 80 {
-		violations = append(violations, FieldViolation{Field: "processName", Message: "must contain 1 to 80 characters"})
+		violations = append(violations, FieldViolation{Field: "processName", Message: "Phải có từ 1 đến 80 ký tự."})
 	}
 	if input.TargetHours < 1 || input.TargetHours > 720 {
-		violations = append(violations, FieldViolation{Field: "targetHours", Message: "must be between 1 and 720"})
+		violations = append(violations, FieldViolation{Field: "targetHours", Message: "Phải nằm trong khoảng từ 1 đến 720 giờ."})
 	}
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be at least 1"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn hoặc bằng 1."})
 	}
 	if len(violations) > 0 {
 		return SLAPolicy{}, &ValidationError{Violations: violations}
@@ -129,13 +129,13 @@ func (s *Store) UpdateAttachmentPolicy(ctx context.Context, principal auth.Princ
 	input.RequiredDocumentType = strings.ToUpper(strings.TrimSpace(input.RequiredDocumentType))
 	violations := []FieldViolation{}
 	if number, valid := decimal(input.ThresholdAmount, unitPricePattern, false); !valid || number.Cmp(maxMoney) > 0 {
-		violations = append(violations, FieldViolation{Field: "thresholdAmount", Message: "must be a non-negative supported decimal"})
+		violations = append(violations, FieldViolation{Field: "thresholdAmount", Message: "Phải là số không âm trong phạm vi hệ thống hỗ trợ."})
 	}
 	if !slicesContains([]string{"QUOTATION", "SPECIFICATION", "CONTRACT", "OTHER"}, input.RequiredDocumentType) {
-		violations = append(violations, FieldViolation{Field: "requiredDocumentType", Message: "must be QUOTATION, SPECIFICATION, CONTRACT, or OTHER"})
+		violations = append(violations, FieldViolation{Field: "requiredDocumentType", Message: "Phải là QUOTATION (báo giá), SPECIFICATION (đặc tả), CONTRACT (hợp đồng) hoặc OTHER (khác)."})
 	}
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be at least 1"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn hoặc bằng 1."})
 	}
 	if len(violations) > 0 {
 		return AttachmentPolicy{}, &ValidationError{Violations: violations}

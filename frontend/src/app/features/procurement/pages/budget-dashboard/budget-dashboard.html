@@ -3,7 +3,7 @@
     class="flex flex-col gap-4 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between"
   >
     <div>
-      <p class="text-sm font-semibold text-primary">Finance control</p>
+      <p class="text-sm font-semibold text-primary">Kiểm soát tài chính</p>
       <h1 id="budget-heading" class="mt-2 text-3xl font-semibold tracking-tight">
         Quản lý ngân sách
       </h1>
@@ -28,7 +28,7 @@
   }
 
   @if (loading() && !dashboard()) {
-    <div class="mt-7 space-y-6" aria-label="Đang tải dashboard ngân sách" aria-live="polite">
+    <div class="mt-7 space-y-6" aria-label="Đang tải bảng điều khiển ngân sách" aria-live="polite">
       <div class="grid gap-4 md:grid-cols-4">
         @for (placeholder of [1, 2, 3, 4]; track placeholder) {
           <div class="h-32 animate-pulse rounded-xl bg-muted"></div>
@@ -43,7 +43,7 @@
           class="mx-auto grid size-12 place-items-center rounded-full bg-destructive/10 font-semibold text-destructive"
           >!</span
         >
-        <h2 class="mt-4 text-xl font-semibold">Không thể mở dashboard ngân sách</h2>
+        <h2 class="mt-4 text-xl font-semibold">Không thể mở bảng điều khiển ngân sách</h2>
         <p class="mt-2 text-sm text-muted-foreground">{{ error() }}</p>
         <button hlmBtn class="mt-5" type="button" (click)="retry()">Thử lại</button>
       </div>
@@ -104,7 +104,7 @@
         <div class="rounded-xl border border-dashed border-border p-8 text-center">
           <p class="font-medium">Chưa có kỳ ngân sách hoạt động</p>
           <p class="mt-1 text-sm text-muted-foreground">
-            Chưa tìm thấy allocation trong phạm vi tổ chức hiện tại.
+            Chưa tìm thấy hạn mức ngân sách trong phạm vi tổ chức hiện tại.
           </p>
         </div>
       }
@@ -130,7 +130,7 @@
           <table class="w-full min-w-[980px] text-left text-sm">
             <thead class="border-b text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th class="px-3 py-3 font-medium">Kỳ / Cost center</th>
+                <th class="px-3 py-3 font-medium">Kỳ / Trung tâm chi phí</th>
                 <th class="px-3 py-3 text-right font-medium">Hạn mức</th>
                 <th class="px-3 py-3 text-right font-medium">Đang giữ</th>
                 <th class="px-3 py-3 text-right font-medium">Cam kết</th>
@@ -281,7 +281,7 @@
             <thead class="border-b text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th class="px-3 py-3 font-medium">Phiếu</th>
-                <th class="px-3 py-3 font-medium">Cost center</th>
+                <th class="px-3 py-3 font-medium">Trung tâm chi phí</th>
                 <th class="px-3 py-3 text-right font-medium">Số tiền</th>
                 <th class="px-3 py-3 font-medium">Trạng thái</th>
                 <th class="px-3 py-3 font-medium">Người giữ</th>
@@ -351,7 +351,7 @@
             <thead class="border-b text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th class="px-3 py-3 font-medium">Thời điểm</th>
-                <th class="px-3 py-3 font-medium">Cost center</th>
+                <th class="px-3 py-3 font-medium">Trung tâm chi phí</th>
                 <th class="px-3 py-3 text-right font-medium">Trước</th>
                 <th class="px-3 py-3 text-right font-medium">Sau</th>
                 <th class="px-3 py-3 font-medium">Người thực hiện</th>

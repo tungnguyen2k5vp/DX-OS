@@ -1,6 +1,8 @@
 package procurement
 
 import (
+	"archive/zip"
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -663,20 +665,81 @@ func ValidateAttachment(input *UploadAttachmentInput) error {
 			Field: "file", Message: "Tên tệp không hợp lệ hoặc dài quá 255 ký tự.",
 		})
 	}
-	if !slices.Contains(AllowedAttachmentContentTypes, input.ContentType) {
+	contentTypeAllowed := slices.Contains(AllowedAttachmentContentTypes, input.ContentType)
+	if !contentTypeAllowed {
 		violations = append(violations, FieldViolation{
 			Field: "file", Message: "Chỉ hỗ trợ PDF, DOCX, XLSX, JPG và PNG.",
 		})
 	}
-	if len(input.Content) == 0 || int64(len(input.Content)) > MaxAttachmentSize {
+	contentSizeValid := len(input.Content) > 0 && int64(len(input.Content)) <= MaxAttachmentSize
+	if !contentSizeValid {
 		violations = append(violations, FieldViolation{
 			Field: "file", Message: "Tệp phải có dung lượng từ 1 byte đến 10 MB.",
+		})
+	}
+	if contentTypeAllowed && contentSizeValid &&
+		(!attachmentNameMatchesType(input.FileName, input.ContentType) ||
+			!attachmentContentMatchesType(input.Content, input.ContentType)) {
+		violations = append(violations, FieldViolation{
+			Field: "file", Message: "Phần mở rộng hoặc nội dung tệp không khớp với loại tệp đã khai báo.",
 		})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
 	}
 	return nil
+}
+
+func attachmentNameMatchesType(fileName, contentType string) bool {
+	extensions := map[string][]string{
+		"application/pdf": {".pdf"},
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": {".docx"},
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":       {".xlsx"},
+		"image/jpeg": {".jpg", ".jpeg"},
+		"image/png":  {".png"},
+	}
+	lowerName := strings.ToLower(fileName)
+	for _, extension := range extensions[contentType] {
+		if strings.HasSuffix(lowerName, extension) {
+			return true
+		}
+	}
+	return false
+}
+
+func attachmentContentMatchesType(content []byte, contentType string) bool {
+	switch contentType {
+	case "application/pdf":
+		return bytes.HasPrefix(content, []byte("%PDF-"))
+	case "image/jpeg":
+		return len(content) >= 3 && content[0] == 0xff && content[1] == 0xd8 && content[2] == 0xff
+	case "image/png":
+		return bytes.HasPrefix(content, []byte("\x89PNG\r\n\x1a\n"))
+	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return officeArchiveContains(content, "word/document.xml")
+	case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return officeArchiveContains(content, "xl/workbook.xml")
+	default:
+		return false
+	}
+}
+
+func officeArchiveContains(content []byte, requiredEntry string) bool {
+	archive, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
+	if err != nil {
+		return false
+	}
+	foundContentTypes := false
+	foundRequiredEntry := false
+	for _, file := range archive.File {
+		switch file.Name {
+		case "[Content_Types].xml":
+			foundContentTypes = true
+		case requiredEntry:
+			foundRequiredEntry = true
+		}
+	}
+	return foundContentTypes && foundRequiredEntry
 }
 
 type ScopeKind int
@@ -704,7 +767,8 @@ func ScopeFor(principal auth.Principal) (ScopeKind, error) {
 }
 
 func CanCreate(principal auth.Principal) bool {
-	return hasRole(principal.Roles, "employee") || hasRole(principal.Roles, "department_manager")
+	return !hasRole(principal.Roles, "auditor") &&
+		(hasRole(principal.Roles, "employee") || hasRole(principal.Roles, "department_manager"))
 }
 
 func ParseStatus(value string) (Status, bool) {
@@ -720,19 +784,19 @@ func ValidateCreate(input *CreateInput) error {
 
 	var violations []FieldViolation
 	if length := len([]rune(input.Title)); length < 3 || length > 255 {
-		violations = append(violations, FieldViolation{Field: "title", Message: "must contain between 3 and 255 characters"})
+		violations = append(violations, FieldViolation{Field: "title", Message: "Phải có từ 3 đến 255 ký tự."})
 	}
 	if length := len([]rune(input.Reason)); length < 10 || length > 5000 {
-		violations = append(violations, FieldViolation{Field: "reason", Message: "must contain between 10 and 5000 characters"})
+		violations = append(violations, FieldViolation{Field: "reason", Message: "Phải có từ 10 đến 5.000 ký tự."})
 	}
 	if !currencyPattern.MatchString(input.Currency) {
-		violations = append(violations, FieldViolation{Field: "currency", Message: "must be a three-letter uppercase currency code"})
+		violations = append(violations, FieldViolation{Field: "currency", Message: "Phải là mã tiền tệ gồm 3 chữ cái viết hoa."})
 	}
 	if length := len([]rune(input.CostCenter)); length < 1 || length > 100 {
-		violations = append(violations, FieldViolation{Field: "costCenter", Message: "must contain between 1 and 100 characters"})
+		violations = append(violations, FieldViolation{Field: "costCenter", Message: "Phải có từ 1 đến 100 ký tự."})
 	}
 	if len(input.Items) < 1 || len(input.Items) > 100 {
-		violations = append(violations, FieldViolation{Field: "items", Message: "must contain between 1 and 100 items"})
+		violations = append(violations, FieldViolation{Field: "items", Message: "Phải có từ 1 đến 100 dòng hàng."})
 	}
 
 	total := new(big.Rat)
@@ -746,23 +810,23 @@ func ValidateCreate(input *CreateInput) error {
 		prefix := fmt.Sprintf("items[%d].", index)
 
 		if length := len([]rune(item.Description)); length < 2 || length > 500 {
-			violations = append(violations, FieldViolation{Field: prefix + "description", Message: "must contain between 2 and 500 characters"})
+			violations = append(violations, FieldViolation{Field: prefix + "description", Message: "Phải có từ 2 đến 500 ký tự."})
 		}
 		quantity, quantityValid := decimal(item.Quantity, quantityPattern, true)
 		if !quantityValid {
-			violations = append(violations, FieldViolation{Field: prefix + "quantity", Message: "must be a positive decimal with at most 4 fractional digits"})
+			violations = append(violations, FieldViolation{Field: prefix + "quantity", Message: "Phải là số dương và có tối đa 4 chữ số thập phân."})
 		}
 		if length := len([]rune(item.Unit)); length < 1 || length > 50 {
-			violations = append(violations, FieldViolation{Field: prefix + "unit", Message: "must contain between 1 and 50 characters"})
+			violations = append(violations, FieldViolation{Field: prefix + "unit", Message: "Phải có từ 1 đến 50 ký tự."})
 		}
 		unitPrice, unitPriceValid := decimal(item.UnitPrice, unitPricePattern, false)
 		if !unitPriceValid {
-			violations = append(violations, FieldViolation{Field: prefix + "unitPrice", Message: "must be a non-negative decimal with at most 4 fractional digits"})
+			violations = append(violations, FieldViolation{Field: prefix + "unitPrice", Message: "Phải là số không âm và có tối đa 4 chữ số thập phân."})
 		}
 		if quantityValid && unitPriceValid {
 			lineTotal := new(big.Rat).Mul(quantity, unitPrice)
 			if lineTotal.Cmp(maxMoney) > 0 {
-				violations = append(violations, FieldViolation{Field: prefix + "unitPrice", Message: "produces a line total above the supported monetary limit"})
+				violations = append(violations, FieldViolation{Field: prefix + "unitPrice", Message: "Làm cho thành tiền vượt quá giới hạn hệ thống hỗ trợ."})
 				totalCanBeCalculated = false
 			} else {
 				total.Add(total, lineTotal)
@@ -772,7 +836,7 @@ func ValidateCreate(input *CreateInput) error {
 		}
 	}
 	if totalCanBeCalculated && total.Cmp(maxMoney) > 0 {
-		violations = append(violations, FieldViolation{Field: "items", Message: "combined total exceeds the supported monetary limit"})
+		violations = append(violations, FieldViolation{Field: "items", Message: "Tổng giá trị vượt quá giới hạn hệ thống hỗ trợ."})
 	}
 
 	if len(violations) > 0 {
@@ -785,7 +849,7 @@ func ValidateUpdate(input *UpdateInput) error {
 	var violations []FieldViolation
 	if input.ExpectedVersion < 1 {
 		violations = append(violations, FieldViolation{
-			Field: "expectedVersion", Message: "must be an integer greater than or equal to 1",
+			Field: "expectedVersion", Message: "Phải là số nguyên lớn hơn hoặc bằng 1.",
 		})
 	}
 	if err := ValidateCreate(&input.CreateInput); err != nil {
@@ -809,12 +873,12 @@ func ValidateBudgetSummaryInput(input *BudgetSummaryInput) error {
 	var violations []FieldViolation
 	if length := len([]rune(input.CostCenter)); length < 1 || length > 100 {
 		violations = append(violations, FieldViolation{
-			Field: "costCenter", Message: "must contain between 1 and 100 characters",
+			Field: "costCenter", Message: "Phải có từ 1 đến 100 ký tự.",
 		})
 	}
 	if !currencyPattern.MatchString(input.Currency) {
 		violations = append(violations, FieldViolation{
-			Field: "currency", Message: "must be a three-letter uppercase currency code",
+			Field: "currency", Message: "Phải là mã tiền tệ gồm 3 chữ cái viết hoa.",
 		})
 	}
 	if len(violations) > 0 {
@@ -832,22 +896,22 @@ func ValidateAdjustBudgetInput(input *AdjustBudgetInput) error {
 	if _, valid := decimal(input.AllocatedAmount, unitPricePattern, false); !valid {
 		violations = append(violations, FieldViolation{
 			Field:   "allocatedAmount",
-			Message: "must be a non-negative decimal with at most 4 fractional digits",
+			Message: "Phải là số không âm và có tối đa 4 chữ số thập phân.",
 		})
 	}
 	if input.ExpectedVersion < 1 {
 		violations = append(violations, FieldViolation{
-			Field: "expectedVersion", Message: "must be an integer greater than or equal to 1",
+			Field: "expectedVersion", Message: "Phải là số nguyên lớn hơn hoặc bằng 1.",
 		})
 	}
 	if length := len([]rune(input.Reason)); length < 10 || length > 1000 {
 		violations = append(violations, FieldViolation{
-			Field: "reason", Message: "must contain between 10 and 1000 characters",
+			Field: "reason", Message: "Phải có từ 10 đến 1.000 ký tự.",
 		})
 	}
 	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
 		violations = append(violations, FieldViolation{
-			Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters",
+			Field: "Idempotency-Key", Message: "Phải có từ 8 đến 255 ký tự ASCII an toàn.",
 		})
 	}
 	if len(violations) > 0 {
@@ -873,29 +937,29 @@ func ValidateTransition(input *TransitionInput) error {
 	var violations []FieldViolation
 	if action, valid := ParseAction(string(input.Action)); !valid {
 		violations = append(violations, FieldViolation{
-			Field: "action", Message: "must be a supported purchase request action",
+			Field: "action", Message: "Phải là thao tác phiếu mua sắm được hỗ trợ.",
 		})
 	} else {
 		input.Action = action
 	}
 	if input.ExpectedVersion < 1 {
 		violations = append(violations, FieldViolation{
-			Field: "expectedVersion", Message: "must be an integer greater than or equal to 1",
+			Field: "expectedVersion", Message: "Phải là số nguyên lớn hơn hoặc bằng 1.",
 		})
 	}
 	if len([]rune(input.Comment)) > 2000 {
 		violations = append(violations, FieldViolation{
-			Field: "comment", Message: "must contain at most 2000 characters",
+			Field: "comment", Message: "Không được vượt quá 2.000 ký tự.",
 		})
 	}
 	if (input.Action == ActionReject || input.Action == ActionRequestChanges) && input.Comment == "" {
 		violations = append(violations, FieldViolation{
-			Field: "comment", Message: "is required for REJECT and REQUEST_CHANGES",
+			Field: "comment", Message: "Bắt buộc khi từ chối hoặc yêu cầu chỉnh sửa.",
 		})
 	}
 	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
 		violations = append(violations, FieldViolation{
-			Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters",
+			Field: "Idempotency-Key", Message: "Phải có từ 8 đến 255 ký tự ASCII an toàn.",
 		})
 	}
 	if len(violations) > 0 {
@@ -909,7 +973,7 @@ func ValidateComment(input *CommentInput) error {
 	var violations []FieldViolation
 	if length := len([]rune(input.Body)); length < 1 || length > 2000 {
 		violations = append(violations, FieldViolation{
-			Field: "body", Message: "must contain between 1 and 2000 characters",
+			Field: "body", Message: "Phải có từ 1 đến 2.000 ký tự.",
 		})
 	}
 	if len(violations) > 0 {
@@ -940,44 +1004,44 @@ func ValidateSupplierInput(input *SupplierInput) error {
 	}
 	var violations []FieldViolation
 	if !supplierCodePattern.MatchString(input.Code) {
-		violations = append(violations, FieldViolation{Field: "code", Message: "must contain 2 to 50 uppercase letters, digits, dots, underscores, or hyphens"})
+		violations = append(violations, FieldViolation{Field: "code", Message: "Phải có từ 2 đến 50 chữ cái viết hoa, chữ số, dấu chấm, gạch dưới hoặc gạch nối."})
 	}
 	if length := len([]rune(input.Name)); length < 2 || length > 255 {
-		violations = append(violations, FieldViolation{Field: "name", Message: "must contain between 2 and 255 characters"})
+		violations = append(violations, FieldViolation{Field: "name", Message: "Phải có từ 2 đến 255 ký tự."})
 	}
 	if len([]rune(input.TaxCode)) > 50 {
-		violations = append(violations, FieldViolation{Field: "taxCode", Message: "must contain at most 50 characters"})
+		violations = append(violations, FieldViolation{Field: "taxCode", Message: "Không được vượt quá 50 ký tự."})
 	}
 	if len([]rune(input.ContactName)) > 255 {
-		violations = append(violations, FieldViolation{Field: "contactName", Message: "must contain at most 255 characters"})
+		violations = append(violations, FieldViolation{Field: "contactName", Message: "Không được vượt quá 255 ký tự."})
 	}
 	if input.Email != "" && (len(input.Email) > 255 || !emailPattern.MatchString(input.Email)) {
-		violations = append(violations, FieldViolation{Field: "email", Message: "must be a valid email address"})
+		violations = append(violations, FieldViolation{Field: "email", Message: "Phải là địa chỉ email hợp lệ."})
 	}
 	if len([]rune(input.Phone)) > 50 {
-		violations = append(violations, FieldViolation{Field: "phone", Message: "must contain at most 50 characters"})
+		violations = append(violations, FieldViolation{Field: "phone", Message: "Không được vượt quá 50 ký tự."})
 	}
 	if input.Status != "ACTIVE" && input.Status != "INACTIVE" {
-		violations = append(violations, FieldViolation{Field: "status", Message: "must be ACTIVE or INACTIVE"})
+		violations = append(violations, FieldViolation{Field: "status", Message: "Phải là ACTIVE (đang hoạt động) hoặc INACTIVE (ngừng hoạt động)."})
 	}
 	if input.RiskLevel != "LOW" && input.RiskLevel != "MEDIUM" && input.RiskLevel != "HIGH" {
-		violations = append(violations, FieldViolation{Field: "riskLevel", Message: "must be LOW, MEDIUM, or HIGH"})
+		violations = append(violations, FieldViolation{Field: "riskLevel", Message: "Phải là LOW (thấp), MEDIUM (trung bình) hoặc HIGH (cao)."})
 	}
 	if len([]rune(input.Address)) > 1000 || len([]rune(input.BankName)) > 255 || len([]rune(input.BankAccountNumber)) > 100 || len([]rune(input.ContractReference)) > 100 || len([]rune(input.BusinessNote)) > 5000 {
-		violations = append(violations, FieldViolation{Field: "supplierProfile", Message: "contains a value longer than the supported limit"})
+		violations = append(violations, FieldViolation{Field: "supplierProfile", Message: "Có giá trị dài hơn giới hạn hệ thống hỗ trợ."})
 	}
 	if input.ContractExpiresOn != "" {
 		if _, err := time.Parse(time.DateOnly, input.ContractExpiresOn); err != nil {
-			violations = append(violations, FieldViolation{Field: "contractExpiresOn", Message: "must use YYYY-MM-DD format"})
+			violations = append(violations, FieldViolation{Field: "contractExpiresOn", Message: "Phải có định dạng YYYY-MM-DD."})
 		}
 	}
 	if input.ComplianceStatus != "PENDING" && input.ComplianceStatus != "VERIFIED" && input.ComplianceStatus != "EXPIRED" && input.ComplianceStatus != "BLOCKED" {
-		violations = append(violations, FieldViolation{Field: "complianceStatus", Message: "must be PENDING, VERIFIED, EXPIRED or BLOCKED"})
+		violations = append(violations, FieldViolation{Field: "complianceStatus", Message: "Phải là PENDING (chờ xác minh), VERIFIED (đã xác minh), EXPIRED (hết hiệu lực) hoặc BLOCKED (bị chặn)."})
 	}
 	if input.PerformanceScore != "" {
 		score, ok := new(big.Rat).SetString(input.PerformanceScore)
 		if !ok || score.Sign() < 0 || score.Cmp(big.NewRat(100, 1)) > 0 {
-			violations = append(violations, FieldViolation{Field: "performanceScore", Message: "must be between 0 and 100"})
+			violations = append(violations, FieldViolation{Field: "performanceScore", Message: "Phải nằm trong khoảng từ 0 đến 100."})
 		}
 	}
 	if len(violations) > 0 {
@@ -995,7 +1059,7 @@ func ValidateUpdateSupplierInput(input *UpdateSupplierInput) error {
 		return err
 	}
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than or equal to 1"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn hoặc bằng 1."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -1011,22 +1075,22 @@ func ValidateCreatePurchaseOrder(input *CreatePurchaseOrderInput) error {
 	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	var violations []FieldViolation
 	if !uuidPatternForDomain.MatchString(input.SupplierID) {
-		violations = append(violations, FieldViolation{Field: "supplierId", Message: "must be a valid UUID"})
+		violations = append(violations, FieldViolation{Field: "supplierId", Message: "Phải là UUID hợp lệ."})
 	}
 	if len([]rune(input.ExternalReference)) > 100 {
-		violations = append(violations, FieldViolation{Field: "externalReference", Message: "must contain at most 100 characters"})
+		violations = append(violations, FieldViolation{Field: "externalReference", Message: "Không được vượt quá 100 ký tự."})
 	}
 	deliveryDate, err := time.Parse(time.DateOnly, input.ExpectedDeliveryOn)
 	if err != nil {
-		violations = append(violations, FieldViolation{Field: "expectedDeliveryOn", Message: "must use YYYY-MM-DD format"})
+		violations = append(violations, FieldViolation{Field: "expectedDeliveryOn", Message: "Phải có định dạng YYYY-MM-DD."})
 	} else if deliveryDate.Before(time.Now().UTC().Truncate(24 * time.Hour)) {
-		violations = append(violations, FieldViolation{Field: "expectedDeliveryOn", Message: "must not be in the past"})
+		violations = append(violations, FieldViolation{Field: "expectedDeliveryOn", Message: "Không được là ngày trong quá khứ."})
 	}
 	if len([]rune(input.Note)) > 2000 {
-		violations = append(violations, FieldViolation{Field: "note", Message: "must contain at most 2000 characters"})
+		violations = append(violations, FieldViolation{Field: "note", Message: "Không được vượt quá 2.000 ký tự."})
 	}
 	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
-		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters"})
+		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "Phải có từ 8 đến 255 ký tự ASCII an toàn."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -1038,13 +1102,13 @@ func ValidateConfirmReceipt(input *ConfirmReceiptInput) error {
 	input.ActualDeliveryOn = strings.TrimSpace(input.ActualDeliveryOn)
 	var violations []FieldViolation
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than or equal to 1"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn hoặc bằng 1."})
 	}
 	deliveryDate, err := time.Parse(time.DateOnly, input.ActualDeliveryOn)
 	if err != nil {
-		violations = append(violations, FieldViolation{Field: "actualDeliveryOn", Message: "must use YYYY-MM-DD format"})
+		violations = append(violations, FieldViolation{Field: "actualDeliveryOn", Message: "Phải có định dạng YYYY-MM-DD."})
 	} else if deliveryDate.After(time.Now().UTC().Truncate(24 * time.Hour)) {
-		violations = append(violations, FieldViolation{Field: "actualDeliveryOn", Message: "must not be in the future"})
+		violations = append(violations, FieldViolation{Field: "actualDeliveryOn", Message: "Không được là ngày trong tương lai."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -1060,10 +1124,10 @@ func ValidateInvoiceInput(input *InvoiceInput) error {
 		&input.Amount, &input.Currency, &input.Note,
 	)
 	if !uuidPatternForDomain.MatchString(input.PurchaseOrderID) {
-		violations = append(violations, FieldViolation{Field: "purchaseOrderId", Message: "must be a valid UUID"})
+		violations = append(violations, FieldViolation{Field: "purchaseOrderId", Message: "Phải là UUID hợp lệ."})
 	}
 	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
-		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters"})
+		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "Phải có từ 8 đến 255 ký tự ASCII an toàn."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -1077,7 +1141,7 @@ func ValidateUpdateInvoiceInput(input *UpdateInvoiceInput) error {
 		&input.Amount, &input.Currency, &input.Note,
 	)
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than or equal to 1"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn hoặc bằng 1."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -1094,32 +1158,32 @@ func ValidateInvoiceActionInput(input *InvoiceActionInput) error {
 	var violations []FieldViolation
 	if input.Action != "VERIFY" && input.Action != "DISPUTE" &&
 		input.Action != "REOPEN" && input.Action != "MARK_PAID" {
-		violations = append(violations, FieldViolation{Field: "action", Message: "must be VERIFY, DISPUTE, REOPEN, or MARK_PAID"})
+		violations = append(violations, FieldViolation{Field: "action", Message: "Phải là VERIFY (xác minh), DISPUTE (đối soát), REOPEN (mở lại) hoặc MARK_PAID (đánh dấu đã thanh toán)."})
 	}
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than or equal to 1"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn hoặc bằng 1."})
 	}
 	if len([]rune(input.Comment)) > 2000 {
-		violations = append(violations, FieldViolation{Field: "comment", Message: "must contain at most 2000 characters"})
+		violations = append(violations, FieldViolation{Field: "comment", Message: "Không được vượt quá 2.000 ký tự."})
 	}
 	if input.Action == "DISPUTE" && input.Comment == "" {
-		violations = append(violations, FieldViolation{Field: "comment", Message: "is required when disputing an invoice"})
+		violations = append(violations, FieldViolation{Field: "comment", Message: "Bắt buộc khi đưa hóa đơn vào đối soát."})
 	}
 	if input.Action == "MARK_PAID" {
 		if length := len([]rune(input.PaymentReference)); length < 2 || length > 100 || strings.ContainsAny(input.PaymentReference, "\r\n") {
-			violations = append(violations, FieldViolation{Field: "paymentReference", Message: "must contain between 2 and 100 characters on one line"})
+			violations = append(violations, FieldViolation{Field: "paymentReference", Message: "Phải có từ 2 đến 100 ký tự trên một dòng."})
 		}
 		paidDate, err := time.Parse(time.DateOnly, input.PaidOn)
 		if err != nil {
-			violations = append(violations, FieldViolation{Field: "paidOn", Message: "must use YYYY-MM-DD format"})
+			violations = append(violations, FieldViolation{Field: "paidOn", Message: "Phải có định dạng YYYY-MM-DD."})
 		} else if paidDate.After(time.Now().UTC().Truncate(24 * time.Hour)) {
-			violations = append(violations, FieldViolation{Field: "paidOn", Message: "must not be in the future"})
+			violations = append(violations, FieldViolation{Field: "paidOn", Message: "Không được là ngày trong tương lai."})
 		}
 	} else if input.PaymentReference != "" || input.PaidOn != "" {
-		violations = append(violations, FieldViolation{Field: "paymentReference", Message: "is only allowed for MARK_PAID"})
+		violations = append(violations, FieldViolation{Field: "paymentReference", Message: "Chỉ được dùng khi đánh dấu đã thanh toán (MARK_PAID)."})
 	}
 	if !idempotencyPattern.MatchString(input.IdempotencyKey) {
-		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "must contain 8 to 255 safe ASCII characters"})
+		violations = append(violations, FieldViolation{Field: "Idempotency-Key", Message: "Phải có từ 8 đến 255 ký tự ASCII an toàn."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -1138,28 +1202,28 @@ func validateInvoiceFields(
 	*note = strings.TrimSpace(*note)
 	var violations []FieldViolation
 	if !invoiceNumberPattern.MatchString(*invoiceNumber) {
-		violations = append(violations, FieldViolation{Field: "invoiceNumber", Message: "must contain 2 to 100 uppercase letters, digits, dots, slashes, underscores, or hyphens"})
+		violations = append(violations, FieldViolation{Field: "invoiceNumber", Message: "Phải có từ 2 đến 100 chữ cái viết hoa, chữ số, dấu chấm, gạch chéo, gạch dưới hoặc gạch nối."})
 	}
 	issuedDate, issuedErr := time.Parse(time.DateOnly, *issuedOn)
 	if issuedErr != nil {
-		violations = append(violations, FieldViolation{Field: "issuedOn", Message: "must use YYYY-MM-DD format"})
+		violations = append(violations, FieldViolation{Field: "issuedOn", Message: "Phải có định dạng YYYY-MM-DD."})
 	} else if issuedDate.After(time.Now().UTC().Truncate(24 * time.Hour)) {
-		violations = append(violations, FieldViolation{Field: "issuedOn", Message: "must not be in the future"})
+		violations = append(violations, FieldViolation{Field: "issuedOn", Message: "Không được là ngày trong tương lai."})
 	}
 	dueDate, dueErr := time.Parse(time.DateOnly, *dueOn)
 	if dueErr != nil {
-		violations = append(violations, FieldViolation{Field: "dueOn", Message: "must use YYYY-MM-DD format"})
+		violations = append(violations, FieldViolation{Field: "dueOn", Message: "Phải có định dạng YYYY-MM-DD."})
 	} else if issuedErr == nil && dueDate.Before(issuedDate) {
-		violations = append(violations, FieldViolation{Field: "dueOn", Message: "must not be before issuedOn"})
+		violations = append(violations, FieldViolation{Field: "dueOn", Message: "Không được trước ngày phát hành hóa đơn."})
 	}
 	if number, valid := decimal(*amount, unitPricePattern, true); !valid || number.Cmp(maxMoney) > 0 {
-		violations = append(violations, FieldViolation{Field: "amount", Message: "must be a positive decimal within the supported money range"})
+		violations = append(violations, FieldViolation{Field: "amount", Message: "Phải là số dương trong phạm vi tiền tệ hệ thống hỗ trợ."})
 	}
 	if !currencyPattern.MatchString(*currency) {
-		violations = append(violations, FieldViolation{Field: "currency", Message: "must be a three-letter uppercase currency code"})
+		violations = append(violations, FieldViolation{Field: "currency", Message: "Phải là mã tiền tệ gồm 3 chữ cái viết hoa."})
 	}
 	if len([]rune(*note)) > 2000 {
-		violations = append(violations, FieldViolation{Field: "note", Message: "must contain at most 2000 characters"})
+		violations = append(violations, FieldViolation{Field: "note", Message: "Không được vượt quá 2.000 ký tự."})
 	}
 	return violations
 }

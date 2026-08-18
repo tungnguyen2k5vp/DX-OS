@@ -1,8 +1,8 @@
-# Runbook: Procurement MVP — bước 1 đến 7
+# Hướng dẫn vận hành: Mua sắm MVP — bước 1 đến 7
 
 ## Phạm vi đã triển khai
 
-Runbook này bao phủ:
+Hướng dẫn này bao phủ:
 
 1. schema `organizations`, `departments`, `users`;
 2. schema `purchase_requests`, `purchase_request_items`, `process_events` và workflow status;
@@ -41,7 +41,7 @@ Migration thứ năm tạo lịch sử điều chỉnh hạn mức với reason,
 
 ## Endpoint
 
-| Method | URL | Kết quả |
+| Phương thức | URL | Kết quả |
 |---|---|---|
 | `POST` | `/api/v1/purchase-requests` | tạo `DRAFT`, trả `201` + `Location` |
 | `GET` | `/api/v1/purchase-requests?page=1&pageSize=20&status=DRAFT` | danh sách theo data scope |
@@ -56,7 +56,7 @@ Migration thứ năm tạo lịch sử điều chỉnh hạn mức với reason,
 
 ## Màn hình Angular
 
-| Route | Màn hình |
+| Đường dẫn | Màn hình |
 |---|---|
 | `/purchase-requests` | danh sách, lọc trạng thái và phân trang |
 | `/purchase-requests/new` | form tạo draft với `FormArray` items |
@@ -110,7 +110,7 @@ Ví dụ body:
 Quantity, unit price, line total và total amount dùng chuỗi decimal trong JSON. PostgreSQL dùng
 `numeric`, `line_total` là generated column và `total_amount` được tính lại trong transaction.
 
-## Workflow hiện có
+## Luồng xử lý hiện có
 
 Database chấp nhận:
 
@@ -126,7 +126,7 @@ CANCELLED
 
 Create luôn tạo `DRAFT` và event append-only `DRAFT_CREATED`. Luồng được backend cho phép:
 
-| Trạng thái | Actor | Action | Trạng thái mới |
+| Trạng thái | Người thực hiện | Thao tác | Trạng thái mới |
 |---|---|---|---|
 | `DRAFT` | requester | `SUBMIT` | `SUBMITTED` |
 | `DRAFT` | requester | `CANCEL` | `CANCELLED` |
@@ -151,7 +151,7 @@ action trả trạng thái đã có mà không tăng version; dùng lại key ch
 Ngân sách được quản lý theo `organization + period + costCenter + currency`. Các số tiền dùng
 `numeric(19,4)`; API trả chuỗi decimal để không mất độ chính xác.
 
-| Workflow | Tác động ngân sách |
+| Luồng xử lý | Tác động ngân sách |
 |---|---|
 | manager `APPROVE` từ `SUBMITTED` | khóa allocation và tăng `reserved_amount` |
 | finance `APPROVE` từ `MANAGER_APPROVED` | giảm reserved, tăng `committed_amount` |
@@ -192,7 +192,7 @@ Mỗi điều chỉnh tăng version, ghi `budget_adjustments` và `audit_logs` t
 `auditor` nhận `canManage=false` và backend trả `403` nếu thử gọi PATCH. `employee` bị chặn cả
 dashboard lẫn API.
 
-## Authorization
+## Phân quyền
 
 - `employee`: tạo và đọc phiếu của mình.
 - `department_manager`: tạo và đọc phiếu cùng department.
@@ -206,7 +206,7 @@ Resource nằm ngoài scope trả `404`.
 
 ```powershell
 docker run --rm -v "${PWD}\backend:/workspace" -w /workspace `
-  golang:1.26.5-alpine sh -c "go vet ./... && go test ./..."
+  golang:1.26.6-alpine sh -c "go vet ./... && go test ./..."
 
 .\scripts\Test-Foundation.ps1
 .\scripts\Test-Application.ps1

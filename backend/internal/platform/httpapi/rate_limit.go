@@ -56,7 +56,7 @@ func (a *api) principalRateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		principal, ok := principalFromContext(r.Context())
 		if !ok || principal.Subject == "" {
-			writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+			writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 			return
 		}
 		allowed, remaining, resetAfter := a.rateLimiter.allow(principal.Subject, time.Now())
@@ -69,7 +69,7 @@ func (a *api) principalRateLimit(next http.Handler) http.Handler {
 		w.Header().Set("X-RateLimit-Reset", strconv.Itoa(seconds))
 		if !allowed {
 			w.Header().Set("Retry-After", strconv.Itoa(seconds))
-			writeProblem(w, r, http.StatusTooManyRequests, "rate-limit-exceeded", "Too many requests", "The authenticated user has exceeded the API request limit. Retry later.")
+			writeProblem(w, r, http.StatusTooManyRequests, "rate-limit-exceeded", "Quá nhiều yêu cầu", "Tài khoản đã vượt giới hạn số yêu cầu API. Vui lòng thử lại sau.")
 			return
 		}
 		next.ServeHTTP(w, r)

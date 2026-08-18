@@ -26,7 +26,7 @@ Response luôn trả `X-Correlation-ID`. Không echo token hoặc secret.
 
 ## 3. HTTP semantics
 
-| Trường hợp | Status |
+| Trường hợp | Mã trạng thái HTTP |
 |---|---|
 | lấy/cập nhật thành công | 200 |
 | tạo resource/transition | 201 |
@@ -84,7 +84,7 @@ Response:
 
 ## 5. Purchase request endpoints
 
-| Method | Endpoint | Ý nghĩa |
+| Phương thức | Endpoint | Ý nghĩa |
 |---|---|---|
 | `GET` | `/purchase-requests` | danh sách theo scope |
 | `POST` | `/purchase-requests` | tạo draft |
@@ -174,7 +174,7 @@ Không cho client tự chọn path tùy ý hoặc ghi trực tiếp vào folder 
 
 ## 7. Dashboard API
 
-| Method | Endpoint |
+| Phương thức | Endpoint |
 |---|---|
 | `GET` | `/analytics/process-performance` |
 | `GET` | `/analytics/budget-usage` |
@@ -186,7 +186,7 @@ read-only; Angular có thể embed/link dashboard sau khi auth model được ch
 
 ## 8. API khuyến nghị có kiểm soát
 
-| Method | Endpoint | Ý nghĩa |
+| Phương thức | Endpoint | Ý nghĩa |
 |---|---|---|
 | `GET` | `/api/v1/ai/recommendations` | danh sách recommendation và bằng chứng |
 | `POST` | `/api/v1/ai/recommendations/generate` | quét luật SLA, giá trị lớn, rủi ro supplier |
@@ -224,7 +224,7 @@ Health response không lộ DSN, secret hoặc stack trace.
 
 ### Giao nhận, hóa đơn và thông báo
 
-| Method | Endpoint | Quyền |
+| Phương thức | Endpoint | Quyền |
 |---|---|---|
 | `GET` | `/api/v1/procurement-operations` | employee/manager theo scope; finance; auditor read-only |
 | `POST` | `/api/v1/procurement-operations/orders` | finance |
@@ -245,7 +245,7 @@ Invoice action: `VERIFY`, `DISPUTE`, `REOPEN`, `MARK_PAID`. `VERIFY` chấp nh�
 
 ### Kiểm toán và quản trị
 
-| Method | Endpoint | Quyền |
+| Phương thức | Endpoint | Quyền |
 |---|---|---|
 | `GET/POST` | `/api/v1/audit/cases` | auditor đọc/tạo; dx_admin đọc |
 | `PATCH` | `/api/v1/audit/cases/{caseId}` | auditor |
@@ -256,7 +256,7 @@ Invoice action: `VERIFY`, `DISPUTE`, `REOPEN`, `MARK_PAID`. `VERIFY` chấp nh�
 
 ### Chính sách vận hành
 
-| Method | Endpoint | Quyền |
+| Phương thức | Endpoint | Quyền |
 |---|---|---|
 | `GET` | `/api/v1/admin/policies` | dx_admin; auditor read-only |
 | `PATCH` | `/api/v1/admin/policies/sla/{processName}` | dx_admin |

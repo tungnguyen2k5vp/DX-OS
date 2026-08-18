@@ -1,10 +1,10 @@
 # ADR-007: Spartan UI làm design system Angular
 
-## Status
+## Trạng thái
 
 Accepted
 
-## Context
+## Bối cảnh
 
 Nhóm muốn giao diện theo phong cách và triết lý open-code của shadcn/ui nhưng frontend đã chốt
 Angular. shadcn/ui chính thức không cung cấp Angular component implementation trực tiếp.
@@ -18,25 +18,25 @@ Angular. shadcn/ui chính thức không cung cấp Angular component implementat
 | Spartan UI | Angular-native, Tailwind, copy-owned styles | dependency cộng đồng cần quản lý |
 | Chuyển React | dùng shadcn chính thức | phá quyết định Angular và tài liệu hiện có |
 
-## Decision
+## Quyết định
 
 Dùng Spartan UI + Tailwind CSS v4 + Angular CDK. Spartan là component system duy nhất; không trộn
 Angular Material.
 
-## Rationale
+## Lý do
 
 - Giữ Angular và đạt trải nghiệm gần shadcn.
 - Behavior primitives có accessibility; helm styles nằm trong source để tùy chỉnh.
 - Phù hợp Standalone Components và cấu trúc feature-based.
 - Tập component đủ cho admin/workflow UI.
 
-## Trade-offs
+## Đánh đổi
 
 - Cần review code do CLI copy vào repository.
 - Update upstream không tự động merge customization.
 - Nhóm chịu trách nhiệm visual regression và accessibility sau khi sửa helm.
 
-## Revisit trigger
+## Điều kiện xem xét lại
 
 - Spartan không hỗ trợ Angular major đang dùng.
 - Thiếu primitive quan trọng không thể bổ sung hợp lý.

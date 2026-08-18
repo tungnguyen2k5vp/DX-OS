@@ -2,11 +2,13 @@ package reporting
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
+	"github.com/dx-os-lab/dx-os/backend/internal/platform/identity"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -31,13 +33,9 @@ func (s *Store) Dashboard(
 		return Dashboard{}, err
 	}
 
-	var organizationID string
-	if isFinanceOnly(principal) {
-		var err error
-		organizationID, err = s.ensureOrganizationScope(ctx, principal)
-		if err != nil {
-			return Dashboard{}, err
-		}
+	organizationID, err := s.ensureOrganizationScope(ctx, principal)
+	if err != nil {
+		return Dashboard{}, err
 	}
 
 	result := Dashboard{
@@ -119,12 +117,17 @@ func (s *Store) AuditCenter(
 	if err := ValidateAuditInput(&input); err != nil {
 		return AuditCenter{}, err
 	}
+	organizationID, err := s.ensureOrganizationScope(ctx, principal)
+	if err != nil {
+		return AuditCenter{}, err
+	}
 	var conditions []string
 	var args []any
 	add := func(value any) string {
 		args = append(args, value)
 		return fmt.Sprintf("$%d", len(args))
 	}
+	conditions = append(conditions, "al.organization_id = "+add(organizationID))
 	if input.ResourceType != "" {
 		conditions = append(conditions, "al.resource_type = "+add(input.ResourceType))
 	}
@@ -183,7 +186,8 @@ func (s *Store) AuditCenter(
 			count(*) FILTER (WHERE resource_type = 'supplier'),
 			count(*) FILTER (WHERE resource_type = 'purchase_order')
 		FROM audit_logs
-	`).Scan(
+		WHERE organization_id = $1
+	`, organizationID).Scan(
 		&result.TodayCount,
 		&result.SupplierChangeCount,
 		&result.PurchaseOrderEventCount,
@@ -458,43 +462,12 @@ func (s *Store) ensureOrganizationScope(
 	ctx context.Context,
 	principal auth.Principal,
 ) (string, error) {
-	var organizationID string
-	var active bool
-	err := s.database.QueryRow(ctx, `
-		INSERT INTO users (
-			keycloak_subject,
-			username,
-			email,
-			display_name,
-			department_id
-		)
-		SELECT
-			$1,
-			$2,
-			NULLIF($3, ''),
-			$2,
-			d.id
-		FROM departments d
-		WHERE d.code = 'GENERAL' AND d.active
-		ORDER BY d.created_at
-		LIMIT 1
-		ON CONFLICT (keycloak_subject) DO UPDATE
-		SET username = EXCLUDED.username,
-			email = COALESCE(EXCLUDED.email, users.email),
-			display_name = EXCLUDED.display_name,
-			updated_at = now()
-		RETURNING
-			(SELECT organization_id FROM departments WHERE id = users.department_id),
-			users.active
-	`, principal.Subject, principal.Username, principal.Email).Scan(&organizationID, &active)
-	if err == pgx.ErrNoRows {
+	profile, err := identity.Ensure(ctx, s.database, principal, "GENERAL")
+	if errors.Is(err, identity.ErrInactive) || errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrForbidden
 	}
 	if err != nil {
 		return "", fmt.Errorf("resolve reporting organization: %w", err)
 	}
-	if !active {
-		return "", ErrForbidden
-	}
-	return organizationID, nil
+	return profile.OrganizationID, nil
 }

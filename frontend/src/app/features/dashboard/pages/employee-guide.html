@@ -5,11 +5,11 @@
     <div>
       <p class="mb-2 text-sm font-medium text-primary">Dành cho vai trò Nhân viên</p>
       <h1 id="employee-guide-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
-        Hướng dẫn công việc Employee
+        Hướng dẫn công việc dành cho Nhân viên
       </h1>
       <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-        Làm theo thứ tự dưới đây để tạo phiếu đúng, chuyển được sang Manager và hoàn tất việc nhận
-        hàng mà không bỏ sót bước.
+        Làm theo thứ tự dưới đây để tạo phiếu đúng, chuyển được sang Trưởng bộ phận và hoàn tất việc
+        nhận hàng mà không bỏ sót bước.
       </p>
     </div>
     <div class="flex flex-wrap gap-2">
@@ -24,7 +24,7 @@
         <h2 id="quick-flow-heading" class="text-xl font-semibold">Luồng nhanh cần nhớ</h2>
         <p class="mt-1 text-sm text-muted-foreground">Một phiếu hoàn chỉnh đi qua 6 bước chính.</p>
       </div>
-      <span hlmBadge variant="secondary">Employee → Manager → Finance → Employee</span>
+      <span hlmBadge variant="secondary">Nhân viên → Trưởng bộ phận → Tài chính → Nhân viên</span>
     </div>
     <ol class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
       @for (step of workflow; track step; let index = $index) {
@@ -82,7 +82,7 @@
     <div hlmCardHeader class="border-b">
       <h2 id="status-guide-heading" hlmCardTitle>Đọc trạng thái phiếu và biết phải làm gì</h2>
       <p hlmCardDescription>
-        Trạng thái quyết định phiếu đang ở người nào và Employee còn được thao tác hay không.
+        Trạng thái quyết định phiếu đang ở người nào và Nhân viên còn được thao tác hay không.
       </p>
     </div>
     <div hlmCardContent class="overflow-x-auto">
@@ -91,7 +91,7 @@
           <tr>
             <th class="px-3 py-3 font-medium">Mã trạng thái</th>
             <th class="px-3 py-3 font-medium">Hiển thị</th>
-            <th class="px-3 py-3 font-medium">Employee cần làm</th>
+            <th class="px-3 py-3 font-medium">Nhân viên cần làm</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
@@ -114,7 +114,7 @@
   <div class="mt-6 grid gap-6 lg:grid-cols-2">
     <section hlmCard aria-labelledby="employee-can-heading">
       <div hlmCardHeader class="border-b">
-        <h2 id="employee-can-heading" hlmCardTitle>Employee có thể làm</h2>
+        <h2 id="employee-can-heading" hlmCardTitle>Nhân viên có thể làm</h2>
       </div>
       <div hlmCardContent>
         <ul class="space-y-3 text-sm leading-6">
@@ -130,7 +130,7 @@
 
     <section hlmCard aria-labelledby="employee-cannot-heading">
       <div hlmCardHeader class="border-b">
-        <h2 id="employee-cannot-heading" hlmCardTitle>Employee không thực hiện</h2>
+        <h2 id="employee-cannot-heading" hlmCardTitle>Nhân viên không thực hiện</h2>
       </div>
       <div hlmCardContent>
         <ul class="space-y-3 text-sm leading-6">
@@ -150,7 +150,9 @@
     aria-labelledby="employee-help-heading"
   >
     <div>
-      <h2 id="employee-help-heading" class="font-semibold">Không thấy phiếu ở phía Manager?</h2>
+      <h2 id="employee-help-heading" class="font-semibold">
+        Không thấy phiếu ở phía Trưởng bộ phận?
+      </h2>
       <p class="mt-1 text-sm leading-6 text-muted-foreground">
         Hãy mở chi tiết phiếu, kiểm tra tệp đính kèm và chắc chắn trạng thái đã chuyển từ
         <strong>Bản nháp</strong> sang <strong>Đã gửi</strong>.

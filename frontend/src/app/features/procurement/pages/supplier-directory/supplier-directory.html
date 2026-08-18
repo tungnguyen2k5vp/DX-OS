@@ -235,11 +235,11 @@
                   </td>
                   <td class="px-3 py-4">
                     <span hlmBadge [variant]="riskVariant(supplier.riskLevel)">{{
-                      supplier.riskLevel
+                      riskLabel(supplier.riskLevel)
                     }}</span>
                   </td>
                   <td class="px-3 py-4">
-                    <p class="font-medium">{{ supplier.complianceStatus }}</p>
+                    <p class="font-medium">{{ complianceLabel(supplier.complianceStatus) }}</p>
                     <p class="mt-1 text-xs text-muted-foreground">
                       {{ supplier.contractReference || 'Chưa có hợp đồng' }}
                       @if (supplier.contractExpiresOn) {
@@ -276,7 +276,7 @@
               } @empty {
                 <tr>
                   <td class="px-3 py-10 text-center text-muted-foreground" colspan="6">
-                    Chưa có nhà cung cấp. Finance hãy tạo bản ghi đầu tiên.
+                    Chưa có nhà cung cấp. Bộ phận Tài chính hãy tạo bản ghi đầu tiên.
                   </td>
                 </tr>
               }

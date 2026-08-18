@@ -69,7 +69,7 @@ func (a *api) updateAuditCase(w http.ResponseWriter, r *http.Request) {
 	}
 	caseID := chi.URLParam(r, "caseID")
 	if !uuidPattern.MatchString(caseID) {
-		writeValidationProblem(w, r, "invalid-audit-case-id", "The audit case ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-audit-case-id", "Mã hồ sơ kiểm toán phải là UUID hợp lệ.", nil)
 		return
 	}
 	var body auditCaseBody
@@ -92,7 +92,7 @@ func (a *api) downloadEvidencePackage(w http.ResponseWriter, r *http.Request) {
 	}
 	requestID := chi.URLParam(r, "requestID")
 	if !uuidPattern.MatchString(requestID) {
-		writeValidationProblem(w, r, "invalid-purchase-request-id", "The purchase request ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-purchase-request-id", "Mã phiếu mua sắm phải là UUID hợp lệ.", nil)
 		return
 	}
 	result, err := a.enterprise.EvidencePackage(r.Context(), principal, requestID)
@@ -107,7 +107,7 @@ func (a *api) downloadEvidencePackage(w http.ResponseWriter, r *http.Request) {
 func (a *api) enterprisePrincipal(w http.ResponseWriter, r *http.Request) (auth.Principal, bool) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.enterprise == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Enterprise procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm doanh nghiệp hiện không sẵn sàng.")
 		return auth.Principal{}, false
 	}
 	return principal, true

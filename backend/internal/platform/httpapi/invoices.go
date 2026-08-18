@@ -31,7 +31,7 @@ type invoiceActionBody struct {
 func (a *api) getInvoiceBoard(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	result, err := a.procurement.InvoiceBoard(r.Context(), principal)
@@ -45,7 +45,7 @@ func (a *api) getInvoiceBoard(w http.ResponseWriter, r *http.Request) {
 func (a *api) createInvoice(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	var body invoiceBody
@@ -116,12 +116,12 @@ func (a *api) transitionInvoice(w http.ResponseWriter, r *http.Request) {
 func (a *api) invoiceContext(w http.ResponseWriter, r *http.Request) (auth.Principal, string, bool) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return auth.Principal{}, "", false
 	}
 	invoiceID := strings.TrimSpace(chi.URLParam(r, "invoiceID"))
 	if !uuidPattern.MatchString(invoiceID) {
-		writeValidationProblem(w, r, "invalid-invoice-id", "The invoice ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-invoice-id", "Mã hóa đơn phải là UUID hợp lệ.", nil)
 		return auth.Principal{}, "", false
 	}
 	return principal, invoiceID, true

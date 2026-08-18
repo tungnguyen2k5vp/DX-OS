@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1
 ARG NODE_BUILDER_IMAGE=node:24.15.0-alpine
+ARG NGINX_IMAGE=nginx:1.30.4-alpine
 
 FROM ${NODE_BUILDER_IMAGE} AS dependencies
 WORKDIR /app
@@ -14,7 +14,7 @@ FROM dependencies AS build
 COPY . .
 RUN npm run build
 
-FROM nginx:1.28.0-alpine
+FROM ${NGINX_IMAGE}
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 EXPOSE 80

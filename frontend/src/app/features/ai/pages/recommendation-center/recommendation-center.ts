@@ -10,6 +10,7 @@ import {
   AIRecommendation,
   AIRecommendationList,
   AIRecommendationStatus,
+  AIRiskLevel,
 } from '../../data-access/ai.models';
 import { AIService } from '../../data-access/ai.service';
 
@@ -53,6 +54,24 @@ export class RecommendationCenterPage {
 
   updateComment(id: string, value: string): void {
     this.comments.update((current) => ({ ...current, [id]: value }));
+  }
+
+  riskLabel(risk: AIRiskLevel): string {
+    return {
+      LOW: 'Thấp',
+      MEDIUM: 'Trung bình',
+      HIGH: 'Cao',
+      CRITICAL: 'Nghiêm trọng',
+    }[risk];
+  }
+
+  statusLabel(status: AIRecommendationStatus): string {
+    return {
+      PENDING: 'Chờ quyết định',
+      APPROVED: 'Đã chấp thuận',
+      REJECTED: 'Đã từ chối',
+      DISMISSED: 'Đã bỏ qua',
+    }[status];
   }
 
   decide(item: AIRecommendation, status: Exclude<AIRecommendationStatus, 'PENDING'>): void {

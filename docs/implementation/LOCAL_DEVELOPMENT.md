@@ -9,14 +9,14 @@ Kiểm tra ngày 2026-07-29:
 - Go chưa được cài.
 - RAM khoảng 16 GB và ổ C còn khoảng 141 GB.
 
-Application Skeleton dùng image `node:24.15.0-alpine` và `golang:1.26.5-alpine`, nên không bắt buộc
+Application Skeleton dùng image `node:24.15.0-alpine` và `golang:1.26.6-alpine`, nên không bắt buộc
 nâng Node/cài Go trên host. Chỉ cần cài toolchain host nếu muốn chạy ngoài Docker.
 
 ## 2. Prerequisites
 
 - Git.
 - Docker Desktop/Engine và Compose.
-- Go 1.26.5.
+- Go 1.26.6.
 - Node.js 24.15+.
 - npm đi kèm Node.
 - IDE hỗ trợ Go, Angular và EditorConfig.
@@ -85,7 +85,7 @@ ng g @spartan-ng/cli:ui
 Chọn component MVP: button, badge, card, field, input, textarea, select, checkbox, dialog,
 alert-dialog, sheet, sidebar, table/data-table, pagination, tabs, tooltip, skeleton, spinner và sonner.
 
-## 6. Local URLs
+## 6. Địa chỉ chạy cục bộ
 
 | Service | URL |
 |---|---|
@@ -96,7 +96,7 @@ alert-dialog, sheet, sidebar, table/data-table, pagination, tabs, tooltip, skele
 | Metabase | `http://localhost:3000` khi profile bật |
 | RAGFlow | tách profile/máy; port theo compose upstream |
 
-## 7. Local proxy
+## 7. Proxy cục bộ
 
 Angular dev server proxy `/api` đến Go API để tránh CORS phức tạp:
 
@@ -122,7 +122,7 @@ Không commit mật khẩu test thật trong realm export:
 
 Credential tạm nằm trong `data/runtime/dev-user.txt`, không xuất hiện trong log và bị Git ignore.
 
-## 9. Workflow hàng ngày
+## 9. Quy trình làm việc hằng ngày
 
 ```powershell
 git pull --ff-only

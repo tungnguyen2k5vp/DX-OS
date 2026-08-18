@@ -1,4 +1,4 @@
-# Authentication và Authorization
+# Xác thực và phân quyền
 
 ## 1. Mô hình
 
@@ -31,9 +31,9 @@ Realm: `dx-os`.
 
 Nextcloud, Metabase hoặc RAGFlow dùng client riêng nếu tích hợp OIDC. Không dùng chung client secret.
 
-## 3. Role
+## 3. Vai trò
 
-| Role                 | Mục đích                                                   |
+| Vai trò              | Mục đích                                                   |
 | -------------------- | ---------------------------------------------------------- |
 | `employee`           | tạo, sửa và xem phiếu theo scope                           |
 | `department_manager` | xử lý bước trưởng bộ phận                                  |
@@ -44,7 +44,7 @@ Nextcloud, Metabase hoặc RAGFlow dùng client riêng nếu tích hợp OIDC. K
 
 Role không tạo hierarchy ngầm quá rộng. `dx_admin` không được dùng như superuser cho mọi thao tác.
 
-## 4. Authorization matrix
+## 4. Ma trận phân quyền
 
 | Hành động             |           Employee |           Manager |     Finance | Auditor |        AI operator |          Admin |
 | --------------------- | -----------------: | ----------------: | ----------: | ------: | -----------------: | -------------: |
@@ -61,7 +61,7 @@ Role không tạo hierarchy ngầm quá rộng. `dx_admin` không được dùng
 có endpoint/quy trình quản trị riêng và audit; không cho admin giả danh người nghiệp vụ qua API
 thông thường.
 
-## 5. Data scope
+## 5. Phạm vi dữ liệu
 
 Backend tính scope từ authenticated user profile:
 

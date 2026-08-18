@@ -52,7 +52,8 @@ func canViewAI(principal auth.Principal) bool {
 }
 
 func canOperateAI(principal auth.Principal) bool {
-	return hasRole(principal.Roles, "ai_operator") || hasRole(principal.Roles, "dx_admin")
+	return !hasRole(principal.Roles, "auditor") &&
+		(hasRole(principal.Roles, "ai_operator") || hasRole(principal.Roles, "dx_admin"))
 }
 
 func (s *Store) ListAIRecommendations(ctx context.Context, principal auth.Principal) (AIRecommendationList, error) {
@@ -134,13 +135,13 @@ func (s *Store) DecideAIRecommendation(ctx context.Context, principal auth.Princ
 	input.Comment = strings.TrimSpace(input.Comment)
 	var violations []FieldViolation
 	if input.Status != "APPROVED" && input.Status != "REJECTED" && input.Status != "DISMISSED" {
-		violations = append(violations, FieldViolation{Field: "status", Message: "must be APPROVED, REJECTED or DISMISSED"})
+		violations = append(violations, FieldViolation{Field: "status", Message: "Phải là APPROVED (chấp thuận), REJECTED (từ chối) hoặc DISMISSED (bỏ qua)."})
 	}
 	if len([]rune(input.Comment)) < 5 || len([]rune(input.Comment)) > 2000 {
-		violations = append(violations, FieldViolation{Field: "comment", Message: "must contain between 5 and 2000 characters"})
+		violations = append(violations, FieldViolation{Field: "comment", Message: "Phải có từ 5 đến 2.000 ký tự."})
 	}
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than zero"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn 0."})
 	}
 	if len(violations) > 0 {
 		return AIRecommendation{}, &ValidationError{Violations: violations}

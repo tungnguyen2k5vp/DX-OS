@@ -34,7 +34,7 @@ describe('SupplierDirectory', () => {
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Demo Vendor');
-    expect(text).toContain('HIGH');
+    expect(text).toContain('Cao');
     expect(text).toContain('Thêm nhà cung cấp');
   });
 });

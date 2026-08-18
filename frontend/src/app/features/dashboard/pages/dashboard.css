@@ -1,0 +1,46 @@
+.dashboard-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1.35rem, 3vw, 2rem);
+  border: 1px solid oklch(0.55 0.09 193 / 17%);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 85% 12%, oklch(0.81 0.11 190 / 30%), transparent 24rem),
+    linear-gradient(120deg, oklch(0.985 0.012 207), oklch(0.955 0.032 190 / 58%));
+  box-shadow: 0 16px 36px oklch(0.27 0.05 225 / 6%);
+}
+
+.dashboard-hero h1 {
+  letter-spacing: -0.035em;
+}
+
+.metric-card {
+  position: relative;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.metric-card::before {
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  width: 2.75rem;
+  height: 3px;
+  border-radius: 0 0 999px 999px;
+  background: var(--primary);
+  content: '';
+}
+
+.metric-card:hover {
+  border-color: oklch(0.55 0.09 193 / 26%);
+  box-shadow: 0 14px 28px oklch(0.27 0.05 225 / 10%);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metric-card:hover {
+    transform: none;
+  }
+}

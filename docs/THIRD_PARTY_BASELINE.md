@@ -1,15 +1,15 @@
 ---
-title: Baseline công nghệ
+title: Phiên bản công nghệ chuẩn
 sidebar_position: 92
 ---
 
-# Baseline công nghệ
+# Phiên bản công nghệ chuẩn
 
-Đối chiếu ngày **2026-07-29**. Baseline dùng để bắt đầu và phải được khóa trong lockfile/image tag.
+Đối chiếu ngày **2026-07-29**. Phiên bản chuẩn dùng để bắt đầu và phải được khóa trong lockfile/image tag.
 
-| Thành phần           | Baseline | License/chế độ     | Ghi chú                                     |
+| Thành phần           | Phiên bản chuẩn | Giấy phép/chế độ | Ghi chú                                     |
 | -------------------- | -------: | ------------------ | ------------------------------------------- |
-| Go                   |   1.26.5 | BSD-3-Clause       | Go chưa cài trên máy hiện tại               |
+| Go                   |   1.26.6 | BSD-3-Clause       | Go chưa cài trên máy hiện tại               |
 | Angular Core         |   22.0.8 | MIT                | npm stable tại thời điểm kiểm tra           |
 | Angular CLI          |   22.0.9 | MIT                | dùng cùng major 22                          |
 | Spartan UI Brain/CLI |    1.1.2 | MIT                | Angular primitives + copy-owned helm styles |
@@ -44,5 +44,5 @@ sidebar_position: 92
 2. Dependency Go/Angular phải có lock/checksum.
 3. Đọc migration/security notes.
 4. Backup trước platform/database upgrade.
-5. Chạy smoke test SSO, workflow, file, dashboard và AI.
-6. Cập nhật baseline, SBOM và test evidence cùng thay đổi.
+5. Chạy kiểm thử nhanh SSO, quy trình, tệp, bảng điều khiển và AI.
+6. Cập nhật phiên bản chuẩn, SBOM và bằng chứng kiểm thử cùng thay đổi.

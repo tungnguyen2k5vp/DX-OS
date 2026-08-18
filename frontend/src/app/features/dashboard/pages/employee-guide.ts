@@ -61,7 +61,7 @@ export class EmployeeGuide {
         'Mở phiếu vừa lưu, tải tài liệu lên rồi bấm “Gửi phê duyệt”.',
         'Nếu tổng giá trị từ 20.000.000 VND, phải có tài liệu báo giá trước khi gửi.',
       ],
-      note: 'Chỉ lưu bản nháp thì phiếu chưa vào hàng đợi phê duyệt của manager. Bạn phải mở chi tiết và bấm “Gửi phê duyệt”.',
+      note: 'Chỉ lưu bản nháp thì phiếu chưa vào hàng đợi phê duyệt của Trưởng bộ phận. Bạn phải mở chi tiết và bấm “Gửi phê duyệt”.',
     },
     {
       number: '03',
@@ -72,7 +72,7 @@ export class EmployeeGuide {
       tasks: [
         'Ưu tiên việc quá SLA hoặc sắp đến hạn được đưa lên đầu danh sách.',
         'Bấm “Mở công việc” để xem yêu cầu chỉnh sửa và nội dung trao đổi.',
-        'Sửa thông tin, bổ sung tệp rồi chọn “Gửi lại” để chuyển phiếu về manager.',
+        'Sửa thông tin, bổ sung tệp rồi chọn “Gửi lại” để chuyển phiếu về Trưởng bộ phận.',
       ],
     },
     {
@@ -86,7 +86,7 @@ export class EmployeeGuide {
         'Khi hàng đã giao đủ và đúng, bấm “Xác nhận đã nhận”.',
         'Không xác nhận nếu hàng thiếu, sai hoặc hỏng; hãy trao đổi trên phiếu trước.',
       ],
-      note: 'Nút xác nhận chỉ xuất hiện sau khi Finance phát hành đơn hàng và tài khoản của bạn là người yêu cầu hoặc thuộc phạm vi được phép.',
+      note: 'Nút xác nhận chỉ xuất hiện sau khi bộ phận Tài chính phát hành đơn hàng và tài khoản của bạn là người yêu cầu hoặc thuộc phạm vi được phép.',
     },
     {
       number: '05',
@@ -96,7 +96,7 @@ export class EmployeeGuide {
       purpose: 'Không bỏ lỡ thay đổi trạng thái hoặc yêu cầu từ người xử lý.',
       tasks: [
         'Mở thông báo chưa đọc để đi thẳng tới phiếu liên quan.',
-        'Kiểm tra thông báo sau mỗi lần manager hoặc finance xử lý phiếu.',
+        'Kiểm tra thông báo sau mỗi lần Trưởng bộ phận hoặc bộ phận Tài chính xử lý phiếu.',
         'Đánh dấu đã đọc từng thông báo hoặc toàn bộ sau khi xử lý xong.',
       ],
     },
@@ -120,8 +120,8 @@ export class EmployeeGuide {
     },
     {
       status: 'MANAGER_APPROVED',
-      label: 'Manager đã duyệt',
-      employeeAction: 'Chờ Finance kiểm tra ngân sách và ra quyết định.',
+      label: 'Trưởng bộ phận đã duyệt',
+      employeeAction: 'Chờ bộ phận Tài chính kiểm tra ngân sách và ra quyết định.',
     },
     {
       status: 'APPROVED',
@@ -131,7 +131,7 @@ export class EmployeeGuide {
     {
       status: 'REJECTED / CANCELLED',
       label: 'Từ chối / Đã hủy',
-      employeeAction: 'Đọc lý do trên Timeline; phiếu đã kết thúc và không gửi lại được.',
+      employeeAction: 'Đọc lý do trong lịch sử xử lý; phiếu đã kết thúc và không gửi lại được.',
     },
   ];
 
@@ -139,12 +139,12 @@ export class EmployeeGuide {
     'Tạo, sửa và hủy phiếu của mình khi trạng thái cho phép',
     'Tải lên, tải xuống và xóa tệp do mình đính kèm khi còn được chỉnh sửa',
     'Gửi phiếu, gửi lại phiếu và trao đổi với người xử lý',
-    'Theo dõi Timeline, ngân sách khả dụng và trạng thái giao nhận',
+    'Theo dõi lịch sử xử lý, ngân sách khả dụng và trạng thái giao nhận',
     'Xác nhận đã nhận hàng đối với đơn hàng hợp lệ',
   ];
 
   readonly employeeCannot = [
-    'Phê duyệt thay Trưởng bộ phận hoặc Finance',
+    'Phê duyệt thay Trưởng bộ phận hoặc bộ phận Tài chính',
     'Điều chỉnh hạn mức ngân sách',
     'Chọn nhà cung cấp hoặc phát hành đơn hàng',
     'Xử lý hóa đơn, thanh toán, chính sách hay báo cáo kiểm toán',

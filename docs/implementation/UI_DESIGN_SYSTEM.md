@@ -97,7 +97,7 @@ Quy ước:
 | KPI | Card, Badge, Skeleton |
 | Danh sách | Table/Data Table, Pagination, Dropdown Menu |
 | Form | Field, Input, Textarea, Select, Combobox, Checkbox |
-| Action | Button, Alert Dialog, Dialog |
+| Thao tác | Button, Alert Dialog, Dialog |
 | Timeline | Card, Separator, Tooltip |
 | Chi tiết | Tabs, Accordion/Collapsible |
 | Notification | Sonner/Toast, Alert |
@@ -124,7 +124,7 @@ data-access, không nằm trực tiếp trong primitive.
 
 ## 9. Trạng thái phiếu
 
-| Status | Nhãn UI | Intent |
+| Trạng thái | Nhãn UI | Mục đích hiển thị |
 |---|---|---|
 | `DRAFT` | Bản nháp | neutral |
 | `SUBMITTED` | Chờ trưởng bộ phận | warning |

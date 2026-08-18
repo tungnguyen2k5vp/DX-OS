@@ -19,6 +19,17 @@ import (
 
 const maxRequestBodyBytes = 1 << 20
 const maxAttachmentRequestBytes = procurement.MaxAttachmentSize + (1 << 20)
+const maxAttachmentMultipartParts = 10
+const maxAttachmentDocumentTypeBytes = 128
+
+var errAttachmentFileRequired = errors.New("attachment file is required")
+
+type attachmentUpload struct {
+	documentType string
+	fileName     string
+	contentType  string
+	content      []byte
+}
 
 var uuidPattern = regexp.MustCompile(
 	`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`,
@@ -66,12 +77,12 @@ type adjustBudgetAllocationBody struct {
 
 func (a *api) createPurchaseRequest(w http.ResponseWriter, r *http.Request) {
 	if a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return
 	}
 
@@ -89,7 +100,7 @@ func (a *api) createPurchaseRequest(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		writeProblem(w, r, http.StatusBadRequest, "invalid-request-body", "Invalid request body", "The request body could not be decoded.")
+		writeProblem(w, r, http.StatusBadRequest, "invalid-request-body", "Nội dung yêu cầu không hợp lệ", "Không thể đọc nội dung yêu cầu.")
 		return
 	}
 
@@ -125,18 +136,18 @@ func (a *api) createPurchaseRequest(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) listPurchaseRequests(w http.ResponseWriter, r *http.Request) {
 	if a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return
 	}
 
 	input, violations := parseListInput(r)
 	if len(violations) > 0 {
-		writeValidationProblem(w, r, "invalid-query", "One or more query parameters are invalid.", violations)
+		writeValidationProblem(w, r, "invalid-query", "Một hoặc nhiều tham số truy vấn không hợp lệ.", violations)
 		return
 	}
 	result, err := a.procurement.List(r.Context(), principal, input)
@@ -149,18 +160,18 @@ func (a *api) listPurchaseRequests(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) getPurchaseRequest(w http.ResponseWriter, r *http.Request) {
 	if a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return
 	}
 
 	requestID := strings.TrimSpace(chi.URLParam(r, "requestID"))
 	if !uuidPattern.MatchString(requestID) {
-		writeValidationProblem(w, r, "invalid-request-id", "The purchase request ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-request-id", "Mã phiếu mua sắm phải là UUID hợp lệ.", nil)
 		return
 	}
 	request, err := a.procurement.Get(r.Context(), principal, requestID)
@@ -178,7 +189,7 @@ func (a *api) getPurchaseRequestTimeline(w http.ResponseWriter, r *http.Request)
 	}
 	input, violations := parseTimelineInput(r)
 	if len(violations) > 0 {
-		writeValidationProblem(w, r, "invalid-query", "One or more query parameters are invalid.", violations)
+		writeValidationProblem(w, r, "invalid-query", "Một hoặc nhiều tham số truy vấn không hợp lệ.", violations)
 		return
 	}
 	result, err := a.procurement.Timeline(r.Context(), principal, requestID, input)
@@ -230,12 +241,12 @@ func (a *api) addPurchaseRequestComment(w http.ResponseWriter, r *http.Request) 
 
 func (a *api) getTaskSummary(w http.ResponseWriter, r *http.Request) {
 	if a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return
 	}
 	result, err := a.procurement.TaskSummary(r.Context(), principal)
@@ -261,12 +272,12 @@ func (a *api) getPurchaseRequestBudgetCheck(w http.ResponseWriter, r *http.Reque
 
 func (a *api) getBudgetSummary(w http.ResponseWriter, r *http.Request) {
 	if a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return
 	}
 	query := r.URL.Query()
@@ -274,12 +285,12 @@ func (a *api) getBudgetSummary(w http.ResponseWriter, r *http.Request) {
 	for key, values := range query {
 		if key != "costCenter" && key != "currency" {
 			violations = append(violations, procurement.FieldViolation{
-				Field: key, Message: "is not a supported query parameter",
+				Field: key, Message: "Tham số truy vấn này không được hỗ trợ.",
 			})
 		}
 		if len(values) != 1 {
 			violations = append(violations, procurement.FieldViolation{
-				Field: key, Message: "must be specified at most once",
+				Field: key, Message: "Chỉ được chỉ định tối đa một lần.",
 			})
 		}
 	}
@@ -294,7 +305,7 @@ func (a *api) getBudgetSummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(violations) > 0 {
-		writeValidationProblem(w, r, "invalid-budget-query", "One or more budget query parameters are invalid.", violations)
+		writeValidationProblem(w, r, "invalid-budget-query", "Một hoặc nhiều tham số truy vấn ngân sách không hợp lệ.", violations)
 		return
 	}
 	result, err := a.procurement.GetBudgetSummary(r.Context(), principal, input)
@@ -307,12 +318,12 @@ func (a *api) getBudgetSummary(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) getBudgetDashboard(w http.ResponseWriter, r *http.Request) {
 	if a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return
 	}
 	result, err := a.procurement.BudgetDashboard(r.Context(), principal)
@@ -325,17 +336,17 @@ func (a *api) getBudgetDashboard(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) adjustBudgetAllocation(w http.ResponseWriter, r *http.Request) {
 	if a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return
 	}
 	allocationID := strings.TrimSpace(chi.URLParam(r, "allocationID"))
 	if !uuidPattern.MatchString(allocationID) {
-		writeValidationProblem(w, r, "invalid-allocation-id", "The budget allocation ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-allocation-id", "Mã hạn mức ngân sách phải là UUID hợp lệ.", nil)
 		return
 	}
 	var body adjustBudgetAllocationBody
@@ -345,8 +356,8 @@ func (a *api) adjustBudgetAllocation(w http.ResponseWriter, r *http.Request) {
 	}
 	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
 	if idempotencyKey == "" {
-		writeValidationProblem(w, r, "invalid-idempotency-key", "Idempotency-Key is required for budget adjustments.", []procurement.FieldViolation{
-			{Field: "Idempotency-Key", Message: "is required"},
+		writeValidationProblem(w, r, "invalid-idempotency-key", "Cần Idempotency-Key khi điều chỉnh ngân sách.", []procurement.FieldViolation{
+			{Field: "Idempotency-Key", Message: "Trường này là bắt buộc."},
 		})
 		return
 	}
@@ -417,15 +428,15 @@ func (a *api) transitionPurchaseRequest(w http.ResponseWriter, r *http.Request) 
 	}
 	action, valid := procurement.ParseAction(body.Action)
 	if !valid {
-		writeValidationProblem(w, r, "invalid-purchase-request-transition", "The transition action is invalid.", []procurement.FieldViolation{
-			{Field: "action", Message: "must be a supported purchase request action"},
+		writeValidationProblem(w, r, "invalid-purchase-request-transition", "Thao tác chuyển trạng thái không hợp lệ.", []procurement.FieldViolation{
+			{Field: "action", Message: "Phải là thao tác phiếu mua sắm được hỗ trợ."},
 		})
 		return
 	}
 	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
 	if idempotencyKey == "" {
-		writeValidationProblem(w, r, "invalid-idempotency-key", "Idempotency-Key is required for purchase request transitions.", []procurement.FieldViolation{
-			{Field: "Idempotency-Key", Message: "is required"},
+		writeValidationProblem(w, r, "invalid-idempotency-key", "Cần Idempotency-Key khi chuyển trạng thái phiếu mua sắm.", []procurement.FieldViolation{
+			{Field: "Idempotency-Key", Message: "Trường này là bắt buộc."},
 		})
 		return
 	}
@@ -467,32 +478,23 @@ func (a *api) uploadPurchaseRequestAttachment(w http.ResponseWriter, r *http.Req
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxAttachmentRequestBytes)
-	if err := r.ParseMultipartForm(1 << 20); err != nil {
-		writeProblem(
-			w, r, http.StatusBadRequest, "invalid-multipart-body",
-			"Invalid attachment upload",
-			"The request must be multipart/form-data and contain documentType and file.",
-		)
-		return
-	}
-	if r.MultipartForm != nil {
-		defer r.MultipartForm.RemoveAll()
-	}
-	file, header, err := r.FormFile("file")
-	if err != nil {
+	upload, err := parseAttachmentUpload(r)
+	if errors.Is(err, errAttachmentFileRequired) {
 		writeValidationProblem(
-			w, r, "invalid-attachment", "An attachment file is required.",
+			w, r, "invalid-attachment", "Tệp đính kèm là bắt buộc.",
 			[]procurement.FieldViolation{{Field: "file", Message: "Tệp đính kèm là bắt buộc."}},
 		)
 		return
 	}
-	defer file.Close()
-	content, err := io.ReadAll(io.LimitReader(file, procurement.MaxAttachmentSize+1))
 	if err != nil {
-		writeProblem(w, r, http.StatusBadRequest, "invalid-attachment", "Invalid attachment", "The attachment could not be read.")
+		writeProblem(
+			w, r, http.StatusBadRequest, "invalid-multipart-body",
+			"Tải tệp đính kèm không hợp lệ",
+			"Yêu cầu phải có dạng multipart/form-data và chứa documentType cùng file.",
+		)
 		return
 	}
-	contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
+	contentType := strings.TrimSpace(upload.contentType)
 	if mediaType, _, parseErr := mime.ParseMediaType(contentType); parseErr == nil {
 		contentType = mediaType
 	}
@@ -501,10 +503,10 @@ func (a *api) uploadPurchaseRequestAttachment(w http.ResponseWriter, r *http.Req
 		principal,
 		requestID,
 		procurement.UploadAttachmentInput{
-			DocumentType:  procurement.DocumentType(strings.TrimSpace(r.FormValue("documentType"))),
-			FileName:      header.Filename,
+			DocumentType:  procurement.DocumentType(strings.TrimSpace(upload.documentType)),
+			FileName:      upload.fileName,
 			ContentType:   contentType,
-			Content:       content,
+			Content:       upload.content,
 			CorrelationID: correlationIDFromContext(r.Context()),
 		},
 	)
@@ -514,6 +516,64 @@ func (a *api) uploadPurchaseRequestAttachment(w http.ResponseWriter, r *http.Req
 	}
 	w.Header().Set("Location", r.URL.Path+"/"+attachment.ID+"/content")
 	writeJSON(w, http.StatusCreated, attachment)
+}
+
+func parseAttachmentUpload(r *http.Request) (attachmentUpload, error) {
+	reader, err := r.MultipartReader()
+	if err != nil {
+		return attachmentUpload{}, err
+	}
+	var result attachmentUpload
+	fileFound := false
+	partCount := 0
+	for {
+		part, nextErr := reader.NextPart()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			return attachmentUpload{}, nextErr
+		}
+		partCount++
+		if partCount > maxAttachmentMultipartParts {
+			_ = part.Close()
+			return attachmentUpload{}, errors.New("multipart body contains too many parts")
+		}
+
+		switch part.FormName() {
+		case "documentType":
+			value, readErr := io.ReadAll(io.LimitReader(part, maxAttachmentDocumentTypeBytes+1))
+			closeErr := part.Close()
+			if readErr != nil || closeErr != nil || len(value) > maxAttachmentDocumentTypeBytes {
+				return attachmentUpload{}, errors.New("invalid documentType multipart field")
+			}
+			result.documentType = string(value)
+		case "file":
+			if fileFound || strings.TrimSpace(part.FileName()) == "" {
+				_ = part.Close()
+				return attachmentUpload{}, errors.New("multipart body must contain exactly one named file")
+			}
+			content, readErr := io.ReadAll(io.LimitReader(part, procurement.MaxAttachmentSize+1))
+			closeErr := part.Close()
+			if readErr != nil || closeErr != nil {
+				return attachmentUpload{}, errors.New("attachment part could not be read")
+			}
+			result.fileName = part.FileName()
+			result.contentType = part.Header.Get("Content-Type")
+			result.content = content
+			fileFound = true
+		default:
+			_, readErr := io.Copy(io.Discard, io.LimitReader(part, maxAttachmentRequestBytes+1))
+			closeErr := part.Close()
+			if readErr != nil || closeErr != nil {
+				return attachmentUpload{}, errors.New("multipart part could not be discarded")
+			}
+		}
+	}
+	if !fileFound {
+		return attachmentUpload{}, errAttachmentFileRequired
+	}
+	return result, nil
 }
 
 func (a *api) downloadPurchaseRequestAttachment(w http.ResponseWriter, r *http.Request) {
@@ -568,7 +628,7 @@ func (a *api) attachmentContext(
 	}
 	attachmentID := strings.TrimSpace(chi.URLParam(r, "attachmentID"))
 	if !uuidPattern.MatchString(attachmentID) {
-		writeValidationProblem(w, r, "invalid-attachment-id", "The attachment ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-attachment-id", "Mã tệp đính kèm phải là UUID hợp lệ.", nil)
 		return auth.Principal{}, "", "", false
 	}
 	return principal, requestID, attachmentID, true
@@ -579,17 +639,17 @@ func (a *api) purchaseRequestContext(
 	r *http.Request,
 ) (auth.Principal, string, bool) {
 	if a.procurement == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm hiện không sẵn sàng.")
 		return auth.Principal{}, "", false
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
-		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Authentication required", "A valid access token is required.")
+		writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.")
 		return auth.Principal{}, "", false
 	}
 	requestID := strings.TrimSpace(chi.URLParam(r, "requestID"))
 	if !uuidPattern.MatchString(requestID) {
-		writeValidationProblem(w, r, "invalid-request-id", "The purchase request ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-request-id", "Mã phiếu mua sắm phải là UUID hợp lệ.", nil)
 		return auth.Principal{}, "", false
 	}
 	return principal, requestID, true
@@ -614,7 +674,7 @@ func writeRequestBodyProblem(w http.ResponseWriter, r *http.Request, err error) 
 		writeProblem(w, r, bodyError.Status, bodyError.Code, bodyError.Title, bodyError.Detail)
 		return
 	}
-	writeProblem(w, r, http.StatusBadRequest, "invalid-request-body", "Invalid request body", "The request body could not be decoded.")
+	writeProblem(w, r, http.StatusBadRequest, "invalid-request-body", "Nội dung yêu cầu không hợp lệ", "Không thể đọc nội dung yêu cầu.")
 }
 
 func (a *api) writeProcurementError(w http.ResponseWriter, r *http.Request, err error) {
@@ -625,88 +685,88 @@ func (a *api) writeProcurementError(w http.ResponseWriter, r *http.Request, err 
 			w,
 			r,
 			"invalid-purchase-request",
-			"One or more purchase request fields are invalid.",
+			"Một hoặc nhiều trường của phiếu mua sắm không hợp lệ.",
 			validationError.Violations,
 		)
 	case errors.Is(err, procurement.ErrForbidden):
-		writeProblem(w, r, http.StatusForbidden, "forbidden", "Forbidden", "The authenticated user cannot perform this operation.")
+		writeProblem(w, r, http.StatusForbidden, "forbidden", "Không có quyền thực hiện", "Tài khoản hiện tại không được phép thực hiện thao tác này.")
 	case errors.Is(err, procurement.ErrNotFound):
-		writeProblem(w, r, http.StatusNotFound, "purchase-request-not-found", "Purchase request not found", "The purchase request does not exist or is outside the user's data scope.")
+		writeProblem(w, r, http.StatusNotFound, "purchase-request-not-found", "Không tìm thấy phiếu mua sắm", "Phiếu không tồn tại hoặc nằm ngoài phạm vi dữ liệu của tài khoản.")
 	case errors.Is(err, procurement.ErrVersionConflict):
-		writeProblem(w, r, http.StatusConflict, "purchase-request-version-conflict", "Purchase request changed", "Reload the latest purchase request before trying this operation again.")
+		writeProblem(w, r, http.StatusConflict, "purchase-request-version-conflict", "Phiếu mua sắm đã thay đổi", "Hãy tải lại phiên bản mới nhất của phiếu trước khi thử lại.")
 	case errors.Is(err, procurement.ErrIdempotencyConflict):
-		writeProblem(w, r, http.StatusConflict, "idempotency-key-conflict", "Idempotency key conflict", "This Idempotency-Key has already been used for another operation.")
+		writeProblem(w, r, http.StatusConflict, "idempotency-key-conflict", "Idempotency-Key bị trùng", "Idempotency-Key này đã được dùng cho thao tác khác.")
 	case errors.Is(err, procurement.ErrInvalidTransition):
-		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-purchase-request-transition", "Invalid purchase request transition", "The requested action is not allowed in the current status.")
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-purchase-request-transition", "Không thể chuyển trạng thái phiếu", "Trạng thái hiện tại không cho phép thực hiện thao tác đã chọn.")
 	case errors.Is(err, procurement.ErrBudgetNotFound):
-		writeProblem(w, r, http.StatusNotFound, "budget-not-found", "Budget not found", "No active budget allocation matches the requested cost center and currency.")
+		writeProblem(w, r, http.StatusNotFound, "budget-not-found", "Không tìm thấy ngân sách", "Không có hạn mức ngân sách đang hoạt động phù hợp với trung tâm chi phí và tiền tệ của phiếu.")
 	case errors.Is(err, procurement.ErrBudgetNotConfigured):
-		writeProblem(w, r, http.StatusConflict, "budget-not-configured", "Budget is not configured", "Manager approval requires an active budget allocation for this cost center and currency.")
+		writeProblem(w, r, http.StatusConflict, "budget-not-configured", "Chưa cấu hình ngân sách", "Trưởng bộ phận chỉ có thể phê duyệt khi trung tâm chi phí và tiền tệ này có hạn mức ngân sách đang hoạt động.")
 	case errors.Is(err, procurement.ErrInsufficientBudget):
-		writeProblem(w, r, http.StatusConflict, "insufficient-budget", "Insufficient budget", "The available budget cannot cover this purchase request.")
+		writeProblem(w, r, http.StatusConflict, "insufficient-budget", "Ngân sách không đủ", "Ngân sách khả dụng không đủ để chi trả cho phiếu mua sắm này.")
 	case errors.Is(err, procurement.ErrBudgetReservation):
-		writeProblem(w, r, http.StatusConflict, "budget-reservation-conflict", "Budget reservation conflict", "The purchase request does not have the budget reservation required for this transition.")
+		writeProblem(w, r, http.StatusConflict, "budget-reservation-conflict", "Không có khoản giữ ngân sách phù hợp", "Phiếu chưa có khoản giữ ngân sách cần thiết để chuyển sang trạng thái này.")
 	case errors.Is(err, procurement.ErrBudgetVersionConflict):
-		writeProblem(w, r, http.StatusConflict, "budget-version-conflict", "Budget allocation changed", "Reload the latest budget dashboard before adjusting this allocation.")
+		writeProblem(w, r, http.StatusConflict, "budget-version-conflict", "Hạn mức ngân sách đã thay đổi", "Hãy tải lại bảng điều khiển ngân sách trước khi điều chỉnh hạn mức này.")
 	case errors.Is(err, procurement.ErrBudgetBelowUsage):
-		writeProblem(w, r, http.StatusConflict, "budget-below-usage", "Budget is below current usage", "The allocation cannot be lower than the amount already reserved and committed.")
+		writeProblem(w, r, http.StatusConflict, "budget-below-usage", "Hạn mức thấp hơn số tiền đã sử dụng", "Hạn mức không được thấp hơn tổng số tiền đang giữ và đã cam kết.")
 	case errors.Is(err, procurement.ErrAttachmentNotFound):
-		writeProblem(w, r, http.StatusNotFound, "attachment-not-found", "Attachment not found", "The attachment does not exist or is outside the purchase request.")
+		writeProblem(w, r, http.StatusNotFound, "attachment-not-found", "Không tìm thấy tệp đính kèm", "Tệp không tồn tại hoặc không thuộc phiếu mua sắm này.")
 	case errors.Is(err, procurement.ErrAttachmentRequired):
-		writeProblem(w, r, http.StatusUnprocessableEntity, "quotation-required", "Quotation required", "Upload a quotation before submitting this purchase request.")
+		writeProblem(w, r, http.StatusUnprocessableEntity, "quotation-required", "Cần tài liệu báo giá", "Hãy tải lên báo giá trước khi gửi phiếu mua sắm.")
 	case errors.Is(err, procurement.ErrDocumentStore):
-		writeProblem(w, r, http.StatusServiceUnavailable, "document-store-unavailable", "Document store unavailable", "The attachment service is temporarily unavailable. Please try again.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "document-store-unavailable", "Kho tài liệu chưa sẵn sàng", "Dịch vụ tệp đính kèm đang tạm thời gián đoạn. Vui lòng thử lại.")
 	case errors.Is(err, procurement.ErrSupplierNotFound):
-		writeProblem(w, r, http.StatusNotFound, "supplier-not-found", "Supplier not found", "The supplier does not exist or is outside the organization scope.")
+		writeProblem(w, r, http.StatusNotFound, "supplier-not-found", "Không tìm thấy nhà cung cấp", "Nhà cung cấp không tồn tại hoặc nằm ngoài phạm vi tổ chức.")
 	case errors.Is(err, procurement.ErrSupplierConflict):
-		writeProblem(w, r, http.StatusConflict, "supplier-conflict", "Supplier conflict", "The supplier code or tax code already exists.")
+		writeProblem(w, r, http.StatusConflict, "supplier-conflict", "Thông tin nhà cung cấp bị trùng", "Mã nhà cung cấp hoặc mã số thuế đã tồn tại.")
 	case errors.Is(err, procurement.ErrSupplierVersion):
-		writeProblem(w, r, http.StatusConflict, "supplier-version-conflict", "Supplier changed", "Reload the supplier before updating it.")
+		writeProblem(w, r, http.StatusConflict, "supplier-version-conflict", "Nhà cung cấp đã thay đổi", "Hãy tải lại thông tin nhà cung cấp trước khi cập nhật.")
 	case errors.Is(err, procurement.ErrPurchaseOrderNotFound):
-		writeProblem(w, r, http.StatusNotFound, "purchase-order-not-found", "Purchase order not found", "No purchase order exists for this request in the current scope.")
+		writeProblem(w, r, http.StatusNotFound, "purchase-order-not-found", "Không tìm thấy đơn hàng", "Không có đơn hàng cho phiếu này trong phạm vi hiện tại.")
 	case errors.Is(err, procurement.ErrPurchaseOrderConflict):
-		writeProblem(w, r, http.StatusConflict, "purchase-order-conflict", "Purchase order conflict", "The request already has an order or the idempotency key was used elsewhere.")
+		writeProblem(w, r, http.StatusConflict, "purchase-order-conflict", "Xung đột đơn hàng", "Phiếu đã có đơn hàng hoặc Idempotency-Key đã được dùng ở nơi khác.")
 	case errors.Is(err, procurement.ErrInvalidFulfillment):
-		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-fulfillment-operation", "Invalid fulfillment operation", "The supplier, request status, or delivery state does not allow this operation.")
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-fulfillment-operation", "Thao tác giao nhận không hợp lệ", "Nhà cung cấp, trạng thái phiếu hoặc trạng thái giao hàng không cho phép thao tác này.")
 	case errors.Is(err, procurement.ErrInvoiceNotFound):
-		writeProblem(w, r, http.StatusNotFound, "invoice-not-found", "Invoice not found", "The invoice does not exist or is outside the organization scope.")
+		writeProblem(w, r, http.StatusNotFound, "invoice-not-found", "Không tìm thấy hóa đơn", "Hóa đơn không tồn tại hoặc nằm ngoài phạm vi tổ chức.")
 	case errors.Is(err, procurement.ErrInvoiceConflict):
-		writeProblem(w, r, http.StatusConflict, "invoice-conflict", "Invoice conflict", "The order already has an invoice, the invoice number exists, or the idempotency key conflicts.")
+		writeProblem(w, r, http.StatusConflict, "invoice-conflict", "Xung đột hóa đơn", "Đơn hàng đã có hóa đơn, số hóa đơn đã tồn tại hoặc Idempotency-Key bị trùng.")
 	case errors.Is(err, procurement.ErrInvoiceVersion):
-		writeProblem(w, r, http.StatusConflict, "invoice-version-conflict", "Invoice changed", "Reload the invoice before trying this operation again.")
+		writeProblem(w, r, http.StatusConflict, "invoice-version-conflict", "Hóa đơn đã thay đổi", "Hãy tải lại hóa đơn trước khi thực hiện lại thao tác.")
 	case errors.Is(err, procurement.ErrInvalidInvoiceAction):
-		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-invoice-action", "Invalid invoice action", "The requested action is not allowed in the current invoice status.")
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-invoice-action", "Thao tác hóa đơn không hợp lệ", "Trạng thái hiện tại của hóa đơn không cho phép thao tác đã chọn.")
 	case errors.Is(err, procurement.ErrInvoiceMismatch):
-		writeProblem(w, r, http.StatusConflict, "invoice-mismatch", "Invoice does not match", "Verification requires a received order with matching amount and currency.")
+		writeProblem(w, r, http.StatusConflict, "invoice-mismatch", "Hóa đơn không khớp", "Chỉ có thể xác minh khi đơn hàng đã được nhận và số tiền, tiền tệ khớp nhau.")
 	case errors.Is(err, procurement.ErrPolicyNotFound):
-		writeProblem(w, r, http.StatusNotFound, "policy-not-found", "Policy not found", "The operating policy does not exist in this organization.")
+		writeProblem(w, r, http.StatusNotFound, "policy-not-found", "Không tìm thấy quy tắc vận hành", "Quy tắc vận hành không tồn tại trong tổ chức này.")
 	case errors.Is(err, procurement.ErrPolicyVersion):
-		writeProblem(w, r, http.StatusConflict, "policy-version-conflict", "Policy changed", "Reload the policy center before updating this policy.")
+		writeProblem(w, r, http.StatusConflict, "policy-version-conflict", "Quy tắc đã thay đổi", "Hãy tải lại trung tâm chính sách trước khi cập nhật quy tắc này.")
 	case errors.Is(err, procurement.ErrAuditCaseNotFound):
-		writeProblem(w, r, http.StatusNotFound, "audit-case-not-found", "Audit case not found", "The audit case does not exist or is outside the organization scope.")
+		writeProblem(w, r, http.StatusNotFound, "audit-case-not-found", "Không tìm thấy hồ sơ kiểm toán", "Hồ sơ kiểm toán không tồn tại hoặc nằm ngoài phạm vi tổ chức.")
 	case errors.Is(err, procurement.ErrAuditCaseVersion):
-		writeProblem(w, r, http.StatusConflict, "audit-case-version-conflict", "Audit case changed", "Reload the audit case before updating it.")
+		writeProblem(w, r, http.StatusConflict, "audit-case-version-conflict", "Hồ sơ kiểm toán đã thay đổi", "Hãy tải lại hồ sơ kiểm toán trước khi cập nhật.")
 	case errors.Is(err, procurement.ErrAdminUserNotFound):
-		writeProblem(w, r, http.StatusNotFound, "admin-user-not-found", "User not found", "The business user does not exist in this organization.")
+		writeProblem(w, r, http.StatusNotFound, "admin-user-not-found", "Không tìm thấy người dùng", "Người dùng nghiệp vụ không tồn tại trong tổ chức này.")
 	case errors.Is(err, procurement.ErrAdminDepartmentNotFound):
-		writeProblem(w, r, http.StatusNotFound, "admin-department-not-found", "Department not found", "The department does not exist, is inactive, or is outside the organization.")
+		writeProblem(w, r, http.StatusNotFound, "admin-department-not-found", "Không tìm thấy phòng ban", "Phòng ban không tồn tại, đã ngừng hoạt động hoặc nằm ngoài tổ chức.")
 	case errors.Is(err, procurement.ErrAdminVersion):
-		writeProblem(w, r, http.StatusConflict, "admin-version-conflict", "Administrative resource changed", "Reload the administration center before saving again.")
+		writeProblem(w, r, http.StatusConflict, "admin-version-conflict", "Dữ liệu quản trị đã thay đổi", "Hãy tải lại trung tâm quản trị trước khi lưu lại.")
 	case errors.Is(err, procurement.ErrAdminConflict):
-		writeProblem(w, r, http.StatusConflict, "admin-resource-conflict", "Administrative change conflicts", "The change would duplicate a code, deactivate an in-use department, deactivate your own account, or create an invalid hierarchy.")
+		writeProblem(w, r, http.StatusConflict, "admin-resource-conflict", "Thay đổi quản trị bị xung đột", "Thay đổi có thể làm trùng mã, vô hiệu hóa phòng ban đang được sử dụng, vô hiệu hóa chính tài khoản của bạn hoặc tạo cây phòng ban không hợp lệ.")
 	case errors.Is(err, procurement.ErrAIRecommendationNotFound):
-		writeProblem(w, r, http.StatusNotFound, "ai-recommendation-not-found", "Recommendation not found", "The recommendation does not exist or is outside the organization scope.")
+		writeProblem(w, r, http.StatusNotFound, "ai-recommendation-not-found", "Không tìm thấy khuyến nghị", "Khuyến nghị không tồn tại hoặc nằm ngoài phạm vi tổ chức.")
 	case errors.Is(err, procurement.ErrAIRecommendationVersion):
-		writeProblem(w, r, http.StatusConflict, "ai-recommendation-version-conflict", "Recommendation changed", "Reload the recommendation center before deciding again.")
+		writeProblem(w, r, http.StatusConflict, "ai-recommendation-version-conflict", "Khuyến nghị đã thay đổi", "Hãy tải lại trung tâm khuyến nghị trước khi ra quyết định.")
 	case errors.Is(err, procurement.ErrInvalidAIAction):
-		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-ai-recommendation-action", "Invalid recommendation action", "Only pending recommendations can be decided.")
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-ai-recommendation-action", "Thao tác khuyến nghị không hợp lệ", "Chỉ khuyến nghị đang chờ mới có thể được ra quyết định.")
 	default:
 		a.logger.Error(
 			"procurement request failed",
 			"error", err,
 			"correlation_id", correlationIDFromContext(r.Context()),
 		)
-		writeProblem(w, r, http.StatusInternalServerError, "internal", "Internal server error", "The procurement operation could not be completed.")
+		writeProblem(w, r, http.StatusInternalServerError, "internal", "Lỗi máy chủ", "Không thể hoàn tất thao tác mua sắm.")
 	}
 }
 
@@ -716,8 +776,8 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, destination any) err
 		return &requestBodyError{
 			Status: http.StatusUnsupportedMediaType,
 			Code:   "unsupported-media-type",
-			Title:  "Unsupported media type",
-			Detail: "Content-Type must be application/json.",
+			Title:  "Loại nội dung không được hỗ trợ",
+			Detail: "Content-Type phải là application/json.",
 		}
 	}
 
@@ -726,12 +786,12 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, destination any) err
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(destination); err != nil {
 		if errors.Is(err, io.EOF) {
-			return invalidBody("The request body must contain one JSON object.")
+			return invalidBody("Nội dung yêu cầu phải chứa một đối tượng JSON.")
 		}
-		return invalidBody("The request body must be valid JSON and contain only supported fields.")
+		return invalidBody("Nội dung yêu cầu phải là JSON hợp lệ và chỉ chứa các trường được hỗ trợ.")
 	}
 	if err = decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return invalidBody("The request body must contain exactly one JSON object.")
+		return invalidBody("Nội dung yêu cầu phải chứa chính xác một đối tượng JSON.")
 	}
 	return nil
 }
@@ -751,7 +811,7 @@ func invalidBody(detail string) error {
 	return &requestBodyError{
 		Status: http.StatusBadRequest,
 		Code:   "invalid-request-body",
-		Title:  "Invalid request body",
+		Title:  "Nội dung yêu cầu không hợp lệ",
 		Detail: detail,
 	}
 }
@@ -769,17 +829,17 @@ func parseListInput(r *http.Request) (procurement.ListInput, []procurement.Field
 
 	for key, values := range query {
 		if !supported[key] {
-			violations = append(violations, procurement.FieldViolation{Field: key, Message: "is not a supported query parameter"})
+			violations = append(violations, procurement.FieldViolation{Field: key, Message: "Tham số truy vấn này không được hỗ trợ."})
 		}
 		if len(values) != 1 {
-			violations = append(violations, procurement.FieldViolation{Field: key, Message: "must be specified at most once"})
+			violations = append(violations, procurement.FieldViolation{Field: key, Message: "Chỉ được chỉ định tối đa một lần."})
 		}
 	}
 
 	if value := query.Get("page"); value != "" {
 		page, err := strconv.Atoi(value)
 		if err != nil || page < 1 {
-			violations = append(violations, procurement.FieldViolation{Field: "page", Message: "must be an integer greater than or equal to 1"})
+			violations = append(violations, procurement.FieldViolation{Field: "page", Message: "Phải là số nguyên lớn hơn hoặc bằng 1."})
 		} else {
 			input.Page = page
 		}
@@ -787,7 +847,7 @@ func parseListInput(r *http.Request) (procurement.ListInput, []procurement.Field
 	if value := query.Get("pageSize"); value != "" {
 		pageSize, err := strconv.Atoi(value)
 		if err != nil || pageSize < 1 || pageSize > 100 {
-			violations = append(violations, procurement.FieldViolation{Field: "pageSize", Message: "must be an integer between 1 and 100"})
+			violations = append(violations, procurement.FieldViolation{Field: "pageSize", Message: "Phải là số nguyên trong khoảng từ 1 đến 100."})
 		} else {
 			input.PageSize = pageSize
 		}
@@ -795,7 +855,7 @@ func parseListInput(r *http.Request) (procurement.ListInput, []procurement.Field
 	if value := query.Get("status"); value != "" {
 		status, valid := procurement.ParseStatus(value)
 		if !valid {
-			violations = append(violations, procurement.FieldViolation{Field: "status", Message: "must be a supported purchase request status"})
+			violations = append(violations, procurement.FieldViolation{Field: "status", Message: "Phải là trạng thái phiếu mua sắm được hỗ trợ."})
 		} else {
 			input.Status = &status
 		}
@@ -809,7 +869,7 @@ func parseListInput(r *http.Request) (procurement.ListInput, []procurement.Field
 		"costCenter": input.CostCenter, "requester": input.Requester,
 	} {
 		if len([]rune(value)) > 100 {
-			violations = append(violations, procurement.FieldViolation{Field: field, Message: "must not exceed 100 characters"})
+			violations = append(violations, procurement.FieldViolation{Field: field, Message: "Không được vượt quá 100 ký tự."})
 		}
 	}
 	input.From = strings.TrimSpace(query.Get("from"))
@@ -817,7 +877,7 @@ func parseListInput(r *http.Request) (procurement.ListInput, []procurement.Field
 	for field, value := range map[string]string{"from": input.From, "to": input.To} {
 		if value != "" {
 			if _, err := time.Parse("2006-01-02", value); err != nil {
-				violations = append(violations, procurement.FieldViolation{Field: field, Message: "must use YYYY-MM-DD format"})
+				violations = append(violations, procurement.FieldViolation{Field: field, Message: "Phải có định dạng YYYY-MM-DD."})
 			}
 		}
 	}
@@ -825,26 +885,26 @@ func parseListInput(r *http.Request) (procurement.ListInput, []procurement.Field
 	input.MaxAmount = strings.TrimSpace(query.Get("maxAmount"))
 	for field, value := range map[string]string{"minAmount": input.MinAmount, "maxAmount": input.MaxAmount} {
 		if value != "" && !regexp.MustCompile(`^(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$`).MatchString(value) {
-			violations = append(violations, procurement.FieldViolation{Field: field, Message: "must be a non-negative monetary amount"})
+			violations = append(violations, procurement.FieldViolation{Field: field, Message: "Phải là số tiền không âm."})
 		}
 	}
 	if input.MinAmount != "" && input.MaxAmount != "" {
 		minAmount, _ := new(big.Rat).SetString(input.MinAmount)
 		maxAmount, _ := new(big.Rat).SetString(input.MaxAmount)
 		if minAmount != nil && maxAmount != nil && minAmount.Cmp(maxAmount) > 0 {
-			violations = append(violations, procurement.FieldViolation{Field: "minAmount", Message: "must not exceed maxAmount"})
+			violations = append(violations, procurement.FieldViolation{Field: "minAmount", Message: "Không được lớn hơn maxAmount."})
 		}
 	}
 	if value := strings.TrimSpace(query.Get("sort")); value != "" {
 		if value != "createdAt" && value != "updatedAt" && value != "amount" && value != "code" {
-			violations = append(violations, procurement.FieldViolation{Field: "sort", Message: "must be createdAt, updatedAt, amount or code"})
+			violations = append(violations, procurement.FieldViolation{Field: "sort", Message: "Phải là createdAt, updatedAt, amount hoặc code."})
 		} else {
 			input.Sort = value
 		}
 	}
 	if value := strings.ToLower(strings.TrimSpace(query.Get("direction"))); value != "" {
 		if value != "asc" && value != "desc" {
-			violations = append(violations, procurement.FieldViolation{Field: "direction", Message: "must be asc or desc"})
+			violations = append(violations, procurement.FieldViolation{Field: "direction", Message: "Phải là asc (tăng dần) hoặc desc (giảm dần)."})
 		} else {
 			input.Direction = value
 		}
@@ -860,12 +920,12 @@ func parseTimelineInput(r *http.Request) (procurement.TimelineInput, []procureme
 	for key, values := range query {
 		if key != "page" && key != "pageSize" {
 			violations = append(violations, procurement.FieldViolation{
-				Field: key, Message: "is not a supported query parameter",
+				Field: key, Message: "Tham số truy vấn này không được hỗ trợ.",
 			})
 		}
 		if len(values) != 1 {
 			violations = append(violations, procurement.FieldViolation{
-				Field: key, Message: "must be specified at most once",
+				Field: key, Message: "Chỉ được chỉ định tối đa một lần.",
 			})
 		}
 	}
@@ -873,7 +933,7 @@ func parseTimelineInput(r *http.Request) (procurement.TimelineInput, []procureme
 		page, err := strconv.Atoi(value)
 		if err != nil || page < 1 {
 			violations = append(violations, procurement.FieldViolation{
-				Field: "page", Message: "must be an integer greater than or equal to 1",
+				Field: "page", Message: "Phải là số nguyên lớn hơn hoặc bằng 1.",
 			})
 		} else {
 			input.Page = page
@@ -883,7 +943,7 @@ func parseTimelineInput(r *http.Request) (procurement.TimelineInput, []procureme
 		pageSize, err := strconv.Atoi(value)
 		if err != nil || pageSize < 1 || pageSize > 100 {
 			violations = append(violations, procurement.FieldViolation{
-				Field: "pageSize", Message: "must be an integer between 1 and 100",
+				Field: "pageSize", Message: "Phải là số nguyên trong khoảng từ 1 đến 100.",
 			})
 		} else {
 			input.PageSize = pageSize

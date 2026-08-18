@@ -69,7 +69,7 @@ export class BudgetDashboardPage {
       ['Số cảnh báo', dashboard.alertCount],
       [],
       [
-        'COST CENTER',
+        'TRUNG TÂM CHI PHÍ',
         'Kỳ',
         'Tiền tệ',
         'Hạn mức',
@@ -91,7 +91,7 @@ export class BudgetDashboardPage {
         item.alertLevel,
       ]),
       [],
-      ['RESERVATION', 'Mã phiếu', 'Cost center', 'Tiền tệ', 'Số tiền', 'Trạng thái'],
+      ['KHOẢN GIỮ NGÂN SÁCH', 'Mã phiếu', 'Trung tâm chi phí', 'Tiền tệ', 'Số tiền', 'Trạng thái'],
       ...dashboard.reservations.map((item) => [
         item.requestTitle,
         item.requestCode,
@@ -101,7 +101,15 @@ export class BudgetDashboardPage {
         item.status,
       ]),
       [],
-      ['LỊCH SỬ ĐIỀU CHỈNH', 'Cost center', 'Tiền tệ', 'Trước', 'Sau', 'Người thực hiện', 'Lý do'],
+      [
+        'LỊCH SỬ ĐIỀU CHỈNH',
+        'Trung tâm chi phí',
+        'Tiền tệ',
+        'Trước',
+        'Sau',
+        'Người thực hiện',
+        'Lý do',
+      ],
       ...dashboard.adjustments.map((item) => [
         item.createdAt,
         item.costCenter,
@@ -160,7 +168,10 @@ export class BudgetDashboardPage {
       this.load();
     } catch (error: unknown) {
       this.saveError.set(
-        problemMessage(error, 'Không điều chỉnh được hạn mức. Hãy tải lại dashboard và thử lại.'),
+        problemMessage(
+          error,
+          'Không điều chỉnh được hạn mức. Hãy tải lại bảng điều khiển và thử lại.',
+        ),
       );
     } finally {
       this.saving.set(false);
@@ -186,7 +197,7 @@ export class BudgetDashboardPage {
           if (generation !== this.loadGeneration) {
             return;
           }
-          this.error.set(problemMessage(error, 'Không tải được dashboard ngân sách.'));
+          this.error.set(problemMessage(error, 'Không tải được bảng điều khiển ngân sách.'));
           this.loading.set(false);
         },
       });

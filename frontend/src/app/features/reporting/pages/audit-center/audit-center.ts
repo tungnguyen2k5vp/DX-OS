@@ -151,6 +151,94 @@ export class AuditCenter {
     }[status];
   }
 
+  severityLabel(severity: AuditCaseSeverity): string {
+    return {
+      LOW: 'Thấp',
+      MEDIUM: 'Trung bình',
+      HIGH: 'Cao',
+      CRITICAL: 'Nghiêm trọng',
+    }[severity];
+  }
+
+  statusLabel(status: string | null): string {
+    if (!status) return '';
+    return (
+      {
+        DRAFT: 'Bản nháp',
+        SUBMITTED: 'Đã gửi',
+        CHANGES_REQUESTED: 'Yêu cầu chỉnh sửa',
+        MANAGER_APPROVED: 'Trưởng bộ phận đã duyệt',
+        APPROVED: 'Đã phê duyệt',
+        REJECTED: 'Đã từ chối',
+        CANCELLED: 'Đã hủy',
+        ACTIVE: 'Đang hoạt động',
+        INACTIVE: 'Ngừng hoạt động',
+        ORDERED: 'Đã đặt hàng',
+        PARTIALLY_RECEIVED: 'Đã nhận một phần',
+        RECEIVED: 'Đã nhận đủ',
+        RECORDED: 'Đã ghi nhận',
+        VERIFIED: 'Đã xác minh',
+        DISPUTED: 'Đang đối soát',
+        PARTIALLY_PAID: 'Đã thanh toán một phần',
+        PAID: 'Đã thanh toán',
+        OPEN: 'Mới mở',
+        IN_REMEDIATION: 'Đang khắc phục',
+        RESOLVED: 'Đã giải quyết',
+        CLOSED: 'Đã đóng',
+        PENDING: 'Đang chờ',
+        DISMISSED: 'Đã bỏ qua',
+        true: 'Đang hoạt động',
+        false: 'Ngừng hoạt động',
+      }[status] ?? status
+    );
+  }
+
+  auditActionLabel(action: string): string {
+    return (
+      {
+        DRAFT_CREATED: 'Tạo bản nháp',
+        DRAFT_UPDATED: 'Cập nhật bản nháp',
+        SUBMITTED: 'Gửi phê duyệt',
+        RESUBMITTED: 'Gửi lại phiếu',
+        MANAGER_APPROVED: 'Trưởng bộ phận phê duyệt',
+        FINANCE_APPROVED: 'Bộ phận Tài chính phê duyệt',
+        CHANGES_REQUESTED: 'Yêu cầu chỉnh sửa',
+        REJECTED: 'Từ chối phiếu',
+        CANCELLED: 'Hủy phiếu',
+        COMMENT_ADDED: 'Thêm trao đổi',
+        ATTACHMENT_UPLOADED: 'Tải tệp lên',
+        ATTACHMENT_DELETED: 'Xóa tệp',
+        ORDER_PLACED: 'Đặt hàng',
+        PURCHASE_ORDER_CREATED: 'Tạo đơn hàng',
+        PURCHASE_ORDER_UPDATED: 'Cập nhật đơn hàng',
+        PURCHASE_ORDER_CANCELLED: 'Hủy đơn hàng',
+        DELIVERY_RECEIVED: 'Xác nhận đã nhận hàng',
+        RECEIPT_PARTIAL: 'Ghi nhận nhận hàng một phần',
+        RECEIPT_COMPLETE: 'Ghi nhận nhận đủ hàng',
+        RECEIPT_EXCEPTION: 'Ghi nhận sự cố giao nhận',
+        SUPPLIER_CREATED: 'Tạo nhà cung cấp',
+        SUPPLIER_UPDATED: 'Cập nhật nhà cung cấp',
+        BUDGET_ALLOCATION_ADJUSTED: 'Điều chỉnh hạn mức ngân sách',
+        SLA_POLICY_UPDATED: 'Cập nhật quy tắc SLA',
+        ATTACHMENT_POLICY_UPDATED: 'Cập nhật quy tắc tài liệu',
+        INVOICE_RECORDED: 'Ghi nhận hóa đơn',
+        INVOICE_UPDATED: 'Cập nhật hóa đơn',
+        INVOICE_VERIFIED: 'Xác minh hóa đơn',
+        INVOICE_DISPUTED: 'Đưa hóa đơn vào đối soát',
+        INVOICE_REOPENED: 'Mở lại hóa đơn',
+        INVOICE_MARKED_PAID: 'Đánh dấu hóa đơn đã thanh toán',
+        INVOICE_PARTIAL_PAYMENT_RECORDED: 'Ghi nhận thanh toán một phần',
+        INVOICE_FULL_PAYMENT_RECORDED: 'Ghi nhận thanh toán đủ',
+        AUDIT_CASE_CREATED: 'Mở hồ sơ kiểm toán',
+        AUDIT_CASE_UPDATED: 'Cập nhật hồ sơ kiểm toán',
+        USER_ADMIN_UPDATED: 'Cập nhật tài khoản người dùng',
+        DEPARTMENT_CREATED: 'Tạo phòng ban',
+        DEPARTMENT_UPDATED: 'Cập nhật phòng ban',
+        AI_RECOMMENDATION_DECIDED: 'Ra quyết định cho khuyến nghị AI',
+      }[action] ?? action
+    );
+  }
+
   applyFilters(): void {
     this.page.set(1);
     this.load();

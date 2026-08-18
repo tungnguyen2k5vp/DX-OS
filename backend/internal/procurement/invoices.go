@@ -31,7 +31,10 @@ func (s *Store) InvoiceBoard(ctx context.Context, principal auth.Principal) (Inv
 			CASE
 				WHEN pi.id IS NULL THEN 'NOT_RECORDED'
 				WHEN po.status <> 'RECEIVED' THEN 'WAITING_RECEIPT'
-				WHEN pi.currency <> pr.currency THEN 'CURRENCY_MISMATCH'
+				WHEN EXISTS (
+					SELECT 1 FROM purchase_invoices px
+					WHERE px.purchase_order_id = po.id AND px.currency <> pr.currency
+				) THEN 'CURRENCY_MISMATCH'
 				WHEN (SELECT sum(px.amount) FROM purchase_invoices px WHERE px.purchase_order_id = po.id) > pr.total_amount THEN 'AMOUNT_MISMATCH'
 				WHEN (SELECT sum(px.amount) FROM purchase_invoices px WHERE px.purchase_order_id = po.id) < pr.total_amount THEN 'PARTIAL_MATCH'
 				ELSE 'MATCHED'
@@ -42,21 +45,21 @@ func (s *Store) InvoiceBoard(ctx context.Context, principal auth.Principal) (Inv
 			COALESCE((SELECT count(*) FROM invoice_payments ip WHERE ip.invoice_id = pi.id), 0),
 			pi.created_at, pi.updated_at,
 			COALESCE(pi.status <> 'PAID' AND pi.due_on < CURRENT_DATE, false),
-			$3::boolean
+			$2::boolean
 		FROM purchase_orders po
 		JOIN purchase_requests pr ON pr.id = po.purchase_request_id
 		JOIN users ru ON ru.id = pr.requester_id
 		JOIN departments d ON d.id = pr.department_id
 		JOIN suppliers s ON s.id = po.supplier_id
 		LEFT JOIN purchase_invoices pi ON pi.purchase_order_id = po.id
-		WHERE $1::boolean OR po.organization_id = $2
+		WHERE po.organization_id = $1
 		ORDER BY
 			CASE WHEN pi.status <> 'PAID' AND pi.due_on < CURRENT_DATE THEN 1 ELSE 2 END,
 			CASE WHEN pi.id IS NULL THEN 1 WHEN pi.status = 'DISPUTED' THEN 2
 				WHEN pi.status = 'RECORDED' THEN 3 WHEN pi.status = 'VERIFIED' THEN 4 ELSE 5 END,
 			COALESCE(pi.due_on, CURRENT_DATE + 3650), po.updated_at DESC
 		LIMIT 300
-	`, isAuditor, user.OrganizationID, canManage)
+	`, user.OrganizationID, canManage)
 	if err != nil {
 		return InvoiceBoard{}, fmt.Errorf("list invoice board: %w", err)
 	}
@@ -109,13 +112,20 @@ func (s *Store) CreateInvoice(
 	if err != nil {
 		return InvoiceBoardItem{}, err
 	}
-	var existingID, existingOrderID string
+	var existingID, existingOrderID, existingNumber, existingIssuedOn, existingDueOn string
+	var existingAmount, existingCurrency, existingNote string
 	err = tx.QueryRow(ctx, `
-		SELECT id, purchase_order_id FROM purchase_invoices WHERE idempotency_key = $1
-	`, input.IdempotencyKey).Scan(&existingID, &existingOrderID)
+		SELECT id, purchase_order_id, invoice_number, issued_on::text, due_on::text,
+			amount::text, currency, COALESCE(note, '')
+		FROM purchase_invoices WHERE idempotency_key = $1
+	`, input.IdempotencyKey).Scan(&existingID, &existingOrderID, &existingNumber,
+		&existingIssuedOn, &existingDueOn, &existingAmount, &existingCurrency, &existingNote)
 	switch {
 	case err == nil:
-		if existingOrderID != input.PurchaseOrderID {
+		if existingOrderID != input.PurchaseOrderID || existingNumber != input.InvoiceNumber ||
+			existingIssuedOn != input.IssuedOn || existingDueOn != input.DueOn ||
+			normalizedMoney(existingAmount) != normalizedMoney(input.Amount) ||
+			existingCurrency != input.Currency || existingNote != input.Note {
 			return InvoiceBoardItem{}, ErrInvoiceConflict
 		}
 		if err = tx.Commit(ctx); err != nil {
@@ -292,9 +302,12 @@ func (s *Store) TransitionInvoice(
 	var status, organizationID, orderStatus, invoiceTotal, currentInvoiceAmount, invoiceCurrency, orderAmount, orderCurrency, paidAmount string
 	var requesterID, departmentID, requestID, requestCode, requestTitle string
 	var version int64
+	var allCurrenciesMatch bool
 	err = tx.QueryRow(ctx, `
 		SELECT pi.status, pi.version, pi.organization_id, po.status,
 			(SELECT sum(px.amount)::text FROM purchase_invoices px WHERE px.purchase_order_id = po.id),
+			NOT EXISTS (SELECT 1 FROM purchase_invoices px
+				WHERE px.purchase_order_id = po.id AND px.currency <> pr.currency),
 			pi.amount::text, pi.currency, pr.total_amount::text, pr.currency, pi.paid_amount::text,
 			pr.requester_id, pr.department_id, pr.id, pr.request_code, pr.title
 		FROM purchase_invoices pi
@@ -304,7 +317,7 @@ func (s *Store) TransitionInvoice(
 		FOR UPDATE OF pi
 	`, invoiceID).Scan(
 		&status, &version, &organizationID, &orderStatus,
-		&invoiceTotal, &currentInvoiceAmount, &invoiceCurrency, &orderAmount, &orderCurrency, &paidAmount,
+		&invoiceTotal, &allCurrenciesMatch, &currentInvoiceAmount, &invoiceCurrency, &orderAmount, &orderCurrency, &paidAmount,
 		&requesterID, &departmentID, &requestID, &requestCode, &requestTitle,
 	)
 	if errors.Is(err, pgx.ErrNoRows) || organizationID != user.OrganizationID {
@@ -316,7 +329,7 @@ func (s *Store) TransitionInvoice(
 	if version != input.ExpectedVersion {
 		return InvoiceBoardItem{}, ErrInvoiceVersion
 	}
-	matchStatus := invoiceMatchStatus(orderStatus, invoiceTotal, invoiceCurrency, orderAmount, orderCurrency)
+	matchStatus := invoiceMatchStatus(orderStatus, invoiceTotal, invoiceCurrency, orderAmount, orderCurrency, allCurrenciesMatch)
 	toStatus := ""
 	switch input.Action {
 	case "VERIFY":
@@ -405,7 +418,10 @@ func (s *Store) loadInvoiceItem(ctx context.Context, invoiceID string, canManage
 			pi.id, pi.invoice_number, pi.issued_on::text, pi.due_on::text,
 			pi.amount::text, pi.currency, pi.status,
 			CASE WHEN po.status <> 'RECEIVED' THEN 'WAITING_RECEIPT'
-				WHEN pi.currency <> pr.currency THEN 'CURRENCY_MISMATCH'
+			WHEN EXISTS (
+				SELECT 1 FROM purchase_invoices px
+				WHERE px.purchase_order_id = po.id AND px.currency <> pr.currency
+			) THEN 'CURRENCY_MISMATCH'
 				WHEN (SELECT sum(px.amount) FROM purchase_invoices px WHERE px.purchase_order_id = po.id) > pr.total_amount THEN 'AMOUNT_MISMATCH'
 				WHEN (SELECT sum(px.amount) FROM purchase_invoices px WHERE px.purchase_order_id = po.id) < pr.total_amount THEN 'PARTIAL_MATCH'
 				ELSE 'MATCHED' END,
@@ -445,11 +461,11 @@ func invoiceBoardDestinations(item *InvoiceBoardItem) []any {
 	}
 }
 
-func invoiceMatchStatus(orderStatus, invoiceAmount, invoiceCurrency, orderAmount, orderCurrency string) string {
+func invoiceMatchStatus(orderStatus, invoiceAmount, invoiceCurrency, orderAmount, orderCurrency string, allCurrenciesMatch bool) string {
 	if orderStatus != "RECEIVED" {
 		return "WAITING_RECEIPT"
 	}
-	if invoiceCurrency != orderCurrency {
+	if invoiceCurrency != orderCurrency || !allCurrenciesMatch {
 		return "CURRENCY_MISMATCH"
 	}
 	invoiceTotal := mustRat(invoiceAmount)

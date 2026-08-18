@@ -15,9 +15,9 @@ sidebar_position: 90
 - [ ] Chốt team, deadline, ngân sách hạ tầng và domain.
 - [ ] Chốt provider LLM/embedding và data policy.
 
-## Giai đoạn 1 — Foundation
+## Giai đoạn 1 — Hạ tầng nền tảng
 
-- [x] Pin Node 24.15 và Go 1.26.5 qua Docker (cài host là tùy chọn).
+- [x] Pin Node 24.15 và Go 1.26.6 qua Docker (cài host là tùy chọn).
 - [x] Bật Docker Engine.
 - [x] Validate và chạy PostgreSQL + Keycloak.
 - [x] Xác minh database/user riêng.

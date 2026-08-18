@@ -1,0 +1,153 @@
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid color-mix(in oklch, var(--border), transparent 8%);
+  background: color-mix(in oklch, var(--card), transparent 7%);
+  box-shadow: 0 1px 0 oklch(0.2 0.03 240 / 3%);
+  backdrop-filter: blur(18px);
+}
+
+.app-topbar__inner {
+  min-height: 4.5rem;
+}
+
+.app-brand {
+  min-width: fit-content;
+}
+
+.app-brand__mark {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid oklch(0.7 0.08 193 / 28%);
+  background:
+    radial-gradient(circle at 68% 16%, oklch(0.76 0.12 186 / 70%), transparent 38%),
+    linear-gradient(135deg, oklch(0.4 0.1 198), oklch(0.31 0.07 220));
+  box-shadow: 0 8px 16px oklch(0.37 0.08 205 / 22%);
+}
+
+.app-brand__tagline {
+  letter-spacing: 0.01em;
+}
+
+.app-navigation {
+  scrollbar-width: none;
+}
+
+.app-navigation::-webkit-scrollbar {
+  display: none;
+}
+
+.app-nav-link,
+.app-navigation a {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+}
+
+.app-nav-link::after,
+.app-navigation a::after {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.28rem;
+  left: 0.85rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--primary);
+  content: '';
+  opacity: 0;
+  transform: scaleX(0.45);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.app-nav-link:hover,
+.app-navigation a:hover {
+  border-color: oklch(0.55 0.08 193 / 14%);
+}
+
+.app-nav-link.bg-muted,
+.app-navigation a.bg-muted {
+  border-color: oklch(0.55 0.08 193 / 12%);
+  background: oklch(0.93 0.028 191 / 72%);
+  color: oklch(0.28 0.064 194);
+}
+
+.app-nav-link.bg-muted::after,
+.app-navigation a.bg-muted::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.app-account {
+  min-width: 0;
+}
+
+.app-account__avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--secondary), var(--accent));
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.app-main {
+  padding-top: clamp(1.75rem, 3vw, 2.75rem);
+  padding-bottom: clamp(2.5rem, 4vw, 4rem);
+}
+
+@media (min-width: 768px) {
+  .app-topbar__inner {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    padding-top: 0.5rem;
+  }
+
+  .app-topbar .app-navigation {
+    order: 3;
+    width: 100%;
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-left: 0;
+    overflow: visible;
+    padding: 0.25rem 0 0.65rem;
+    white-space: normal;
+  }
+
+  .app-topbar .app-navigation a {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-topbar {
+    position: relative;
+  }
+
+  .app-topbar__inner {
+    min-height: 4rem;
+  }
+
+  .app-mobile-navigation {
+    background: color-mix(in oklch, var(--card), transparent 3%);
+    box-shadow: inset 0 1px 0 var(--border);
+  }
+
+  .app-mobile-navigation .app-nav-link::after,
+  .app-mobile-navigation a::after {
+    display: none;
+  }
+}

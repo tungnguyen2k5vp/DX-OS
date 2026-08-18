@@ -13,7 +13,7 @@ func (a *api) getProcurementReport(w http.ResponseWriter, r *http.Request) {
 	if a.reporting == nil {
 		writeProblem(
 			w, r, http.StatusServiceUnavailable, "service-unavailable",
-			"Service unavailable", "Reporting service is unavailable.",
+			"Dịch vụ chưa sẵn sàng", "Dịch vụ báo cáo hiện không sẵn sàng.",
 		)
 		return
 	}
@@ -21,7 +21,7 @@ func (a *api) getProcurementReport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		writeProblem(
 			w, r, http.StatusUnauthorized, "unauthenticated",
-			"Authentication required", "A valid access token is required.",
+			"Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.",
 		)
 		return
 	}
@@ -88,7 +88,7 @@ func (a *api) getProcurementReport(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, reporting.ErrForbidden):
 			writeProblem(
 				w, r, http.StatusForbidden, "reporting-forbidden",
-				"Forbidden", "Tài khoản không có quyền xem báo cáo vận hành.",
+				"Không có quyền truy cập", "Tài khoản không có quyền xem báo cáo vận hành.",
 			)
 		default:
 			a.logger.Error(
@@ -98,7 +98,7 @@ func (a *api) getProcurementReport(w http.ResponseWriter, r *http.Request) {
 			)
 			writeProblem(
 				w, r, http.StatusInternalServerError, "internal",
-				"Internal server error", "Không thể tạo báo cáo vận hành.",
+				"Lỗi máy chủ", "Không thể tạo báo cáo vận hành.",
 			)
 		}
 		return

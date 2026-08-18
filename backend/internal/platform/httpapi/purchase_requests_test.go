@@ -3,9 +3,12 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
@@ -388,6 +391,55 @@ func TestCreatePurchaseRequestRejectsUnknownFields(t *testing.T) {
 
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", response.Code)
+	}
+}
+
+func TestParseAttachmentUploadStreamsBoundedMultipart(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("documentType", "QUOTATION"); err != nil {
+		t.Fatal(err)
+	}
+	header := textproto.MIMEHeader{}
+	header.Set("Content-Disposition", `form-data; name="file"; filename="quotation.pdf"`)
+	header.Set("Content-Type", "application/pdf")
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = part.Write([]byte("%PDF-test")); err != nil {
+		t.Fatal(err)
+	}
+	if err = writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/upload", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+
+	upload, err := parseAttachmentUpload(request)
+	if err != nil {
+		t.Fatalf("expected valid multipart upload, got %v", err)
+	}
+	if upload.documentType != "QUOTATION" || upload.fileName != "quotation.pdf" ||
+		upload.contentType != "application/pdf" || string(upload.content) != "%PDF-test" {
+		t.Fatalf("unexpected upload: %#v", upload)
+	}
+}
+
+func TestParseAttachmentUploadRequiresFile(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("documentType", "QUOTATION"); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/upload", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	_, err := parseAttachmentUpload(request)
+	if !errors.Is(err, errAttachmentFileRequired) {
+		t.Fatalf("expected missing file error, got %v", err)
 	}
 }
 

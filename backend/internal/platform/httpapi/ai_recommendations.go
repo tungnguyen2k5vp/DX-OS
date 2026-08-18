@@ -46,7 +46,7 @@ func (a *api) decideAIRecommendation(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "recommendationID")
 	if !uuidPattern.MatchString(id) {
-		writeValidationProblem(w, r, "invalid-ai-recommendation-id", "The recommendation ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-ai-recommendation-id", "Mã khuyến nghị phải là UUID hợp lệ.", nil)
 		return
 	}
 	var body aiDecisionBody

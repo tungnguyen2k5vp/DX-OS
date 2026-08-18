@@ -92,33 +92,33 @@ func validateAuditCase(input *AuditCaseInput, updating bool) error {
 	}
 	var violations []FieldViolation
 	if length := len([]rune(input.Title)); length < 3 || length > 255 {
-		violations = append(violations, FieldViolation{Field: "title", Message: "must contain between 3 and 255 characters"})
+		violations = append(violations, FieldViolation{Field: "title", Message: "Phải có từ 3 đến 255 ký tự."})
 	}
 	if length := len([]rune(input.Description)); length < 10 || length > 10000 {
-		violations = append(violations, FieldViolation{Field: "description", Message: "must contain between 10 and 10000 characters"})
+		violations = append(violations, FieldViolation{Field: "description", Message: "Phải có từ 10 đến 10.000 ký tự."})
 	}
 	if input.Severity != "LOW" && input.Severity != "MEDIUM" && input.Severity != "HIGH" && input.Severity != "CRITICAL" {
-		violations = append(violations, FieldViolation{Field: "severity", Message: "must be LOW, MEDIUM, HIGH or CRITICAL"})
+		violations = append(violations, FieldViolation{Field: "severity", Message: "Phải là LOW (thấp), MEDIUM (trung bình), HIGH (cao) hoặc CRITICAL (nghiêm trọng)."})
 	}
 	if input.Status != "OPEN" && input.Status != "IN_REMEDIATION" && input.Status != "RESOLVED" && input.Status != "CLOSED" {
-		violations = append(violations, FieldViolation{Field: "status", Message: "must be OPEN, IN_REMEDIATION, RESOLVED or CLOSED"})
+		violations = append(violations, FieldViolation{Field: "status", Message: "Phải là OPEN (mới mở), IN_REMEDIATION (đang khắc phục), RESOLVED (đã giải quyết) hoặc CLOSED (đã đóng)."})
 	}
 	if input.ResourceID != "" && !uuidPatternForDomain.MatchString(input.ResourceID) {
-		violations = append(violations, FieldViolation{Field: "resourceId", Message: "must be a valid UUID"})
+		violations = append(violations, FieldViolation{Field: "resourceId", Message: "Phải là UUID hợp lệ."})
 	}
 	if input.OwnerUserID != "" && !uuidPatternForDomain.MatchString(input.OwnerUserID) {
-		violations = append(violations, FieldViolation{Field: "ownerUserId", Message: "must be a valid UUID"})
+		violations = append(violations, FieldViolation{Field: "ownerUserId", Message: "Phải là UUID hợp lệ."})
 	}
 	if input.DueOn != "" {
 		if _, err := time.Parse(time.DateOnly, input.DueOn); err != nil {
-			violations = append(violations, FieldViolation{Field: "dueOn", Message: "must use YYYY-MM-DD format"})
+			violations = append(violations, FieldViolation{Field: "dueOn", Message: "Phải có định dạng YYYY-MM-DD."})
 		}
 	}
 	if updating && input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than zero"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn 0."})
 	}
 	if (input.Status == "RESOLVED" || input.Status == "CLOSED") && len([]rune(input.Resolution)) < 5 {
-		violations = append(violations, FieldViolation{Field: "resolution", Message: "is required when resolving or closing a case"})
+		violations = append(violations, FieldViolation{Field: "resolution", Message: "Bắt buộc khi giải quyết hoặc đóng hồ sơ."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -182,6 +182,9 @@ func (s *Store) CreateAuditCase(ctx context.Context, principal auth.Principal, i
 	if err != nil {
 		return AuditCase{}, err
 	}
+	if err = validateAuditCaseOwner(ctx, tx, user.OrganizationID, input.OwnerUserID); err != nil {
+		return AuditCase{}, err
+	}
 	var id string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO audit_cases (organization_id, case_code, title, description, severity, status, resource_type, resource_id, owner_user_id, due_on, resolution, created_by)
@@ -220,6 +223,9 @@ func (s *Store) UpdateAuditCase(ctx context.Context, principal auth.Principal, c
 	if err != nil {
 		return AuditCase{}, err
 	}
+	if err = validateAuditCaseOwner(ctx, tx, user.OrganizationID, input.OwnerUserID); err != nil {
+		return AuditCase{}, err
+	}
 	var currentStatus string
 	var version int64
 	err = tx.QueryRow(ctx, `SELECT status,version FROM audit_cases WHERE id=$1 AND organization_id=$2 FOR UPDATE`, caseID, user.OrganizationID).Scan(&currentStatus, &version)
@@ -247,6 +253,30 @@ func (s *Store) UpdateAuditCase(ctx context.Context, principal auth.Principal, c
 		return AuditCase{}, fmt.Errorf("commit audit case update: %w", err)
 	}
 	return s.getAuditCase(ctx, user.OrganizationID, caseID)
+}
+
+func validateAuditCaseOwner(ctx context.Context, tx pgx.Tx, organizationID, ownerUserID string) error {
+	if ownerUserID == "" {
+		return nil
+	}
+	var valid bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM users u
+			JOIN departments d ON d.id = u.department_id
+			WHERE u.id = $1 AND d.organization_id = $2 AND u.active
+		)
+	`, ownerUserID, organizationID).Scan(&valid)
+	if err != nil {
+		return fmt.Errorf("validate audit case owner: %w", err)
+	}
+	if !valid {
+		return &ValidationError{Violations: []FieldViolation{{
+			Field: "ownerUserId", Message: "Phải tham chiếu đến người dùng đang hoạt động trong cùng tổ chức.",
+		}}}
+	}
+	return nil
 }
 
 func (s *Store) getAuditCase(ctx context.Context, organizationID, caseID string) (AuditCase, error) {

@@ -1,4 +1,4 @@
-# Runbook báo cáo vận hành và Metabase
+# Hướng dẫn vận hành báo cáo và Metabase
 
 ## Mục tiêu
 
@@ -33,7 +33,7 @@ Metabase dùng hai kết nối PostgreSQL tách biệt:
 Không dùng `dxos_app`, `postgres` hoặc tài khoản có quyền ghi để cấu hình data source cho
 Metabase.
 
-## Curated views
+## Các view báo cáo đã chuẩn hóa
 
 Migration `000007_reporting_curated_views.sql` tạo:
 
@@ -58,7 +58,7 @@ dữ liệu mới mà không cần job refresh.
 | Tỷ lệ phê duyệt | `approved_count / total_requests * 100`. |
 | Lead time trung bình | Trung bình số giờ từ lúc tạo đến lúc kết thúc của các phiếu đã hoàn tất; phiếu đang mở không tham gia mẫu số. |
 | Quá SLA | Lead time vượt `target_hours`. |
-| Return | Phiếu từng có event `CHANGES_REQUESTED`. |
+| Yêu cầu chỉnh sửa | Phiếu từng có sự kiện `CHANGES_REQUESTED`. |
 | Attachment compliance | Số phiếu yêu cầu tài liệu và đã có đúng loại tài liệu / tổng số phiếu yêu cầu tài liệu. |
 | Budget utilization | `(reserved + committed) / allocated * 100`. |
 
@@ -66,7 +66,7 @@ Giá trị tiền luôn được nhóm theo `currency`; không cộng VND và ng
 
 ## Phân quyền
 
-| Role | Angular `/reports` | API báo cáo | Phạm vi |
+| Vai trò | Angular `/reports` | API báo cáo | Phạm vi |
 |---|---:|---:|---|
 | `finance` | Có | Có | Tổ chức của user |
 | `auditor` | Có | Có | Toàn bộ dữ liệu báo cáo |
@@ -175,7 +175,7 @@ docker compose --profile foundation --profile application --profile reporting ru
 - Không public Metabase trực tiếp ra Internet. Production cần HTTPS, reverse proxy, SSO và chính
   sách session trước khi cấp quyền người dùng.
 
-## Rollback
+## Khôi phục phiên bản
 
 1. Dừng Metabase: `docker compose --profile reporting stop metabase`.
 2. UI và API nghiệp vụ vẫn hoạt động; chỉ route báo cáo/BI bị ảnh hưởng.

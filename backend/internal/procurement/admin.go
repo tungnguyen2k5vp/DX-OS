@@ -125,16 +125,16 @@ func validateAdminUser(input *UpdateAdminUserInput) error {
 	input.DepartmentID = strings.TrimSpace(input.DepartmentID)
 	var violations []FieldViolation
 	if len([]rune(input.DisplayName)) < 2 || len([]rune(input.DisplayName)) > 255 {
-		violations = append(violations, FieldViolation{Field: "displayName", Message: "must contain between 2 and 255 characters"})
+		violations = append(violations, FieldViolation{Field: "displayName", Message: "Phải có từ 2 đến 255 ký tự."})
 	}
 	if input.Email != "" && !emailPattern.MatchString(input.Email) {
-		violations = append(violations, FieldViolation{Field: "email", Message: "must be a valid email address"})
+		violations = append(violations, FieldViolation{Field: "email", Message: "Phải là địa chỉ email hợp lệ."})
 	}
 	if !uuidPatternForDomain.MatchString(input.DepartmentID) {
-		violations = append(violations, FieldViolation{Field: "departmentId", Message: "must be a valid UUID"})
+		violations = append(violations, FieldViolation{Field: "departmentId", Message: "Phải là UUID hợp lệ."})
 	}
 	if input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than zero"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn 0."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -143,7 +143,7 @@ func validateAdminUser(input *UpdateAdminUserInput) error {
 }
 
 func (s *Store) UpdateAdminUser(ctx context.Context, principal auth.Principal, targetID string, input UpdateAdminUserInput) (AdminUser, error) {
-	if !hasRole(principal.Roles, "dx_admin") {
+	if !hasRole(principal.Roles, "dx_admin") || hasRole(principal.Roles, "auditor") {
 		return AdminUser{}, ErrForbidden
 	}
 	if err := validateAdminUser(&input); err != nil {
@@ -207,19 +207,19 @@ func validateDepartment(input *SaveDepartmentInput, updating bool) error {
 	input.ParentID = strings.TrimSpace(input.ParentID)
 	var violations []FieldViolation
 	if len(input.Code) < 2 || len(input.Code) > 50 || !supplierCodePattern.MatchString(input.Code) {
-		violations = append(violations, FieldViolation{Field: "code", Message: "must be 2-50 uppercase letters, digits, dot, dash or underscore"})
+		violations = append(violations, FieldViolation{Field: "code", Message: "Phải có từ 2 đến 50 chữ cái viết hoa, chữ số, dấu chấm, gạch nối hoặc gạch dưới."})
 	}
 	if len([]rune(input.Name)) < 2 || len([]rune(input.Name)) > 255 {
-		violations = append(violations, FieldViolation{Field: "name", Message: "must contain between 2 and 255 characters"})
+		violations = append(violations, FieldViolation{Field: "name", Message: "Phải có từ 2 đến 255 ký tự."})
 	}
 	if len(input.CostCenter) > 100 {
-		violations = append(violations, FieldViolation{Field: "costCenter", Message: "must not exceed 100 characters"})
+		violations = append(violations, FieldViolation{Field: "costCenter", Message: "Không được vượt quá 100 ký tự."})
 	}
 	if input.ParentID != "" && !uuidPatternForDomain.MatchString(input.ParentID) {
-		violations = append(violations, FieldViolation{Field: "parentId", Message: "must be a valid UUID"})
+		violations = append(violations, FieldViolation{Field: "parentId", Message: "Phải là UUID hợp lệ."})
 	}
 	if updating && input.ExpectedVersion < 1 {
-		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "must be greater than zero"})
+		violations = append(violations, FieldViolation{Field: "expectedVersion", Message: "Phải lớn hơn 0."})
 	}
 	if len(violations) > 0 {
 		return &ValidationError{Violations: violations}
@@ -228,7 +228,7 @@ func validateDepartment(input *SaveDepartmentInput, updating bool) error {
 }
 
 func (s *Store) CreateDepartment(ctx context.Context, principal auth.Principal, input SaveDepartmentInput) (AdminDepartment, error) {
-	if !hasRole(principal.Roles, "dx_admin") {
+	if !hasRole(principal.Roles, "dx_admin") || hasRole(principal.Roles, "auditor") {
 		return AdminDepartment{}, ErrForbidden
 	}
 	if err := validateDepartment(&input, false); err != nil {
@@ -264,7 +264,7 @@ func (s *Store) CreateDepartment(ctx context.Context, principal auth.Principal, 
 }
 
 func (s *Store) UpdateDepartment(ctx context.Context, principal auth.Principal, id string, input SaveDepartmentInput) (AdminDepartment, error) {
-	if !hasRole(principal.Roles, "dx_admin") {
+	if !hasRole(principal.Roles, "dx_admin") || hasRole(principal.Roles, "auditor") {
 		return AdminDepartment{}, ErrForbidden
 	}
 	if err := validateDepartment(&input, true); err != nil {

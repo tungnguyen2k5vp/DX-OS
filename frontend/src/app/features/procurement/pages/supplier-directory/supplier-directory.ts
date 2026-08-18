@@ -132,6 +132,19 @@ export class SupplierDirectory {
     return risk === 'MEDIUM' ? 'secondary' : 'outline';
   }
 
+  riskLabel(risk: SupplierRiskLevel): string {
+    return { LOW: 'Thấp', MEDIUM: 'Trung bình', HIGH: 'Cao' }[risk];
+  }
+
+  complianceLabel(status: SupplierComplianceStatus): string {
+    return {
+      PENDING: 'Chờ xác minh',
+      VERIFIED: 'Đã xác minh',
+      EXPIRED: 'Hết hiệu lực',
+      BLOCKED: 'Bị chặn',
+    }[status];
+  }
+
   private load(): void {
     const generation = ++this.generation;
     this.loading.set(true);

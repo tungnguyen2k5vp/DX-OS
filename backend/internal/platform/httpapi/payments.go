@@ -56,12 +56,12 @@ func (a *api) recordInvoicePayment(w http.ResponseWriter, r *http.Request) {
 func (a *api) enterpriseInvoiceContext(w http.ResponseWriter, r *http.Request) (auth.Principal, string, bool) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok || a.enterprise == nil {
-		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Service unavailable", "Enterprise procurement service is unavailable.")
+		writeProblem(w, r, http.StatusServiceUnavailable, "service-unavailable", "Dịch vụ chưa sẵn sàng", "Dịch vụ mua sắm doanh nghiệp hiện không sẵn sàng.")
 		return auth.Principal{}, "", false
 	}
 	invoiceID := strings.TrimSpace(chi.URLParam(r, "invoiceID"))
 	if !uuidPattern.MatchString(invoiceID) {
-		writeValidationProblem(w, r, "invalid-invoice-id", "The invoice ID must be a valid UUID.", nil)
+		writeValidationProblem(w, r, "invalid-invoice-id", "Mã hóa đơn phải là UUID hợp lệ.", nil)
 		return auth.Principal{}, "", false
 	}
 	return principal, invoiceID, true
