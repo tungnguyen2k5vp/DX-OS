@@ -14,3 +14,15 @@ func TestMigrationChecksumDetectsContentChanges(t *testing.T) {
 		t.Fatal("expected modified migration content to produce a different checksum")
 	}
 }
+
+func TestMigrationChecksumIgnoresLineEndingStyle(t *testing.T) {
+	unix := []byte("CREATE TABLE example (id uuid);\nINSERT INTO example VALUES ('a');\n")
+	windows := []byte("CREATE TABLE example (id uuid);\r\nINSERT INTO example VALUES ('a');\r\n")
+
+	if migrationChecksum(unix) != migrationChecksum(windows) {
+		t.Fatal("expected LF and CRLF migrations to produce the same checksum")
+	}
+	if legacyWindowsLineEndingChecksum(unix) != legacyWindowsLineEndingChecksum(windows) {
+		t.Fatal("expected the legacy Windows checksum to be deterministic")
+	}
+}

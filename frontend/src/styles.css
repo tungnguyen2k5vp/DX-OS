@@ -145,6 +145,41 @@
     background: oklch(0.95 0.022 210 / 46%);
   }
 
+  /* Keep operational tables readable inside split panels without horizontal scrolling. */
+  .app-main table {
+    min-width: 0 !important;
+    table-layout: fixed;
+  }
+
+  .app-main table :is(th, td) {
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+  }
+
+  .app-main table th {
+    white-space: normal;
+  }
+
+  .app-main table td :is(a, p, span, strong) {
+    max-width: 100%;
+  }
+
+  .app-main table td.text-right {
+    text-align: right;
+  }
+
+  @media (max-width: 768px) {
+    .app-main table :is(th, td) {
+      padding-right: 0.55rem;
+      padding-left: 0.55rem;
+      font-size: 0.78rem;
+    }
+
+    .app-main table th {
+      font-size: 0.63rem;
+    }
+  }
+
   fieldset {
     background: var(--card);
   }

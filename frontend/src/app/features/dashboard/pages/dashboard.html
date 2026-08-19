@@ -166,19 +166,19 @@
           <dl class="space-y-4 text-sm">
             <div>
               <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Username
+                Tài khoản
               </dt>
               <dd class="mt-1 font-medium">{{ user.username }}</dd>
             </div>
             <div>
               <dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Role
+                Vai trò
               </dt>
               <dd class="mt-2 flex flex-wrap gap-2">
                 @for (role of user.roles; track role) {
                   <span hlmBadge variant="outline">{{ role }}</span>
                 } @empty {
-                  <span class="text-muted-foreground">Chưa được gán role nghiệp vụ</span>
+                  <span class="text-muted-foreground">Chưa được gán vai trò nghiệp vụ</span>
                 }
               </dd>
             </div>

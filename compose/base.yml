@@ -51,6 +51,7 @@ services:
       - "127.0.0.1:${KEYCLOAK_HOST_PORT}:8080"
     volumes:
       - ../iam/keycloak/realm:/opt/keycloak/data/import:ro
+      - ../iam/keycloak/themes/dx-os:/opt/keycloak/themes/dx-os:ro
     depends_on:
       postgres:
         condition: service_healthy

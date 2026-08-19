@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -101,7 +102,21 @@ func run(ctx context.Context, pool *pgxpool.Pool, migrationsPath string, logger 
 				}
 				continue
 			}
-			if strings.TrimSpace(*recordedChecksum) != checksum {
+			recorded := strings.TrimSpace(*recordedChecksum)
+			if recorded != checksum {
+				// Early DX-OS databases stored checksums from Windows CRLF files.
+				// Treat only this byte-level line-ending variation as compatible;
+				// any substantive migration edit remains blocked.
+				if recorded == legacyWindowsLineEndingChecksum(contents) {
+					if _, err = pool.Exec(ctx,
+						"UPDATE schema_migrations SET checksum_sha256 = $2 WHERE version = $1",
+						name, checksum,
+					); err != nil {
+						return fmt.Errorf("normalize migration checksum %s: %w", name, err)
+					}
+					logger.Info("normalized legacy migration checksum", "version", name)
+					continue
+				}
 				return fmt.Errorf("migration %s checksum mismatch: an applied migration was modified", name)
 			}
 			continue
@@ -135,7 +150,16 @@ func run(ctx context.Context, pool *pgxpool.Pool, migrationsPath string, logger 
 }
 
 func migrationChecksum(contents []byte) string {
-	return fmt.Sprintf("%x", sha256.Sum256(contents))
+	return fmt.Sprintf("%x", sha256.Sum256(normalizeLineEndings(contents)))
+}
+
+func legacyWindowsLineEndingChecksum(contents []byte) string {
+	legacyContents := bytes.ReplaceAll(normalizeLineEndings(contents), []byte("\n"), []byte("\r\n"))
+	return fmt.Sprintf("%x", sha256.Sum256(legacyContents))
+}
+
+func normalizeLineEndings(contents []byte) []byte {
+	return bytes.ReplaceAll(contents, []byte("\r\n"), []byte("\n"))
 }
 
 func fail(logger *slog.Logger, message string, err error) {

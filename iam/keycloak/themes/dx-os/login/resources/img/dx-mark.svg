@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title>DX-OS</title>
+  <defs>
+    <linearGradient id="mark" x1="12" y1="8" x2="84" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#79e5dc"/>
+      <stop offset="1" stop-color="#20b8b0"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="28" fill="#063844"/>
+  <path d="M25 28h17.5c9.7 0 17 7.8 17 20s-7.3 20-17 20H25V28Zm12 10v20h5.2c4.1 0 7.3-3.6 7.3-10s-3.2-10-7.3-10H37Z" fill="url(#mark)"/>
+  <path d="m61 28 6.8 13 6.7-13h13L74.5 48l13.4 20h-13l-7.1-13.2L61 68H48l13.2-20L48 28h13Z" fill="#fff"/>
+</svg>
