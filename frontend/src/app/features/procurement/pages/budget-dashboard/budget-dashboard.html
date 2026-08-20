@@ -219,9 +219,9 @@
       </section>
 
       @if (adjustingId()) {
-        <section hlmCard>
+        <section id="budget-adjustment-workspace" hlmCard class="scroll-mt-40" aria-labelledby="budget-adjustment-heading">
           <div hlmCardHeader class="border-b">
-            <h2 hlmCardTitle>Điều chỉnh tổng hạn mức</h2>
+            <h2 id="budget-adjustment-heading" hlmCardTitle>Điều chỉnh tổng hạn mức</h2>
             <p hlmCardDescription>Không thể đặt thấp hơn tổng số tiền đang giữ và đã cam kết.</p>
           </div>
           <form hlmCardContent class="grid gap-5 pt-6" [formGroup]="adjustmentForm">
@@ -229,6 +229,7 @@
               <label class="text-sm font-medium" for="allocated-amount">Hạn mức mới</label>
               <input
                 id="allocated-amount"
+                data-autofocus
                 class="h-10 rounded-md border border-input bg-background px-3 font-mono text-sm outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
                 formControlName="allocatedAmount"
                 inputmode="decimal"

@@ -1,11 +1,12 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { firstValueFrom } from 'rxjs';
+import { revealWorkspace } from '../../../../shared/utils/reveal-workspace';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { problemMessage } from '../../data-access/problem-details';
 import {
@@ -22,6 +23,14 @@ import {
 import { ProcurementService } from '../../data-access/procurement.service';
 import { MoneyPipe } from '../../ui/money.pipe';
 
+interface OrderDraftFromQuote {
+  requestId: string;
+  supplierId: string;
+  reference: string;
+  deliveryOn: string;
+  note: string;
+}
+
 @Component({
   selector: 'app-operations-board',
   imports: [DatePipe, RouterLink, HlmBadge, HlmButton, ...HlmCardImports, MoneyPipe],
@@ -32,7 +41,10 @@ export class OperationsBoard {
   private readonly procurement = inject(ProcurementService);
   private readonly auth = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private generation = 0;
+  private pendingOrderDraft = this.readOrderDraft();
 
   readonly board = signal<OperationsBoardModel | null>(null);
   readonly suppliers = signal<Supplier[]>([]);
@@ -69,8 +81,10 @@ export class OperationsBoard {
         .suppliers()
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-          next: (result) =>
-            this.suppliers.set(result.items.filter((item) => item.status === 'ACTIVE')),
+          next: (result) => {
+            this.suppliers.set(result.items.filter((item) => item.status === 'ACTIVE'));
+            this.openOrderDraftWhenReady();
+          },
           error: (error: unknown) =>
             this.error.set(problemMessage(error, 'Không tải được nhà cung cấp để đặt hàng.')),
         });
@@ -84,6 +98,7 @@ export class OperationsBoard {
     this.expectedDeliveryOn.set(this.tomorrow());
     this.note.set('');
     this.error.set(null);
+    revealWorkspace('order-workspace');
   }
 
   cancelOrder(): void {
@@ -111,6 +126,7 @@ export class OperationsBoard {
           note: '',
         })),
       );
+      revealWorkspace('receipt-workspace');
     } catch (error: unknown) {
       this.error.set(problemMessage(error, 'Không tải được thông tin để lập biên bản nhận hàng.'));
     } finally {
@@ -187,6 +203,7 @@ export class OperationsBoard {
     this.manageExpectedDeliveryOn.set(order.expectedDeliveryOn ?? this.tomorrow());
     this.manageNote.set(order.note ?? '');
     this.cancellationReason.set('');
+    revealWorkspace('manage-order-workspace');
   }
 
   closeManageOrder(): void {
@@ -317,6 +334,7 @@ export class OperationsBoard {
         next: (result) => {
           if (generation !== this.generation) return;
           this.board.set(result);
+          this.openOrderDraftWhenReady();
           this.loading.set(false);
         },
         error: (error: unknown) => {
@@ -331,5 +349,56 @@ export class OperationsBoard {
     const date = new Date();
     date.setDate(date.getDate() + 1);
     return date.toISOString().slice(0, 10);
+  }
+
+  private readOrderDraft(): OrderDraftFromQuote | null {
+    const params = this.route.snapshot.queryParamMap;
+    const requestId = params.get('draftRequestId')?.trim() ?? '';
+    const supplierId = params.get('draftSupplierId')?.trim() ?? '';
+    const reference = params.get('draftReference')?.trim() ?? '';
+    const deliveryOn = params.get('draftDeliveryOn')?.trim() ?? '';
+
+    if (!requestId || !supplierId || !reference || !deliveryOn) return null;
+
+    return {
+      requestId,
+      supplierId,
+      reference,
+      deliveryOn,
+      note: params.get('draftNote')?.trim() ?? '',
+    };
+  }
+
+  private openOrderDraftWhenReady(): void {
+    const draft = this.pendingOrderDraft;
+    const board = this.board();
+    if (!draft || !board || this.suppliers().length === 0) return;
+
+    const request = board.items.find(
+      (item) => item.purchaseRequestId === draft.requestId && item.canPlaceOrder,
+    );
+    const supplierAvailable = this.suppliers().some((supplier) => supplier.id === draft.supplierId);
+
+    this.pendingOrderDraft = null;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true,
+    });
+
+    if (!request || !supplierAvailable) {
+      this.error.set(
+        'Không thể tạo đơn từ báo giá này vì phiếu hoặc nhà cung cấp vừa thay đổi. Hãy tải lại bảng so sánh.',
+      );
+      return;
+    }
+
+    this.selected.set(request);
+    this.supplierId.set(draft.supplierId);
+    this.externalReference.set(draft.reference);
+    this.expectedDeliveryOn.set(draft.deliveryOn);
+    this.note.set(draft.note);
+    this.error.set(null);
+    revealWorkspace('order-workspace');
   }
 }

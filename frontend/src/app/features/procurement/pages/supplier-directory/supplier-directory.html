@@ -17,15 +17,16 @@
   </header>
 
   @if (formOpen()) {
-    <section hlmCard class="mt-6">
+    <section id="supplier-workspace" hlmCard class="mt-6 scroll-mt-40" aria-labelledby="supplier-workspace-heading">
       <div hlmCardHeader class="border-b">
-        <h2 hlmCardTitle>{{ editing() ? 'Cập nhật nhà cung cấp' : 'Nhà cung cấp mới' }}</h2>
+        <h2 id="supplier-workspace-heading" hlmCardTitle>{{ editing() ? 'Cập nhật nhà cung cấp' : 'Nhà cung cấp mới' }}</h2>
         <p hlmCardDescription>Mã và mã số thuế không được trùng trong cùng tổ chức.</p>
       </div>
       <div hlmCardContent class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <label class="grid gap-1.5 text-sm font-medium"
           >Mã nhà cung cấp
           <input
+            data-autofocus
             class="h-10 rounded-md border border-input bg-background px-3"
             [value]="code()"
             (input)="code.set($any($event.target).value)"

@@ -6,6 +6,7 @@ import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { firstValueFrom } from 'rxjs';
+import { revealWorkspace } from '../../../../shared/utils/reveal-workspace';
 import { problemMessage } from '../../data-access/problem-details';
 import {
   InvoiceAction,
@@ -68,6 +69,7 @@ export class InvoiceBoardPage {
     this.comment.set('');
     this.error.set(null);
     this.success.set(null);
+    revealWorkspace('invoice-workspace');
     if (mode === 'PAY' && item.invoiceId) {
       this.procurement
         .invoicePayments(item.invoiceId)

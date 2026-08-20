@@ -4,6 +4,7 @@ import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { firstValueFrom } from 'rxjs';
+import { revealWorkspace } from '../../../../shared/utils/reveal-workspace';
 import { problemMessage } from '../../data-access/problem-details';
 import {
   Supplier,
@@ -56,6 +57,7 @@ export class SupplierDirectory {
   openCreate(): void {
     this.resetForm();
     this.formOpen.set(true);
+    revealWorkspace('supplier-workspace');
   }
 
   openEdit(supplier: Supplier): void {
@@ -78,6 +80,7 @@ export class SupplierDirectory {
     this.businessNote.set(supplier.businessNote ?? '');
     this.error.set(null);
     this.formOpen.set(true);
+    revealWorkspace('supplier-workspace');
   }
 
   cancelForm(): void {

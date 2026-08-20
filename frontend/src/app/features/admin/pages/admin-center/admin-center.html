@@ -118,14 +118,15 @@
           </table>
         </div>
       </section>
-      <section hlmCard>
+      <section id="user-editor-workspace" hlmCard class="scroll-mt-40" aria-labelledby="user-editor-heading">
         <div hlmCardHeader class="border-b">
-          <h2 hlmCardTitle>{{ editingUser() ? 'Cập nhật người dùng' : 'Chọn một người dùng' }}</h2>
+          <h2 id="user-editor-heading" hlmCardTitle>{{ editingUser() ? 'Cập nhật người dùng' : 'Chọn một người dùng' }}</h2>
         </div>
         <div hlmCardContent class="grid gap-4">
           @if (editingUser()) {
             <label class="grid gap-1.5 text-sm font-medium"
               >Tên hiển thị<input
+                data-autofocus
                 class="h-10 rounded-md border px-3"
                 [value]="editDisplayName()"
                 (input)="editDisplayName.set($any($event.target).value)"

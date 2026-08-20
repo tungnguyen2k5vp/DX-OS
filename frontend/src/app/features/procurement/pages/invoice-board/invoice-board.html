@@ -46,7 +46,7 @@
   }
 
   @if (selected(); as item) {
-    <section hlmCard class="mt-6" aria-labelledby="invoice-form-heading">
+    <section id="invoice-workspace" hlmCard class="mt-6 scroll-mt-40" aria-labelledby="invoice-form-heading">
       <div hlmCardHeader class="border-b">
         <h2 id="invoice-form-heading" hlmCardTitle>
           @if (mode() === 'PAY') {
@@ -63,6 +63,7 @@
         @if (mode() === 'CREATE' || mode() === 'EDIT') {
           <label class="grid gap-1.5 text-sm font-medium"
             >Số hóa đơn<input
+              data-autofocus
               class="h-10 rounded-md border border-input bg-background px-3"
               maxlength="100"
               [value]="invoiceNumber()"
@@ -107,6 +108,7 @@
         } @else if (mode() === 'PAY') {
           <label class="grid gap-1.5 text-sm font-medium"
             >Số tiền đợt này<input
+              data-autofocus
               class="h-10 rounded-md border border-input bg-background px-3"
               inputmode="decimal"
               [value]="paymentAmount()"
@@ -143,6 +145,7 @@
         } @else {
           <label class="grid gap-1.5 text-sm font-medium md:col-span-2 lg:col-span-4"
             >Lý do tranh chấp<textarea
+              data-autofocus
               class="min-h-20 rounded-md border border-input bg-background px-3 py-2"
               maxlength="2000"
               [value]="comment()"

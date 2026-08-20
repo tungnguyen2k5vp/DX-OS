@@ -39,14 +39,15 @@
   }
 
   @if (selectedSLA(); as policy) {
-    <section hlmCard class="mt-6">
+    <section id="sla-policy-workspace" hlmCard class="mt-6 scroll-mt-40" aria-labelledby="sla-policy-workspace-heading">
       <div hlmCardHeader class="border-b">
-        <h2 hlmCardTitle>Sửa thời hạn xử lý: {{ processLabel(policy.processName) }}</h2>
+        <h2 id="sla-policy-workspace-heading" hlmCardTitle>Sửa thời hạn xử lý: {{ processLabel(policy.processName) }}</h2>
         <p hlmCardDescription>Áp dụng cho các lần gửi phiếu mới sau khi lưu.</p>
       </div>
       <div hlmCardContent class="grid gap-4 sm:grid-cols-2">
         <label class="grid gap-1.5 text-sm font-medium"
           >Thời hạn xử lý (giờ)<input
+            data-autofocus
             class="h-10 rounded-md border border-input bg-background px-3"
             type="number"
             min="1"
@@ -62,14 +63,15 @@
     </section>
   }
   @if (selectedAttachment(); as policy) {
-    <section hlmCard class="mt-6">
+    <section id="attachment-policy-workspace" hlmCard class="mt-6 scroll-mt-40" aria-labelledby="attachment-policy-workspace-heading">
       <div hlmCardHeader class="border-b">
-        <h2 hlmCardTitle>Sửa quy tắc chứng từ {{ policy.currency }}</h2>
+        <h2 id="attachment-policy-workspace-heading" hlmCardTitle>Sửa quy tắc chứng từ {{ policy.currency }}</h2>
         <p hlmCardDescription>Phiếu từ ngưỡng này trở lên phải có đúng loại tài liệu.</p>
       </div>
       <div hlmCardContent class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label class="grid gap-1.5 text-sm font-medium"
           >Ngưỡng tiền<input
+            data-autofocus
             class="h-10 rounded-md border border-input bg-background px-3"
             inputmode="decimal"
             [value]="thresholdAmount()"

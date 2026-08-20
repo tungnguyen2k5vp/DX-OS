@@ -4,6 +4,7 @@ import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { firstValueFrom } from 'rxjs';
+import { revealWorkspace } from '../../../../shared/utils/reveal-workspace';
 import { problemMessage } from '../../data-access/problem-details';
 import {
   AttachmentDocumentType,
@@ -43,6 +44,7 @@ export class PolicyCenterPage {
     this.selectedSLA.set(policy);
     this.targetHours.set(policy.targetHours);
     this.clearMessages();
+    revealWorkspace('sla-policy-workspace');
   }
 
   editAttachment(policy: AttachmentPolicy): void {
@@ -51,6 +53,7 @@ export class PolicyCenterPage {
     this.thresholdAmount.set(policy.thresholdAmount);
     this.documentType.set(policy.requiredDocumentType);
     this.clearMessages();
+    revealWorkspace('attachment-policy-workspace');
   }
 
   cancel(): void {

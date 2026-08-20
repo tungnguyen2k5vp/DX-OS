@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$SkipMetabase
 )
@@ -105,14 +105,14 @@ try {
     $fixture = Invoke-DxApi -Method POST -Path "/api/v1/purchase-requests" `
         -Token $tokens["employee"] `
         -Body @{
-            title      = "Reporting reconciliation $([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
-            reason     = "Create a deterministic record for the reporting reconciliation smoke test."
+            title      = "[KIỂM THỬ TỰ ĐỘNG] Đối soát báo cáo $([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
+            reason     = "Tạo bản ghi xác định để kiểm tra tính nhất quán của số liệu báo cáo."
             currency   = "VND"
             costCenter = "CC-GENERAL"
             items      = @(@{
-                description = "Reporting verification fixture"
+                description = "Hạng mục kiểm tra số liệu báo cáo"
                 quantity    = "1"
-                unit        = "unit"
+                unit        = "hạng mục"
                 unitPrice   = "1000"
             })
         }

@@ -6,6 +6,7 @@ import { HlmCardImports } from '@spartan-ng/helm/card';
 import { problemMessage } from '../../../procurement/data-access/problem-details';
 import { AdminCenterModel, AdminDepartment, AdminUser } from '../../data-access/admin.models';
 import { AdminService } from '../../data-access/admin.service';
+import { revealWorkspace } from '../../../../shared/utils/reveal-workspace';
 
 @Component({
   selector: 'app-admin-center',
@@ -41,6 +42,7 @@ export class AdminCenterPage {
     this.editEmail.set(item.email);
     this.editDepartmentId.set(item.departmentId);
     this.editActive.set(item.active);
+    revealWorkspace('user-editor-workspace');
   }
 
   saveUser(): void {

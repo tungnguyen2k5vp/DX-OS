@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 Set-StrictMode -Version Latest
@@ -83,14 +83,14 @@ try {
     $draft = Invoke-DxApi -Method POST -Path "/api/v1/purchase-requests" `
         -Token $employeeToken `
         -Body @{
-            title      = "Attachment smoke test $([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
-            reason     = "Verify quotation policy, WebDAV content integrity, scope and lifecycle."
+            title      = "[KIỂM THỬ TỰ ĐỘNG] Chính sách tệp đính kèm $([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
+            reason     = "Kiểm tra quy định báo giá, tính toàn vẹn tệp, phạm vi truy cập và vòng đời tài liệu."
             currency   = "VND"
             costCenter = "CC-GENERAL"
             items      = @(@{
-                description = "Attachment policy test item"
+                description = "Thiết bị kiểm tra chính sách tệp đính kèm"
                 quantity    = "1"
-                unit        = "unit"
+                unit        = "chiếc"
                 unitPrice   = "25000000"
             })
         }

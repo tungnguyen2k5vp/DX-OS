@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$CredentialsPath = "data\runtime\dev-user.txt",
     [string]$ExpectedRole = "employee",
@@ -279,15 +279,15 @@ try {
 
     if ($TestProcurement) {
         $purchaseRequestJson = @{
-            title      = "Procurement smoke test $([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
-            reason     = "End-to-end verification of the Procurement MVP create endpoint."
+            title      = "[KIỂM THỬ TỰ ĐỘNG] Phiếu đăng nhập OIDC $([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+            reason     = "Kiểm tra toàn trình đăng nhập và tạo phiếu mua sắm qua API."
             currency   = "VND"
             costCenter = "CC-GENERAL"
             items      = @(
                 @{
-                    description = "Development workstation"
+                    description = "Máy trạm phục vụ nhóm phát triển"
                     quantity    = "2"
-                    unit        = "unit"
+                    unit        = "chiếc"
                     unitPrice   = "25000000"
                 }
             )

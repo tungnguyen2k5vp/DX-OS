@@ -52,9 +52,9 @@
   }
 
   @if (selected(); as request) {
-    <section hlmCard class="mt-6">
+    <section id="order-workspace" hlmCard class="mt-6 scroll-mt-40" aria-labelledby="order-workspace-heading">
       <div hlmCardHeader class="border-b">
-        <h2 hlmCardTitle>Tạo đơn hàng cho {{ request.requestCode }}</h2>
+        <h2 id="order-workspace-heading" hlmCardTitle>Tạo đơn hàng cho {{ request.requestCode }}</h2>
         <p hlmCardDescription>
           {{ request.requestTitle }} · {{ request.totalAmount | dxMoney: request.currency }}
         </p>
@@ -63,6 +63,7 @@
         <label class="grid gap-1.5 text-sm font-medium lg:col-span-2"
           >Nhà cung cấp
           <select
+            data-autofocus
             class="h-10 rounded-md border border-input bg-background px-3"
             [value]="supplierId()"
             (change)="supplierId.set($any($event.target).value)"
@@ -112,7 +113,7 @@
   }
 
   @if (receiptOrder(); as order) {
-    <section hlmCard class="mt-6" aria-labelledby="receipt-form-heading">
+    <section id="receipt-workspace" hlmCard class="mt-6 scroll-mt-40" aria-labelledby="receipt-form-heading">
       <div hlmCardHeader class="border-b">
         <h2 hlmCardTitle id="receipt-form-heading">Biên bản giao nhận {{ order.orderCode }}</h2>
         <p hlmCardDescription>
@@ -124,6 +125,7 @@
           <label class="grid gap-1.5 text-sm font-medium">
             Kết quả giao nhận
             <select
+              data-autofocus
               class="h-10 rounded-md border border-input bg-background px-3"
               [value]="receiptOutcome()"
               (change)="changeReceiptOutcome($any($event.target).value)"
@@ -237,7 +239,7 @@
   }
 
   @if (managingOrder(); as order) {
-    <section hlmCard class="mt-6" aria-labelledby="manage-order-heading">
+    <section id="manage-order-workspace" hlmCard class="mt-6 scroll-mt-40" aria-labelledby="manage-order-heading">
       <div hlmCardHeader class="border-b">
         <h2 hlmCardTitle id="manage-order-heading">Quản lý đơn {{ order.orderCode }}</h2>
         <p hlmCardDescription>
@@ -248,6 +250,7 @@
         <label class="grid gap-1.5 text-sm font-medium xl:col-span-2">
           Nhà cung cấp
           <select
+            data-autofocus
             class="h-10 rounded-md border border-input bg-background px-3"
             [value]="manageSupplierId()"
             (change)="manageSupplierId.set($any($event.target).value)"

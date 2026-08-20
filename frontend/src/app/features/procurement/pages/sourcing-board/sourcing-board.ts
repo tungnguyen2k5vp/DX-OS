@@ -1,10 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { firstValueFrom, forkJoin } from 'rxjs';
+import { revealWorkspace } from '../../../../shared/utils/reveal-workspace';
 import { problemMessage } from '../../data-access/problem-details';
 import { SourcingBoard, SourcingCase, Supplier } from '../../data-access/procurement.models';
 import { ProcurementService } from '../../data-access/procurement.service';
@@ -12,7 +14,7 @@ import { MoneyPipe } from '../../ui/money.pipe';
 
 @Component({
   selector: 'app-sourcing-board',
-  imports: [DatePipe, HlmBadge, HlmButton, ...HlmCardImports, MoneyPipe],
+  imports: [DatePipe, RouterLink, HlmBadge, HlmButton, ...HlmCardImports, MoneyPipe],
   templateUrl: './sourcing-board.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -35,6 +37,9 @@ export class SourcingBoardPage {
   readonly warrantyMonths = signal(12);
   readonly paymentTerms = signal('Thanh toán trong 30 ngày sau khi nghiệm thu');
   readonly note = signal('');
+  readonly selectedSupplier = computed(
+    () => this.suppliers().find((supplier) => supplier.id === this.supplierId()) ?? null,
+  );
 
   constructor() {
     this.load();
@@ -45,7 +50,7 @@ export class SourcingBoardPage {
     this.amount.set(item.requestAmount);
     this.quoteReference.set(`BG-${item.requestCode}`);
     this.error.set(null);
-    queueMicrotask(() => document.getElementById('quote-workspace')?.scrollIntoView({ behavior: 'smooth' }));
+    revealWorkspace('quote-workspace');
   }
 
   async addQuote(): Promise<void> {
@@ -106,6 +111,23 @@ export class SourcingBoardPage {
 
   score(value: number): string {
     return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(value)}/100`;
+  }
+
+  orderDraftParams(item: SourcingCase, quote: SourcingCase['quotes'][number]): Record<string, string> {
+    const noteParts = [
+      `Tạo từ báo giá ${quote.quoteReference}.`,
+      `Bảo hành ${quote.warrantyMonths} tháng.`,
+      quote.paymentTerms,
+      quote.note?.trim(),
+    ].filter(Boolean);
+
+    return {
+      draftRequestId: item.purchaseRequestId,
+      draftSupplierId: quote.supplierId,
+      draftReference: quote.quoteReference,
+      draftDeliveryOn: quote.deliveryOn,
+      draftNote: noteParts.join(' '),
+    };
   }
 
   private load(reopenRequestId?: string): void {

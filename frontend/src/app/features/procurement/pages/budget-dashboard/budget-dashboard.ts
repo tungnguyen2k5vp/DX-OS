@@ -8,6 +8,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { firstValueFrom } from 'rxjs';
 import { CsvValue, downloadCsv } from '../../../../shared/utils/csv-export';
+import { revealWorkspace } from '../../../../shared/utils/reveal-workspace';
 import { problemMessage } from '../../data-access/problem-details';
 import { BudgetAllocation, BudgetDashboard } from '../../data-access/procurement.models';
 import { ProcurementService } from '../../data-access/procurement.service';
@@ -152,6 +153,7 @@ export class BudgetDashboardPage {
     });
     this.saveError.set(null);
     this.success.set(null);
+    revealWorkspace('budget-adjustment-workspace');
   }
 
   cancelAdjustment(): void {

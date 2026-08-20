@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 Set-StrictMode -Version Latest
@@ -121,6 +121,8 @@ function Add-TestQuotation {
 New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
 
 Push-Location $repositoryRoot
+$supplier = $null
+$financeToken = $null
 try {
     & "$PSScriptRoot\Initialize-DevUser.ps1" `
         -Username "workflow.employee" `
@@ -249,15 +251,15 @@ try {
     $committedBefore = [decimal]$budgetBefore.committedAmount
 
     $draftBody = @{
-        title      = "Workflow smoke test $([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
-        reason     = "End-to-end verification of update and two-stage approval."
+        title      = "[KIỂM THỬ TỰ ĐỘNG] Luồng mua sắm $([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+        reason     = "Kiểm tra tự động luồng cập nhật và phê duyệt hai cấp."
         currency   = "VND"
         costCenter = "CC-GENERAL"
         items      = @(
             @{
-                description = "Development workstation"
+                description = "Máy trạm phục vụ nhóm phát triển"
                 quantity    = "1"
-                unit        = "unit"
+                unit        = "chiếc"
                 unitPrice   = "25000000"
             }
         )
@@ -269,15 +271,15 @@ try {
 
     $updateBody = @{
         title           = $draftBody.title
-        reason          = "Updated end-to-end verification before submitting for approval."
+        reason          = "Hồ sơ kiểm thử tự động đã cập nhật trước khi trình phê duyệt."
         currency        = "VND"
         costCenter      = "CC-GENERAL"
         expectedVersion = 1
         items           = @(
             @{
-                description = "Development workstation"
+                description = "Máy trạm phục vụ nhóm phát triển"
                 quantity    = "1"
-                unit        = "unit"
+                unit        = "chiếc"
                 unitPrice   = "27000000"
             }
         )
@@ -343,8 +345,8 @@ try {
     $createdComment = Invoke-DxApi -Method POST `
         -Path "/api/v1/purchase-requests/$($draft.id)/comments" `
         -Token $employeeToken `
-        -Body @{ body = "Please confirm the delivery date before approval." }
-    Assert-Equal $createdComment.body "Please confirm the delivery date before approval." `
+        -Body @{ body = "Vui lòng xác nhận ngày giao dự kiến trước khi phê duyệt." }
+    Assert-Equal $createdComment.body "Vui lòng xác nhận ngày giao dự kiến trước khi phê duyệt." `
         "Independent comment must preserve its normalized body."
 
     $managerComments = Invoke-DxApi -Method GET `
@@ -372,7 +374,7 @@ try {
         -Path "/api/v1/purchase-requests/$($draft.id)/transitions" `
         -Token $managerToken `
         -IdempotencyKey "manager-$([Guid]::NewGuid().ToString('N'))" `
-        -Body @{ action = "APPROVE"; expectedVersion = 3; comment = "Department approval." }
+        -Body @{ action = "APPROVE"; expectedVersion = 3; comment = "Trưởng bộ phận đã phê duyệt nhu cầu." }
     Assert-Equal $managerApproved.status "MANAGER_APPROVED" "Manager approval must enter finance review."
     Assert-Equal ([int64]$managerApproved.version) 4 "Manager approval must increment the version."
 
@@ -395,7 +397,7 @@ try {
         -Path "/api/v1/purchase-requests/$($draft.id)/transitions" `
         -Token $financeToken `
         -IdempotencyKey "finance-$([Guid]::NewGuid().ToString('N'))" `
-        -Body @{ action = "APPROVE"; expectedVersion = 4; comment = "Budget approved." }
+        -Body @{ action = "APPROVE"; expectedVersion = 4; comment = "Bộ phận tài chính đã xác nhận ngân sách." }
     Assert-Equal $approved.status "APPROVED" "Finance approval must complete the workflow."
     Assert-Equal ([int64]$approved.version) 5 "Finance approval must increment the version."
 
@@ -434,8 +436,8 @@ try {
     }
     $managerEvent = @($timeline.items | Where-Object { $_.eventType -eq "MANAGER_APPROVED" })[0]
     $financeEvent = @($timeline.items | Where-Object { $_.eventType -eq "FINANCE_APPROVED" })[0]
-    Assert-Equal $managerEvent.comment "Department approval." "Timeline must expose the manager comment."
-    Assert-Equal $financeEvent.comment "Budget approved." "Timeline must expose the finance comment."
+    Assert-Equal $managerEvent.comment "Trưởng bộ phận đã phê duyệt nhu cầu." "Timeline must expose the manager comment."
+    Assert-Equal $financeEvent.comment "Bộ phận tài chính đã xác nhận ngân sách." "Timeline must expose the finance comment."
     foreach ($event in @($timeline.items)) {
         if (
             "metadata" -in $event.PSObject.Properties.Name -or
@@ -451,9 +453,9 @@ try {
         -Token $financeToken `
         -Body @{
             code        = "WF-$supplierSuffix"
-            name        = "Workflow Supplier $supplierSuffix"
+            name        = "[KIỂM THỬ TỰ ĐỘNG] Nhà cung cấp tạm $supplierSuffix"
             taxCode     = "TAX-$supplierSuffix"
-            contactName = "Nguyen Test"
+            contactName = "Tài khoản kiểm thử"
             email       = "workflow-$supplierSuffix@example.test"
             phone       = "0900000000"
             status      = "ACTIVE"
@@ -484,7 +486,7 @@ try {
             supplierId         = $supplier.id
             externalReference  = "DEMO-$supplierSuffix"
             expectedDeliveryOn = [DateTime]::UtcNow.Date.AddDays(1).ToString("yyyy-MM-dd")
-            note               = "Order created by the end-to-end smoke test."
+            note               = "Đơn hàng do kiểm thử tự động tạo; nhà cung cấp sẽ được lưu trữ sau khi hoàn tất."
         }
     Assert-Equal $order.status "ORDERED" "Finance order placement must enter ORDERED status."
     Assert-Equal ([int64]$order.version) 1 "A new order must start at version 1."
@@ -500,7 +502,7 @@ try {
             dueOn           = [DateTime]::UtcNow.Date.AddDays(15).ToString("yyyy-MM-dd")
             amount          = $order.totalAmount
             currency        = $order.currency
-            note            = "Invoice created before receipt to verify three-way matching."
+            note            = "Hóa đơn kiểm thử được ghi nhận trước khi nhận hàng để kiểm tra đối chiếu ba bên."
         }
     Assert-Equal $invoice.invoiceStatus "RECORDED" "A new invoice must be recorded."
     Assert-Equal $invoice.matchStatus "WAITING_RECEIPT" "An invoice must wait for a goods receipt."
@@ -674,15 +676,15 @@ try {
     $releaseDraft = Invoke-DxApi -Method POST -Path "/api/v1/purchase-requests" `
         -Token $employeeToken `
         -Body @{
-            title      = "Budget release smoke test $([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
-            reason     = "Verify that requesting changes releases the active budget reservation."
+            title      = "[KIỂM THỬ TỰ ĐỘNG] Kiểm tra hoàn ngân sách $([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
+            reason     = "Kiểm tra việc hoàn lại khoản ngân sách đang giữ khi phiếu bị yêu cầu chỉnh sửa."
             currency   = "VND"
             costCenter = "CC-GENERAL"
             items      = @(
                 @{
-                    description = "Release test item"
+                    description = "Thiết bị kiểm tra hoàn ngân sách"
                     quantity    = "1"
-                    unit        = "unit"
+                    unit        = "chiếc"
                     unitPrice   = "1000000"
                 }
             )
@@ -708,7 +710,7 @@ try {
         -Body @{
             action          = "REQUEST_CHANGES"
             expectedVersion = $releaseApproved.version
-            comment         = "Adjust the specification."
+            comment         = "Cần điều chỉnh thông số kỹ thuật và làm rõ nhu cầu."
         }
     Assert-Equal $releasedRequest.status "CHANGES_REQUESTED" "Finance must return the request for changes."
     $releasedCheck = Invoke-DxApi -Method GET `
@@ -731,15 +733,15 @@ try {
     $insufficientDraft = Invoke-DxApi -Method POST -Path "/api/v1/purchase-requests" `
         -Token $employeeToken `
         -Body @{
-            title      = "Insufficient budget smoke test $([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
-            reason     = "Verify that a manager cannot approve beyond the available allocation."
+            title      = "[KIỂM THỬ TỰ ĐỘNG] Kiểm tra vượt hạn mức $([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
+            reason     = "Kiểm tra việc ngăn phê duyệt khi giá trị phiếu vượt ngân sách khả dụng."
             currency   = "VND"
             costCenter = "CC-GENERAL"
             items      = @(
                 @{
-                    description = "Over-budget test item"
+                    description = "Thiết bị kiểm tra vượt hạn mức"
                     quantity    = "1"
-                    unit        = "unit"
+                    unit        = "chiếc"
                     unitPrice   = $insufficientAmountText
                 }
             )
@@ -776,7 +778,7 @@ try {
         -Body @{
             action          = "REJECT"
             expectedVersion = $insufficientSubmitted.version
-            comment         = "Insufficient budget test cleanup."
+            comment         = "Dừng xử lý do ngân sách khả dụng chưa đáp ứng."
         }
 
     try {
@@ -794,6 +796,35 @@ try {
     Write-Host "Work center, notifications/outbox, comments, SLA/policy administration, rate-safe RBAC, budget, suppliers, orders, receipt, invoice matching/payment, audit, timeline, and scope checks passed."
 }
 finally {
+    if ($null -ne $supplier -and -not [string]::IsNullOrWhiteSpace($financeToken)) {
+        try {
+            $null = Invoke-DxApi -Method PATCH `
+                -Path "/api/v1/suppliers/$($supplier.id)" `
+                -Token $financeToken `
+                -Body @{
+                    code                = $supplier.code
+                    name                = "[KIỂM THỬ TỰ ĐỘNG] Nhà cung cấp đã lưu trữ"
+                    taxCode             = $supplier.taxCode
+                    contactName         = $supplier.contactName
+                    email               = $supplier.email
+                    phone               = $supplier.phone
+                    address             = $supplier.address
+                    bankName            = $supplier.bankName
+                    bankAccountNumber   = $supplier.bankAccountNumber
+                    contractReference   = $supplier.contractReference
+                    contractExpiresOn   = $supplier.contractExpiresOn
+                    complianceStatus    = $supplier.complianceStatus
+                    performanceScore    = $supplier.performanceScore
+                    businessNote        = "Bản ghi tạm của kiểm thử tự động; được lưu trữ để không xuất hiện trong danh sách nghiệp vụ."
+                    status              = "INACTIVE"
+                    riskLevel           = $supplier.riskLevel
+                    expectedVersion     = $supplier.version
+                }
+        }
+        catch {
+            Write-Warning "Không thể lưu trữ nhà cung cấp kiểm thử tự động: $($_.Exception.Message)"
+        }
+    }
     $employeeToken = $null
     $managerToken = $null
     $financeToken = $null
