@@ -728,6 +728,8 @@ func (a *api) writeProcurementError(w http.ResponseWriter, r *http.Request, err 
 		writeProblem(w, r, http.StatusConflict, "purchase-order-conflict", "Xung đột đơn hàng", "Phiếu đã có đơn hàng hoặc Idempotency-Key đã được dùng ở nơi khác.")
 	case errors.Is(err, procurement.ErrInvalidFulfillment):
 		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-fulfillment-operation", "Thao tác giao nhận không hợp lệ", "Nhà cung cấp, trạng thái phiếu hoặc trạng thái giao hàng không cho phép thao tác này.")
+	case errors.Is(err, procurement.ErrSourcingAwardRequired):
+		writeProblem(w, r, http.StatusUnprocessableEntity, "sourcing-award-required", "Cần hoàn tất so sánh báo giá", "Phiếu từ 50 triệu VND phải chọn báo giá và nhà cung cấp trước khi phát hành đơn hàng.")
 	case errors.Is(err, procurement.ErrInvoiceNotFound):
 		writeProblem(w, r, http.StatusNotFound, "invoice-not-found", "Không tìm thấy hóa đơn", "Hóa đơn không tồn tại hoặc nằm ngoài phạm vi tổ chức.")
 	case errors.Is(err, procurement.ErrInvoiceConflict):
@@ -758,6 +760,24 @@ func (a *api) writeProcurementError(w http.ResponseWriter, r *http.Request, err 
 		writeProblem(w, r, http.StatusNotFound, "ai-recommendation-not-found", "Không tìm thấy khuyến nghị", "Khuyến nghị không tồn tại hoặc nằm ngoài phạm vi tổ chức.")
 	case errors.Is(err, procurement.ErrAIRecommendationVersion):
 		writeProblem(w, r, http.StatusConflict, "ai-recommendation-version-conflict", "Khuyến nghị đã thay đổi", "Hãy tải lại trung tâm khuyến nghị trước khi ra quyết định.")
+	case errors.Is(err, procurement.ErrApprovalRuleNotFound):
+		writeProblem(w, r, http.StatusNotFound, "approval-rule-not-found", "Không tìm thấy quy tắc phê duyệt", "Quy tắc không tồn tại trong tổ chức hiện tại.")
+	case errors.Is(err, procurement.ErrApprovalRuleVersion):
+		writeProblem(w, r, http.StatusConflict, "approval-rule-version-conflict", "Quy tắc phê duyệt đã thay đổi", "Hãy tải lại dữ liệu trước khi cập nhật.")
+	case errors.Is(err, procurement.ErrDelegationNotFound):
+		writeProblem(w, r, http.StatusNotFound, "delegation-not-found", "Không tìm thấy ủy quyền", "Ủy quyền không tồn tại hoặc nằm ngoài phạm vi tổ chức.")
+	case errors.Is(err, procurement.ErrDelegationConflict):
+		writeProblem(w, r, http.StatusConflict, "delegation-conflict", "Ủy quyền không hợp lệ", "Không thể ủy quyền cho chính mình hoặc cho tài khoản không hợp lệ.")
+	case errors.Is(err, procurement.ErrDelegationVersion):
+		writeProblem(w, r, http.StatusConflict, "delegation-version-conflict", "Ủy quyền đã thay đổi", "Hãy tải lại danh sách ủy quyền trước khi cập nhật.")
+	case errors.Is(err, procurement.ErrSourcingCaseNotFound):
+		writeProblem(w, r, http.StatusNotFound, "sourcing-case-not-found", "Không tìm thấy hồ sơ báo giá", "Phiếu chưa có hồ sơ lựa chọn nhà cung cấp.")
+	case errors.Is(err, procurement.ErrSupplierQuoteNotFound):
+		writeProblem(w, r, http.StatusNotFound, "supplier-quote-not-found", "Không tìm thấy báo giá", "Báo giá không tồn tại hoặc nằm ngoài phạm vi tổ chức.")
+	case errors.Is(err, procurement.ErrSupplierQuoteVersion):
+		writeProblem(w, r, http.StatusConflict, "supplier-quote-version-conflict", "Báo giá đã thay đổi", "Hãy tải lại bảng so sánh trước khi thao tác.")
+	case errors.Is(err, procurement.ErrInvalidSourcingAction):
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-sourcing-action", "Thao tác báo giá không hợp lệ", "Trạng thái phiếu, hồ sơ báo giá hoặc nhà cung cấp không cho phép thao tác này.")
 	case errors.Is(err, procurement.ErrInvalidAIAction):
 		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-ai-recommendation-action", "Thao tác khuyến nghị không hợp lệ", "Chỉ khuyến nghị đang chờ mới có thể được ra quyết định.")
 	default:

@@ -562,6 +562,176 @@ export interface AddPurchaseRequestComment {
   body: string;
 }
 
+export interface ProcurementCatalogItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  unit: string;
+  referenceUnitPrice: string;
+  currency: string;
+}
+
+export interface ProcurementCatalog {
+  items: ProcurementCatalogItem[];
+  total: number;
+}
+
+export interface DuplicateRequestCandidate {
+  purchaseRequestId: string;
+  requestCode: string;
+  title: string;
+  status: PurchaseRequestStatus;
+  totalAmount: string;
+  currency: string;
+  similarity: number;
+  reason: string;
+}
+
+export interface DuplicateRequestCheck {
+  potentialDuplicate: boolean;
+  items: DuplicateRequestCandidate[];
+}
+
+export interface DuplicateRequestInput {
+  title: string;
+  costCenter: string;
+  totalAmount: string;
+  excludeRequestId?: string;
+}
+
+export interface ApprovalRule {
+  id: string;
+  departmentId?: string;
+  departmentName?: string;
+  name: string;
+  currency: string;
+  minimumAmount: string;
+  maximumAmount?: string;
+  requiresManager: boolean;
+  requiresFinance: boolean;
+  priority: number;
+  active: boolean;
+  version: number;
+}
+
+export interface ApprovalRuleInput {
+  departmentId: string;
+  name: string;
+  currency: string;
+  minimumAmount: string;
+  maximumAmount: string;
+  requiresManager: boolean;
+  requiresFinance: boolean;
+  priority: number;
+  active: boolean;
+  expectedVersion: number;
+}
+
+export interface ApprovalDelegation {
+  id: string;
+  departmentId: string;
+  departmentName: string;
+  delegatorUserId: string;
+  delegatorName: string;
+  delegateUserId: string;
+  delegateName: string;
+  delegateRoles: string[];
+  startsOn: string;
+  endsOn: string;
+  reason: string;
+  active: boolean;
+  currentlyEffective: boolean;
+  version: number;
+}
+
+export interface ApprovalDelegateCandidate {
+  id: string;
+  username: string;
+  displayName: string;
+  departmentName: string;
+  roles: string[];
+}
+
+export interface ApprovalGovernance {
+  rules: ApprovalRule[];
+  delegations: ApprovalDelegation[];
+  delegateCandidates: ApprovalDelegateCandidate[];
+  canManageRules: boolean;
+  canDelegate: boolean;
+}
+
+export interface CreateApprovalDelegation {
+  delegateUserId: string;
+  startsOn: string;
+  endsOn: string;
+  reason: string;
+}
+
+export interface SupplierQuote {
+  id: string;
+  sourcingCaseId: string;
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  quoteReference: string;
+  amount: string;
+  currency: string;
+  deliveryOn: string;
+  warrantyMonths: number;
+  paymentTerms: string;
+  note?: string;
+  status: 'SUBMITTED' | 'SELECTED' | 'REJECTED';
+  priceScore: number;
+  deliveryScore: number;
+  qualityScore: number;
+  complianceScore: number;
+  totalScore: number;
+  recommendation: string;
+  version: number;
+}
+
+export interface SourcingCase {
+  id?: string;
+  purchaseRequestId: string;
+  requestCode: string;
+  requestTitle: string;
+  departmentName: string;
+  requesterName: string;
+  requestAmount: string;
+  currency: string;
+  status: 'NOT_STARTED' | 'OPEN' | 'AWARDED';
+  selectedQuoteId?: string;
+  quotes: SupplierQuote[];
+  recommendedQuoteId?: string;
+  potentialSavings: string;
+  canManage: boolean;
+  version: number;
+}
+
+export interface SourcingBoard {
+  items: SourcingCase[];
+  total: number;
+  awaitingQuotes: number;
+  inComparison: number;
+  awarded: number;
+  canManage: boolean;
+}
+
+export interface SupplierQuoteInput {
+  purchaseRequestId: string;
+  supplierId: string;
+  quoteReference: string;
+  amount: string;
+  currency: string;
+  deliveryOn: string;
+  warrantyMonths: number;
+  paymentTerms: string;
+  note: string;
+  expectedVersion?: number;
+}
+
 export interface ProblemFieldViolation {
   field: string;
   message: string;

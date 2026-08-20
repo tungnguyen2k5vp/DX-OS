@@ -157,11 +157,29 @@
         </div>
       </section>
 
+      @if (!editing && catalog().length > 0) {
+        <section hlmCard>
+          <div hlmCardHeader class="border-b">
+            <h2 hlmCardTitle>Chọn nhanh từ danh mục</h2>
+            <p hlmCardDescription>Giá tham khảo giúp nhập phiếu nhanh hơn; bạn vẫn có thể sửa đơn giá theo báo giá thực tế.</p>
+          </div>
+          <div hlmCardContent class="grid gap-3 sm:grid-cols-2">
+            @for (catalogItem of catalog(); track catalogItem.id) {
+              <button type="button" class="rounded-xl border border-border p-4 text-left transition hover:border-primary hover:bg-primary/5" (click)="addCatalogItem(catalogItem)">
+                <span class="text-xs font-semibold uppercase tracking-wide text-primary">{{ catalogItem.category }} · {{ catalogItem.code }}</span>
+                <strong class="mt-1 block">{{ catalogItem.name }}</strong>
+                <span class="mt-2 block text-sm text-muted-foreground">{{ catalogItem.referenceUnitPrice | dxMoney: catalogItem.currency }} / {{ catalogItem.unit }}</span>
+              </button>
+            }
+          </div>
+        </section>
+      }
+
       <section hlmCard>
         <div hlmCardHeader class="border-b sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 hlmCardTitle>Danh mục hàng hóa</h2>
-            <p hlmCardDescription>Tổng chính thức sẽ được Go API tính lại phía server.</p>
+            <p hlmCardDescription>Tổng chính thức sẽ được hệ thống tính lại trước khi lưu.</p>
             @if (serverErrors()['items']; as message) {
               <p class="mt-2 text-xs text-destructive">{{ message }}</p>
             }
@@ -325,6 +343,27 @@
               </dd>
             </div>
           </dl>
+          <button class="mt-5 w-full" hlmBtn type="button" variant="outline" [disabled]="checkingDuplicate() || form.controls.title.invalid" (click)="checkForDuplicates()">
+            {{ checkingDuplicate() ? 'Đang kiểm tra…' : 'Kiểm tra phiếu trùng' }}
+          </button>
+          @if (duplicateCheck(); as duplicate) {
+            @if (duplicate.potentialDuplicate) {
+              <div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                <strong>Có {{ duplicate.items.length }} phiếu tương tự</strong>
+                <div class="mt-3 grid gap-2">
+                  @for (candidate of duplicate.items; track candidate.purchaseRequestId) {
+                    <a class="rounded-lg bg-white/80 p-3 hover:underline" target="_blank" [routerLink]="['/purchase-requests', candidate.purchaseRequestId]">
+                      <span class="block font-mono text-xs">{{ candidate.requestCode }}</span>
+                      <span class="line-clamp-2 font-medium">{{ candidate.title }}</span>
+                    </a>
+                  }
+                </div>
+                <label class="mt-3 flex items-start gap-2"><input type="checkbox" [checked]="duplicateAcknowledged()" (change)="duplicateAcknowledged.set($any($event.target).checked)" /> <span>Tôi đã kiểm tra và xác nhận đây là nhu cầu khác.</span></label>
+              </div>
+            } @else {
+              <p class="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">Không phát hiện phiếu tương tự gần đây.</p>
+            }
+          }
         </div>
         <div hlmCardFooter class="grid gap-2 border-t">
           <button

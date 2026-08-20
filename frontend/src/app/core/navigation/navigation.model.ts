@@ -69,6 +69,13 @@ const navigationGroups: readonly NavigationGroup[] = [
         'approval',
         ['department_manager', 'finance'],
       ),
+      item(
+        'Ủy quyền và quy tắc',
+        'Quy tắc',
+        '/approval-governance',
+        'approval',
+        ['department_manager', 'finance', 'auditor', 'dx_admin'],
+      ),
       item('Thông báo', 'Thông báo', '/notifications', 'notifications', [], true),
     ],
   },
@@ -78,6 +85,7 @@ const navigationGroups: readonly NavigationGroup[] = [
       item('Phiếu mua sắm', 'Mua sắm', '/purchase-requests', 'requests', procurementRoles),
       item('Đặt hàng & giao nhận', 'Giao nhận', '/operations', 'operations', procurementRoles),
       item('Nhà cung cấp', 'Nhà cung cấp', '/suppliers', 'suppliers', ['finance', 'auditor']),
+      item('So sánh báo giá', 'Báo giá', '/sourcing', 'suppliers', ['finance', 'auditor', 'dx_admin']),
     ],
   },
   {

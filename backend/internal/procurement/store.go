@@ -159,7 +159,13 @@ func (s *Store) List(
 	case ScopeOwn:
 		conditions = append(conditions, "pr.requester_id = "+addArgument(user.ID))
 	case ScopeDepartment:
-		conditions = append(conditions, "pr.department_id = "+addArgument(user.DepartmentID))
+		userPlaceholder := addArgument(user.ID)
+		departmentPlaceholder := addArgument(user.DepartmentID)
+		conditions = append(conditions, "(pr.department_id = "+departmentPlaceholder+` OR EXISTS (
+			SELECT 1 FROM approval_delegations ad
+			WHERE ad.delegate_user_id=`+userPlaceholder+` AND ad.department_id=pr.department_id
+			  AND ad.active AND CURRENT_DATE BETWEEN ad.starts_on AND ad.ends_on
+		))`)
 	case ScopeFinance:
 		conditions = append(conditions, "d.organization_id = "+addArgument(user.OrganizationID))
 		conditions = append(conditions, "pr.status IN ('MANAGER_APPROVED', 'APPROVED', 'REJECTED')")
@@ -311,7 +317,13 @@ func (s *Store) Get(
 		}
 	case ScopeDepartment:
 		if request.DepartmentID != user.DepartmentID {
-			return PurchaseRequest{}, ErrNotFound
+			var delegated bool
+			err = s.database.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM approval_delegations
+				WHERE delegate_user_id=$1 AND department_id=$2 AND organization_id=$3 AND active
+				  AND CURRENT_DATE BETWEEN starts_on AND ends_on)`, user.ID, request.DepartmentID, user.OrganizationID).Scan(&delegated)
+			if err != nil || !delegated {
+				return PurchaseRequest{}, ErrNotFound
+			}
 		}
 	case ScopeFinance:
 		if request.Status != StatusManagerApproved &&
@@ -502,7 +514,13 @@ func (s *Store) AddComment(
 		return Comment{}, err
 	}
 	if !canAccessLockedRequest(scope, user, current) {
-		return Comment{}, ErrNotFound
+		delegated := false
+		if scope == ScopeDepartment {
+			delegated, err = hasActiveApprovalDelegation(ctx, tx, user.ID, current.DepartmentID, current.OrganizationID)
+		}
+		if err != nil || !delegated {
+			return Comment{}, ErrNotFound
+		}
 	}
 
 	comment := Comment{
@@ -571,7 +589,11 @@ func (s *Store) TaskSummary(
 				CASE
 					WHEN $2::boolean AND pr.requester_id = $1
 						AND pr.status IN ('DRAFT', 'CHANGES_REQUESTED') THEN 'COMPLETE_REQUEST'
-					WHEN $3::boolean AND pr.department_id = $5
+					WHEN $3::boolean AND (pr.department_id = $5 OR EXISTS (
+						SELECT 1 FROM approval_delegations ad
+						WHERE ad.delegate_user_id=$1 AND ad.department_id=pr.department_id AND ad.active
+						  AND CURRENT_DATE BETWEEN ad.starts_on AND ad.ends_on
+					))
 						AND pr.requester_id <> $1 AND pr.status = 'SUBMITTED' THEN 'MANAGER_REVIEW'
 					WHEN $4::boolean AND d.organization_id = $6
 						AND pr.requester_id <> $1 AND pr.status = 'MANAGER_APPROVED' THEN 'FINANCE_REVIEW'
@@ -596,7 +618,11 @@ func (s *Store) TaskSummary(
 			   AND sp.active
 			WHERE
 				($2::boolean AND pr.requester_id = $1 AND pr.status IN ('DRAFT', 'CHANGES_REQUESTED'))
-				OR ($3::boolean AND pr.department_id = $5 AND pr.requester_id <> $1 AND pr.status = 'SUBMITTED')
+				OR ($3::boolean AND (pr.department_id = $5 OR EXISTS (
+					SELECT 1 FROM approval_delegations ad
+					WHERE ad.delegate_user_id=$1 AND ad.department_id=pr.department_id AND ad.active
+					  AND CURRENT_DATE BETWEEN ad.starts_on AND ad.ends_on
+				)) AND pr.requester_id <> $1 AND pr.status = 'SUBMITTED')
 				OR ($4::boolean AND d.organization_id = $6 AND pr.requester_id <> $1 AND pr.status = 'MANAGER_APPROVED')
 				OR ($7::boolean AND d.organization_id = $6
 					AND pr.status IN ('SUBMITTED', 'MANAGER_APPROVED', 'CHANGES_REQUESTED'))
@@ -1045,6 +1071,25 @@ func (s *Store) CreatePurchaseOrder(
 	}
 	if !supplierActive {
 		return PurchaseOrder{}, ErrInvalidFulfillment
+	}
+	var sourcingStatus, selectedSupplierID string
+	err = tx.QueryRow(ctx, `
+		SELECT sc.status,COALESCE(q.supplier_id::text,'')
+		FROM sourcing_cases sc
+		LEFT JOIN supplier_quotes q ON q.id=sc.selected_quote_id
+		WHERE sc.purchase_request_id=$1
+	`, input.PurchaseRequestID).Scan(&sourcingStatus, &selectedSupplierID)
+	if err == nil && (sourcingStatus != "AWARDED" || selectedSupplierID != input.SupplierID) {
+		return PurchaseOrder{}, ErrInvalidFulfillment
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return PurchaseOrder{}, fmt.Errorf("validate sourcing award: %w", err)
+	}
+	if errors.Is(err, pgx.ErrNoRows) && current.Currency == "VND" {
+		amount, amountOK := new(big.Rat).SetString(current.TotalAmount)
+		if amountOK && amount.Cmp(big.NewRat(50_000_000, 1)) >= 0 {
+			return PurchaseOrder{}, ErrSourcingAwardRequired
+		}
 	}
 	var orderID string
 	err = tx.QueryRow(ctx, `
@@ -1919,13 +1964,24 @@ func (s *Store) Transition(
 		return PurchaseRequest{}, fmt.Errorf("check transition idempotency: %w", err)
 	}
 
+	actorContext := ActorContext{
+		UserID:         user.ID,
+		DepartmentID:   user.DepartmentID,
+		OrganizationID: user.OrganizationID,
+		Roles:          principal.Roles,
+	}
+	if current.Status == StatusSubmitted && hasRole(principal.Roles, "department_manager") &&
+		actorContext.DepartmentID != current.DepartmentID {
+		delegated, delegationErr := hasActiveApprovalDelegation(ctx, tx, user.ID, current.DepartmentID, current.OrganizationID)
+		if delegationErr != nil {
+			return PurchaseRequest{}, delegationErr
+		}
+		if delegated {
+			actorContext.DepartmentID = current.DepartmentID
+		}
+	}
 	decision, err := DecideTransition(
-		ActorContext{
-			UserID:         user.ID,
-			DepartmentID:   user.DepartmentID,
-			OrganizationID: user.OrganizationID,
-			Roles:          principal.Roles,
-		},
+		actorContext,
 		RequestContext{
 			RequesterID:    current.RequesterID,
 			DepartmentID:   current.DepartmentID,
@@ -1936,6 +1992,16 @@ func (s *Store) Transition(
 	)
 	if err != nil {
 		return PurchaseRequest{}, err
+	}
+	approvalRoute, err := s.resolveApprovalRoute(ctx, tx, current)
+	if err != nil {
+		return PurchaseRequest{}, fmt.Errorf("resolve approval route: %w", err)
+	}
+	if (input.Action == ActionSubmit || input.Action == ActionResubmit) && !approvalRoute.RequiresManager {
+		decision = TransitionDecision{ToStatus: StatusManagerApproved, EventType: "MANAGER_REVIEW_SKIPPED"}
+	}
+	if current.Status == StatusSubmitted && input.Action == ActionApprove && !approvalRoute.RequiresFinance {
+		decision = TransitionDecision{ToStatus: StatusApproved, EventType: "MANAGER_FINAL_APPROVED"}
 	}
 	if current.Version != input.ExpectedVersion {
 		return PurchaseRequest{}, ErrVersionConflict
@@ -1991,11 +2057,12 @@ func (s *Store) Transition(
 		)
 		VALUES (
 			$1, $2, $3, $4, $5, $6, NULLIF($7, ''),
-			jsonb_build_object('action', $8::text),
+			jsonb_build_object('action', $8::text, 'approvalRuleId', NULLIF($11,''), 'approvalRuleName', $12::text),
 			NULLIF($9, ''), $10
 		)
 	`, requestID, decision.EventType, current.Status, decision.ToStatus, user.ID,
-		principal.Roles, input.Comment, input.Action, input.CorrelationID, input.IdempotencyKey)
+		principal.Roles, input.Comment, input.Action, input.CorrelationID, input.IdempotencyKey,
+		approvalRoute.RuleID, approvalRoute.RuleName)
 	if err != nil {
 		var databaseError *pgconn.PgError
 		if errors.As(err, &databaseError) && databaseError.Code == "23505" {
@@ -2058,6 +2125,14 @@ func ensureUser(
 	}
 	if err != nil {
 		return userProfile{}, err
+	}
+	if _, err = tx.Exec(ctx, `
+		INSERT INTO user_role_snapshots(user_id,organization_id,roles,captured_at)
+		VALUES($1,$2,$3,now())
+		ON CONFLICT(user_id) DO UPDATE
+		SET organization_id=EXCLUDED.organization_id,roles=EXCLUDED.roles,captured_at=now()
+	`, user.ID, user.OrganizationID, principal.Roles); err != nil {
+		return userProfile{}, fmt.Errorf("capture user role snapshot: %w", err)
 	}
 	return user, nil
 }
@@ -2183,7 +2258,11 @@ func queueTransitionNotification(
 		input.RecipientRole = "finance"
 		input.DepartmentID = ""
 		input.Title = "Phiếu chờ duyệt tài chính"
-	case "FINANCE_APPROVED":
+	case "MANAGER_REVIEW_SKIPPED":
+		input.RecipientRole = "finance"
+		input.DepartmentID = ""
+		input.Title = "Phiếu đã bỏ qua cấp trưởng bộ phận theo quy tắc và chờ tài chính"
+	case "FINANCE_APPROVED", "MANAGER_FINAL_APPROVED":
 		input.RecipientUserID = request.RequesterID
 		input.Title = "Phiếu mua sắm đã được phê duyệt"
 	case "CHANGES_REQUESTED":
@@ -2270,9 +2349,24 @@ func applyBudgetTransition(
 	correlationID string,
 ) error {
 	switch {
+	case (current.Status == StatusDraft || current.Status == StatusChangesRequested) &&
+		decision.ToStatus == StatusManagerApproved:
+		return reserveBudget(
+			ctx, tx, requestID, current, decision.ToStatus,
+			actorID, actorRoles, correlationID,
+		)
 	case current.Status == StatusSubmitted && decision.ToStatus == StatusManagerApproved:
 		return reserveBudget(
 			ctx, tx, requestID, current, decision.ToStatus,
+			actorID, actorRoles, correlationID,
+		)
+	case current.Status == StatusSubmitted && decision.ToStatus == StatusApproved:
+		if err := reserveBudget(ctx, tx, requestID, current, StatusManagerApproved,
+			actorID, actorRoles, correlationID); err != nil {
+			return err
+		}
+		return settleBudgetReservation(
+			ctx, tx, requestID, decision.ToStatus, "COMMITTED",
 			actorID, actorRoles, correlationID,
 		)
 	case current.Status == StatusManagerApproved && decision.ToStatus == StatusApproved:

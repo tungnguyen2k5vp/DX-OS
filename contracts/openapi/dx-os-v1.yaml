@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: DX-OS API
-  version: 0.9.0
+  version: 1.0.0
   description: Contract cho API mua sắm, giao nhận, công nợ, kiểm toán, quản trị và khuyến nghị của DX-OS.
   contact:
     name: DX-OS Engineering
@@ -24,6 +24,9 @@ tags:
   - name: Audit
   - name: Administration
   - name: AI
+  - name: Catalog
+  - name: Approval Governance
+  - name: Sourcing
 paths:
   /health/live:
     get:
@@ -761,12 +764,14 @@ paths:
   /api/v1/suppliers:
     get:
       operationId: listSuppliers
+      description: Lists tenant suppliers with finance management capability and auditor read-only access.
       tags: [Suppliers]
       responses:
         "200": { description: Supplier directory and compliance profiles., content: { application/json: { schema: { $ref: "#/components/schemas/SupplierList" } } } }
         "403": { $ref: "#/components/responses/Problem" }
     post:
       operationId: createSupplier
+      description: Creates a tenant supplier record for sourcing and ordering.
       tags: [Suppliers]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SupplierInput" } } } }
       responses:
@@ -776,6 +781,7 @@ paths:
   /api/v1/suppliers/{supplierId}:
     patch:
       operationId: updateSupplier
+      description: Updates supplier master, compliance and risk data using optimistic locking.
       tags: [Suppliers]
       parameters: [{ name: supplierId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SupplierInput" } } } }
@@ -785,6 +791,7 @@ paths:
   /api/v1/procurement-operations:
     get:
       operationId: getProcurementOperations
+      description: Lists approved requests and their ordering and receipt progress.
       tags: [Fulfillment]
       responses:
         "200": { description: Order and delivery board., content: { application/json: { schema: { $ref: "#/components/schemas/OperationsBoard" } } } }
@@ -792,6 +799,7 @@ paths:
   /api/v1/procurement-operations/orders:
     post:
       operationId: createPurchaseOrder
+      description: Creates an idempotent purchase order for an approved request and selected supplier.
       tags: [Fulfillment]
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreatePurchaseOrder" } } } }
@@ -801,6 +809,7 @@ paths:
   /api/v1/procurement-operations/orders/{requestId}:
     patch:
       operationId: updatePurchaseOrder
+      description: Updates order references and delivery details using optimistic locking.
       tags: [Fulfillment]
       parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UpdatePurchaseOrder" } } } }
@@ -810,12 +819,14 @@ paths:
   /api/v1/procurement-operations/orders/{requestId}/receipts:
     get:
       operationId: listPurchaseOrderReceipts
+      description: Lists line-level receipt records for a purchase order.
       tags: [Fulfillment]
       parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }]
       responses:
         "200": { description: Receipt history., content: { application/json: { schema: { $ref: "#/components/schemas/ReceiptHistory" } } } }
     post:
       operationId: recordPurchaseOrderReceipt
+      description: Records an idempotent partial, complete or exceptional goods receipt.
       tags: [Fulfillment]
       parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RecordReceipt" } } } }
@@ -825,6 +836,7 @@ paths:
   /api/v1/procurement-operations/orders/{requestId}/transitions:
     post:
       operationId: transitionPurchaseOrder
+      description: Cancels or otherwise transitions an order with audited reason and version checks.
       tags: [Fulfillment]
       parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action, expectedVersion, reason], properties: { action: { const: CANCEL }, expectedVersion: { type: integer, minimum: 1 }, reason: { type: string, minLength: 10 } } } } } }
@@ -834,12 +846,14 @@ paths:
   /api/v1/invoices/{invoiceId}/payments:
     get:
       operationId: listInvoicePayments
+      description: Lists partial and completed payments recorded for an invoice.
       tags: [Invoices]
       parameters: [{ $ref: "#/components/parameters/InvoiceId" }]
       responses:
         "200": { description: Payment history., content: { application/json: { schema: { $ref: "#/components/schemas/InvoicePaymentList" } } } }
     post:
       operationId: recordInvoicePayment
+      description: Records an idempotent partial invoice payment using optimistic locking.
       tags: [Invoices]
       parameters: [{ $ref: "#/components/parameters/InvoiceId" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RecordInvoicePayment" } } } }
@@ -849,11 +863,13 @@ paths:
   /api/v1/audit/cases:
     get:
       operationId: listAuditCases
+      description: Lists tenant audit cases and linked procurement evidence.
       tags: [Audit]
       responses:
         "200": { description: Audit remediation cases., content: { application/json: { schema: { $ref: "#/components/schemas/AuditCaseList" } } } }
     post:
       operationId: createAuditCase
+      description: Opens an audit case for a purchase request.
       tags: [Audit]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveAuditCase" } } } }
       responses:
@@ -862,6 +878,7 @@ paths:
   /api/v1/audit/cases/{caseId}:
     patch:
       operationId: updateAuditCase
+      description: Updates audit findings and case status using optimistic locking.
       tags: [Audit]
       parameters: [{ name: caseId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveAuditCase" } } } }
@@ -871,6 +888,7 @@ paths:
   /api/v1/audit/evidence/{requestId}:
     get:
       operationId: downloadAuditEvidence
+      description: Downloads the immutable evidence package for a scoped purchase request.
       tags: [Audit]
       parameters: [{ $ref: "#/components/parameters/PurchaseRequestId" }]
       responses:
@@ -879,6 +897,7 @@ paths:
   /api/v1/admin/center:
     get:
       operationId: getAdministrationCenter
+      description: Returns tenant users, departments, platform health counts and role-conflict warnings.
       tags: [Administration]
       responses:
         "200": { description: "Operational health, users and departments.", content: { application/json: { schema: { $ref: "#/components/schemas/AdminCenter" } } } }
@@ -886,6 +905,7 @@ paths:
   /api/v1/admin/users/{userId}:
     patch:
       operationId: updateBusinessUser
+      description: Updates the DX-OS business profile and access state using optimistic locking.
       tags: [Administration]
       parameters: [{ name: userId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UpdateAdminUser" } } } }
@@ -895,6 +915,7 @@ paths:
   /api/v1/admin/departments:
     post:
       operationId: createDepartment
+      description: Creates a tenant department and optional parent relationship.
       tags: [Administration]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveDepartment" } } } }
       responses:
@@ -903,6 +924,7 @@ paths:
   /api/v1/admin/departments/{departmentId}:
     patch:
       operationId: updateDepartment
+      description: Updates department structure and active state using optimistic locking.
       tags: [Administration]
       parameters: [{ name: departmentId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveDepartment" } } } }
@@ -920,6 +942,7 @@ paths:
   /api/v1/ai/recommendations/generate:
     post:
       operationId: generateAIRecommendations
+      description: Runs explainable continuous-control rules without changing business records automatically.
       tags: [AI]
       responses:
         "200": { description: Recommendation list after scanning current data. }
@@ -927,11 +950,112 @@ paths:
   /api/v1/ai/recommendations/{recommendationId}/decisions:
     post:
       operationId: decideAIRecommendation
+      description: Records an audited human decision for a pending recommendation.
       tags: [AI]
       parameters: [{ name: recommendationId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AIDecision" } } } }
       responses:
         "200": { description: Human decision recorded and audited. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/procurement-catalog:
+    get:
+      operationId: listProcurementCatalog
+      description: Lists active guided-purchasing catalog items for the authenticated tenant.
+      tags: [Catalog]
+      responses:
+        "200": { description: Active catalog items., content: { application/json: { schema: { $ref: "#/components/schemas/ProcurementCatalog" } } } }
+  /api/v1/purchase-requests/duplicate-check:
+    post:
+      operationId: checkDuplicatePurchaseRequests
+      description: Finds recent same-department requests with similar titles and amounts before saving.
+      tags: [Catalog]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/DuplicateCheck" } } } }
+      responses:
+        "200": { description: Similar recent requests. }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/approval-governance:
+    get:
+      operationId: getApprovalGovernance
+      description: Returns tenant-scoped approval rules, delegations and eligible delegate users.
+      tags: [Approval Governance]
+      responses:
+        "200":
+          description: Rules, delegations and eligible delegates.
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/approval-governance/delegations:
+    post:
+      operationId: createApprovalDelegation
+      description: Creates a date-bounded approval delegation for the manager's department.
+      tags: [Approval Governance]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreateApprovalDelegation" } } } }
+      responses:
+        "201": { description: Delegation created. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/approval-governance/delegations/{delegationId}:
+    patch:
+      operationId: setApprovalDelegationActive
+      description: Activates or deactivates an approval delegation using optimistic locking.
+      tags: [Approval Governance]
+      parameters: [{ name: delegationId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [active, expectedVersion], properties: { active: { type: boolean }, expectedVersion: { type: integer, minimum: 1 } } } } } }
+      responses:
+        "200": { description: Delegation status updated. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/approval-governance/rules:
+    post:
+      operationId: createApprovalRule
+      description: Creates a tenant approval route selected by department, currency and amount.
+      tags: [Approval Governance]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveApprovalRule" } } } }
+      responses:
+        "201": { description: Approval rule created. }
+  /api/v1/approval-governance/rules/{ruleId}:
+    patch:
+      operationId: updateApprovalRule
+      description: Updates an approval route using optimistic locking.
+      tags: [Approval Governance]
+      parameters: [{ name: ruleId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveApprovalRule" } } } }
+      responses:
+        "200": { description: Approval rule updated. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/sourcing:
+    get:
+      operationId: getSourcingBoard
+      description: Lists approved requests that still require supplier comparison and ordering.
+      tags: [Sourcing]
+      responses:
+        "200": { description: Approved requests and supplier quote comparisons. }
+  /api/v1/sourcing/quotes:
+    post:
+      operationId: createSupplierQuote
+      description: Records an idempotent supplier quote and recalculates comparison scores.
+      tags: [Sourcing]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveSupplierQuote" } } } }
+      responses:
+        "201": { description: Supplier quote recorded. }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/sourcing/quotes/{quoteId}:
+    patch:
+      operationId: updateSupplierQuote
+      description: Updates a submitted supplier quote using optimistic locking.
+      tags: [Sourcing]
+      parameters: [{ name: quoteId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SaveSupplierQuote" } } } }
+      responses:
+        "200": { description: Supplier quote updated. }
+  /api/v1/sourcing/quotes/{quoteId}/selection:
+    post:
+      operationId: selectSupplierQuote
+      description: Awards one quote and rejects alternatives in the same transaction.
+      tags: [Sourcing]
+      parameters:
+        - { name: quoteId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SelectSupplierQuote" } } } }
+      responses:
+        "200": { description: Quote selected and alternatives rejected atomically. }
         "409": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
@@ -2189,6 +2313,76 @@ components:
         status: { type: string, enum: [APPROVED, REJECTED, DISMISSED] }
         comment: { type: string, minLength: 5, maxLength: 2000 }
         expectedVersion: { type: integer, minimum: 1 }
+    ProcurementCatalog:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, code, name, description, category, unit, referenceUnitPrice, currency]
+            properties:
+              id: { type: string, format: uuid }
+              code: { type: string }
+              name: { type: string }
+              description: { type: string }
+              category: { type: string }
+              unit: { type: string }
+              referenceUnitPrice: { type: string }
+              currency: { type: string, minLength: 3, maxLength: 3 }
+        total: { type: integer }
+    DuplicateCheck:
+      type: object
+      required: [title, costCenter, totalAmount, excludeRequestId]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 255 }
+        costCenter: { type: string }
+        totalAmount: { type: string }
+        excludeRequestId: { type: string }
+    CreateApprovalDelegation:
+      type: object
+      required: [delegateUserId, startsOn, endsOn, reason]
+      properties:
+        delegateUserId: { type: string, format: uuid }
+        startsOn: { type: string, format: date }
+        endsOn: { type: string, format: date }
+        reason: { type: string, minLength: 10, maxLength: 1000 }
+    SaveApprovalRule:
+      type: object
+      required: [departmentId, name, currency, minimumAmount, maximumAmount, requiresManager, requiresFinance, priority, active, expectedVersion]
+      properties:
+        departmentId: { type: string }
+        name: { type: string, minLength: 3, maxLength: 255 }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        minimumAmount: { type: string }
+        maximumAmount: { type: string }
+        requiresManager: { type: boolean }
+        requiresFinance: { type: boolean }
+        priority: { type: integer, minimum: 0 }
+        active: { type: boolean }
+        expectedVersion: { type: integer, minimum: 0 }
+    SaveSupplierQuote:
+      type: object
+      required: [purchaseRequestId, supplierId, quoteReference, amount, currency, deliveryOn, warrantyMonths, paymentTerms, note, expectedVersion]
+      properties:
+        purchaseRequestId: { type: string }
+        supplierId: { type: string }
+        quoteReference: { type: string, minLength: 2, maxLength: 100 }
+        amount: { type: string }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        deliveryOn: { type: string, format: date }
+        warrantyMonths: { type: integer, minimum: 0, maximum: 240 }
+        paymentTerms: { type: string, minLength: 3, maxLength: 500 }
+        note: { type: string, maxLength: 2000 }
+        expectedVersion: { type: integer, minimum: 0 }
+    SelectSupplierQuote:
+      type: object
+      required: [expectedCaseVersion, expectedQuoteVersion, comment]
+      properties:
+        expectedCaseVersion: { type: integer, minimum: 1 }
+        expectedQuoteVersion: { type: integer, minimum: 1 }
+        comment: { type: string, minLength: 10, maxLength: 2000 }
     FieldViolation:
       type: object
       additionalProperties: false

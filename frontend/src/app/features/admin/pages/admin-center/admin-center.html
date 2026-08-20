@@ -18,11 +18,17 @@
     </p>
   }
   @if (center(); as current) {
-    <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+    <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
       <section hlmCard>
         <div hlmCardHeader>
           <p hlmCardDescription>Người dùng hoạt động</p>
           <p class="text-3xl font-semibold">{{ current.overview.activeUsers }}</p>
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader>
+          <p hlmCardDescription>Xung đột phân quyền</p>
+          <p class="text-3xl font-semibold" [class.text-destructive]="current.overview.roleConflictUsers > 0">{{ current.overview.roleConflictUsers }}</p>
         </div>
       </section>
       <section hlmCard>
@@ -85,6 +91,8 @@
                   <td class="p-3">
                     <strong>{{ item.username }}</strong>
                     <p class="text-xs text-muted-foreground">{{ item.email || 'Chưa có email' }}</p>
+                    @if (item.roles.length) { <p class="mt-1 text-xs text-muted-foreground">{{ item.roles.join(' · ') }}</p> }
+                    @for (conflict of item.roleConflicts; track conflict) { <p class="mt-1 text-xs font-medium text-destructive">⚠ {{ conflict }}</p> }
                   </td>
                   <td class="p-3">{{ item.displayName }}</td>
                   <td class="p-3">{{ item.departmentName }}</td>

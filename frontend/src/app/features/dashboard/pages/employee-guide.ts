@@ -56,8 +56,10 @@ export class EmployeeGuide {
       linkLabel: 'Mở Phiếu mua sắm',
       purpose: 'Tạo, hoàn thiện, gửi và theo dõi yêu cầu mua sắm của chính bạn.',
       tasks: [
+        'Chọn nhanh hàng hóa thường dùng từ danh mục; giá hiển thị là giá tham khảo và có thể sửa.',
         'Nhập tiêu đề, lý do từ 10 ký tự, trung tâm chi phí và ít nhất một dòng hàng.',
         'Kiểm tra số lượng, đơn giá và tổng tiền trước khi lưu bản nháp.',
+        'Bấm “Kiểm tra phiếu trùng”; nếu có phiếu tương tự, mở phiếu đó để tránh mua lặp.',
         'Mở phiếu vừa lưu, tải tài liệu lên rồi bấm “Gửi phê duyệt”.',
         'Nếu tổng giá trị từ 20.000.000 VND, phải có tài liệu báo giá trước khi gửi.',
       ],
@@ -70,7 +72,7 @@ export class EmployeeGuide {
       linkLabel: 'Mở Việc của tôi',
       purpose: 'Tập trung các bản nháp và phiếu đang chờ bạn bổ sung.',
       tasks: [
-        'Ưu tiên việc quá SLA hoặc sắp đến hạn được đưa lên đầu danh sách.',
+        'Ưu tiên việc quá hạn xử lý hoặc sắp đến hạn được đưa lên đầu danh sách.',
         'Bấm “Mở công việc” để xem yêu cầu chỉnh sửa và nội dung trao đổi.',
         'Sửa thông tin, bổ sung tệp rồi chọn “Gửi lại” để chuyển phiếu về Trưởng bộ phận.',
       ],
@@ -137,6 +139,7 @@ export class EmployeeGuide {
 
   readonly employeeCan = [
     'Tạo, sửa và hủy phiếu của mình khi trạng thái cho phép',
+    'Chọn nhanh từ danh mục và kiểm tra nhu cầu trùng trước khi lưu',
     'Tải lên, tải xuống và xóa tệp do mình đính kèm khi còn được chỉnh sửa',
     'Gửi phiếu, gửi lại phiếu và trao đổi với người xử lý',
     'Theo dõi lịch sử xử lý, ngân sách khả dụng và trạng thái giao nhận',

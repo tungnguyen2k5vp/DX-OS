@@ -48,7 +48,7 @@ const roleWorkspaces: Record<string, RoleWorkspace> = {
   finance: {
     name: 'Tài chính',
     mission: 'Kiểm soát ngân sách, hồ sơ và ra quyết định tài chính cuối cùng.',
-    responsibilities: ['Duyệt tài chính', 'Điều chỉnh hạn mức', 'Theo dõi KPI và SLA'],
+    responsibilities: ['Duyệt tài chính', 'Điều chỉnh hạn mức', 'Theo dõi chỉ số và hạn xử lý'],
   },
   auditor: {
     name: 'Kiểm toán',
@@ -60,7 +60,7 @@ const roleWorkspaces: Record<string, RoleWorkspace> = {
     mission: 'Giám sát số liệu vận hành và hỗ trợ phân quyền trên hệ thống danh tính.',
     responsibilities: [
       'Xem báo cáo toàn tổ chức',
-      'Giám sát SLA',
+      'Giám sát hạn xử lý',
       'Quản trị tài khoản trên Keycloak',
     ],
   },
@@ -142,7 +142,7 @@ export class Dashboard {
     () => this.reportDashboard()?.summary.approvedCount ?? this.approvedTotal(),
   );
   readonly attentionLabel = computed(() =>
-    this.canAccessBudgets() ? 'Cảnh báo ngân sách' : 'Phiếu quá SLA (30 ngày)',
+    this.canAccessBudgets() ? 'Cảnh báo ngân sách' : 'Phiếu quá hạn xử lý (30 ngày)',
   );
   readonly attentionValue = computed(() =>
     this.canAccessBudgets()
@@ -160,7 +160,7 @@ export class Dashboard {
           this.loading.set(false);
         },
         error: () => {
-          this.error.set('Không gọi được Go API. Hãy kiểm tra container api và đăng nhập lại.');
+          this.error.set('Không kết nối được dịch vụ xử lý dữ liệu. Hãy kiểm tra hệ thống và đăng nhập lại.');
           this.loading.set(false);
         },
       });

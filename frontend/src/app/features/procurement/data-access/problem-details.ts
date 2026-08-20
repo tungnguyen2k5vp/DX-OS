@@ -11,7 +11,7 @@ export function problemMessage(error: unknown, fallback: string): string {
     return body.detail || body.title || fallback;
   }
   if (error.status === 0) {
-    return 'Không kết nối được Go API. Hãy kiểm tra container API và thử lại.';
+    return 'Không kết nối được dịch vụ xử lý dữ liệu. Hãy kiểm tra hệ thống và thử lại.';
   }
   return fallback;
 }

@@ -46,6 +46,10 @@ export class ApprovalInbox {
   readonly pages = signal(0);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly batchMessage = signal<string | null>(null);
+  readonly selectedIds = signal<Set<string>>(new Set());
+  readonly batchBusy = signal(false);
+  readonly selectedCount = computed(() => this.selectedIds().size);
   readonly reviewStatus = computed<PurchaseRequestStatus>(() =>
     this.auth.roles().includes('finance') ? 'MANAGER_APPROVED' : 'SUBMITTED',
   );
@@ -74,6 +78,45 @@ export class ApprovalInbox {
     this.load();
   }
 
+  toggleSelection(requestId: string, selected: boolean): void {
+    const next = new Set(this.selectedIds());
+    if (selected) next.add(requestId);
+    else next.delete(requestId);
+    this.selectedIds.set(next);
+  }
+
+  toggleAll(selected: boolean): void {
+    this.selectedIds.set(selected ? new Set(this.items().map((item) => item.id)) : new Set());
+  }
+
+  async approveSelected(): Promise<void> {
+    const selected = this.items().filter((item) => this.selectedIds().has(item.id));
+    if (selected.length === 0) return;
+    if (!confirm(`Phê duyệt ${selected.length} phiếu đã chọn?`)) return;
+    this.batchBusy.set(true);
+    this.error.set(null);
+    this.batchMessage.set(null);
+    const results = await Promise.allSettled(
+      selected.map((request) =>
+        new Promise<void>((resolve, reject) => {
+          this.procurement
+            .transition(
+              request.id,
+              { action: 'APPROVE', expectedVersion: request.version, comment: 'Phê duyệt hàng loạt sau khi đã kiểm tra danh sách' },
+              crypto.randomUUID(),
+            )
+            .subscribe({ next: () => resolve(), error: reject });
+        }),
+      ),
+    );
+    const succeeded = results.filter((item) => item.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
+    this.batchMessage.set(`Đã phê duyệt ${succeeded}/${results.length} phiếu.${failed ? ` ${failed} phiếu cần mở lại để kiểm tra.` : ''}`);
+    this.selectedIds.set(new Set());
+    this.batchBusy.set(false);
+    this.load();
+  }
+
   private load(): void {
     const generation = ++this.requestGeneration;
     this.loading.set(true);
@@ -91,6 +134,7 @@ export class ApprovalInbox {
             return;
           }
           this.items.set(result.items);
+          this.selectedIds.set(new Set());
           this.total.set(result.total);
           this.pages.set(result.pages);
           this.loading.set(false);

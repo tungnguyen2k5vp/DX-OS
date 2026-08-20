@@ -99,7 +99,7 @@
           >
         } @else if (canAccessReports()) {
           <a class="font-medium text-primary hover:underline" routerLink="/reports"
-            >Kiểm tra SLA →</a
+            >Kiểm tra hạn xử lý →</a
           >
         } @else {
           Không có màn hình kiểm soát cho vai trò này
@@ -151,11 +151,11 @@
     <section hlmCard>
       <div hlmCardHeader class="border-b">
         <h2 hlmCardTitle>Danh tính hiện tại</h2>
-        <p hlmCardDescription>Dữ liệu do Go API đọc từ access token.</p>
+          <p hlmCardDescription>Dữ liệu được hệ thống đọc từ phiên đăng nhập.</p>
       </div>
       <div hlmCardContent class="pt-6">
         @if (loading()) {
-          <p class="text-sm text-muted-foreground">Đang xác minh với Go API…</p>
+          <p class="text-sm text-muted-foreground">Đang kiểm tra kết nối hệ thống…</p>
         } @else if (error()) {
           <div
             class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
@@ -266,7 +266,7 @@
           <span hlmBadge class="mt-2" variant="secondary">Đã xác thực</span>
         </li>
         <li>
-          <p class="font-medium">Go API</p>
+          <p class="font-medium">Dịch vụ xử lý dữ liệu</p>
           <span
             hlmBadge
             class="mt-2"

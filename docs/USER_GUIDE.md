@@ -20,10 +20,10 @@ Người dùng có thể:
 - xử lý quy trình duyệt hai cấp;
 - kiểm tra, giữ, cam kết và điều chỉnh ngân sách theo quyền;
 - tải lên, tải xuống và kiểm soát tài liệu hồ sơ;
-- xem báo cáo vận hành trên DX-OS hoặc phân tích sâu trong Metabase.
-
-RAG và AI Agent chưa có màn hình hoặc quy trình sử dụng trong phiên bản này. Role ai_operator đã
-được khai báo để chuẩn bị cho giai đoạn đó, không nên hiểu là tính năng AI đã hoàn thành.
+- xem báo cáo vận hành trên DX-OS hoặc phân tích sâu trong Metabase;
+- kiểm tra phiếu trùng, ủy quyền phê duyệt và duyệt nhiều phiếu đã kiểm tra;
+- so sánh báo giá, chấm điểm nhà cung cấp và chọn phương án trước khi đặt hàng;
+- quét khuyến nghị kiểm soát có bằng chứng giải thích và quyết định của con người.
 
 ## 2. Đăng nhập và đăng xuất
 
@@ -77,6 +77,9 @@ của một user thay đổi, user phải đăng xuất rồi đăng nhập lạ
 | Hồ sơ kiểm toán          |  Không   |      Không      |         Không          |   Có, được sửa   |      Không      |    Có, chỉ đọc    |
 | Quản trị hệ thống        |  Không   |      Không      |         Không          |      Không       |      Không      |        Có         |
 | Khuyến nghị rủi ro       |  Không   |      Không      |      Có, chỉ đọc       |   Có, chỉ đọc    | Có, quyết định  |   Có, quyết định  |
+| Danh mục/kiểm tra trùng  |    Có    |       Có        |         Không          |      Không       |      Không      |       Không       |
+| Ủy quyền/quy tắc duyệt   |  Không   | Có, được ủy quyền |       Có, chỉ đọc      |   Có, chỉ đọc    |      Không      |  Có, quản lý rule |
+| So sánh báo giá          |  Không   |      Không      |      Có, được chọn     |   Có, chỉ đọc    |      Không      |   Có, chỉ đọc     |
 
 Lưu ý quan trọng:
 

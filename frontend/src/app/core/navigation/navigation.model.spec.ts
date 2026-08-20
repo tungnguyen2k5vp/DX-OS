@@ -21,6 +21,7 @@ describe('navigationForRoles', () => {
       '/dashboard',
       '/work-center',
       '/approvals',
+      '/approval-governance',
       '/notifications',
       '/purchase-requests',
       '/operations',
@@ -40,7 +41,9 @@ describe('navigationForRoles', () => {
   it('gives administrators system and control routes without procurement actions', () => {
     expect(routesFor(['dx_admin'])).toEqual([
       '/dashboard',
+      '/approval-governance',
       '/notifications',
+      '/sourcing',
       '/reports',
       '/audit',
       '/policies',
@@ -66,8 +69,8 @@ describe('navigationForRoles', () => {
 
     expect(groups.map((group) => [group.label, group.items.map((item) => item.route)])).toEqual([
       ['Không gian làm việc', ['/dashboard']],
-      ['Công việc', ['/work-center', '/approvals', '/notifications']],
-      ['Mua sắm', ['/purchase-requests', '/operations', '/suppliers']],
+      ['Công việc', ['/work-center', '/approvals', '/approval-governance', '/notifications']],
+      ['Mua sắm', ['/purchase-requests', '/operations', '/suppliers', '/sourcing']],
       ['Tài chính', ['/budgets', '/invoices', '/reports']],
       ['Trí tuệ hỗ trợ', ['/ai-center']],
       ['Trợ giúp', ['/employee-guide']],

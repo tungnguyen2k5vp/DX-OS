@@ -5,7 +5,7 @@
       Chính sách vận hành
     </h1>
     <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-      Cấu hình SLA và yêu cầu chứng từ mà không cần sửa SQL. Thay đổi sử dụng phiên bản chống ghi đè
+      Cấu hình thời hạn xử lý và yêu cầu chứng từ mà không cần sửa mã hệ thống. Thay đổi sử dụng phiên bản chống ghi đè
       và được lưu vào trung tâm kiểm toán.
     </p>
   </header>
@@ -16,7 +16,7 @@
         current.canManage ? 'Chế độ quản trị' : 'Chỉ đọc cho kiểm toán'
       }}</span>
       <span class="text-sm text-muted-foreground"
-        >{{ current.slaPolicies.length }} SLA · {{ current.attachmentRules.length }} quy tắc chứng
+        >{{ current.slaPolicies.length }} thời hạn xử lý · {{ current.attachmentRules.length }} quy tắc chứng
         từ</span
       >
     </div>
@@ -41,7 +41,7 @@
   @if (selectedSLA(); as policy) {
     <section hlmCard class="mt-6">
       <div hlmCardHeader class="border-b">
-        <h2 hlmCardTitle>Sửa SLA: {{ processLabel(policy.processName) }}</h2>
+        <h2 hlmCardTitle>Sửa thời hạn xử lý: {{ processLabel(policy.processName) }}</h2>
         <p hlmCardDescription>Áp dụng cho các lần gửi phiếu mới sau khi lưu.</p>
       </div>
       <div hlmCardContent class="grid gap-4 sm:grid-cols-2">
@@ -55,7 +55,7 @@
             (input)="targetHours.set(+$any($event.target).value)"
         /></label>
         <div class="flex items-end gap-2">
-          <button hlmBtn type="button" [disabled]="saving()" (click)="saveSLA()">Lưu SLA</button
+          <button hlmBtn type="button" [disabled]="saving()" (click)="saveSLA()">Lưu thời hạn</button
           ><button hlmBtn type="button" variant="outline" (click)="cancel()">Hủy</button>
         </div>
       </div>
@@ -98,8 +98,8 @@
   <div class="mt-6 grid gap-6 lg:grid-cols-2">
     <section hlmCard>
       <div hlmCardHeader class="border-b">
-        <h2 hlmCardTitle>SLA quy trình</h2>
-        <p hlmCardDescription>Thời hạn tạo việc và đo mức quá hạn.</p>
+        <h2 hlmCardTitle>Thời hạn xử lý (SLA)</h2>
+        <p hlmCardDescription>SLA là thời gian tối đa để một bước công việc phải được xử lý.</p>
       </div>
       <div hlmCardContent>
         @if (loading()) {
@@ -132,7 +132,7 @@
                 </div>
               </article>
             } @empty {
-              <p class="py-8 text-center text-muted-foreground">Chưa có SLA.</p>
+              <p class="py-8 text-center text-muted-foreground">Chưa có thời hạn xử lý.</p>
             }
           </div>
         }

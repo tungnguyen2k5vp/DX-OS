@@ -23,6 +23,8 @@ import { firstValueFrom } from 'rxjs';
 import { problemMessage, problemViolations } from '../../data-access/problem-details';
 import {
   CreatePurchaseRequest,
+  DuplicateRequestCheck,
+  ProcurementCatalogItem,
   PurchaseRequestItem,
   UpdatePurchaseRequest,
 } from '../../data-access/procurement.models';
@@ -74,12 +76,20 @@ export class PurchaseRequestCreate {
   readonly submitError = signal<string | null>(null);
   readonly serverErrors = signal<Record<string, string>>({});
   readonly estimatedTotal = signal('0');
+  readonly catalog = signal<ProcurementCatalogItem[]>([]);
+  readonly duplicateCheck = signal<DuplicateRequestCheck | null>(null);
+  readonly checkingDuplicate = signal(false);
+  readonly duplicateAcknowledged = signal(false);
 
   constructor() {
     this.form.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe(() => this.calculateEstimatedTotal());
     this.calculateEstimatedTotal();
+    this.procurement
+      .catalog()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (result) => this.catalog.set(result.items) });
     if (this.requestId) {
       void this.loadExisting(this.requestId);
     }
@@ -99,6 +109,49 @@ export class PurchaseRequestCreate {
     this.items.removeAt(index);
   }
 
+  addCatalogItem(item: ProcurementCatalogItem): void {
+    const target =
+      this.items.length === 1 && !this.items.at(0).controls.description.value.trim()
+        ? this.items.at(0)
+        : this.createItemForm();
+    target.patchValue({
+      description: item.name,
+      quantity: '1',
+      unit: item.unit,
+      unitPrice: item.referenceUnitPrice,
+    });
+    if (!this.items.controls.includes(target)) this.items.push(target);
+    this.form.controls.currency.setValue(item.currency);
+    this.duplicateCheck.set(null);
+    this.duplicateAcknowledged.set(false);
+  }
+
+  async checkForDuplicates(): Promise<DuplicateRequestCheck | null> {
+    const title = this.form.controls.title.value.trim();
+    if (title.length < 3) {
+      this.submitError.set('Nhập tiêu đề trước khi kiểm tra phiếu trùng.');
+      return null;
+    }
+    this.checkingDuplicate.set(true);
+    try {
+      const result = await firstValueFrom(
+        this.procurement.checkDuplicate({
+          title,
+          costCenter: this.form.controls.costCenter.value.trim(),
+          totalAmount: this.estimatedTotal(),
+          excludeRequestId: this.requestId || undefined,
+        }),
+      );
+      this.duplicateCheck.set(result);
+      return result;
+    } catch (error: unknown) {
+      this.submitError.set(problemMessage(error, 'Không kiểm tra được phiếu trùng.'));
+      return null;
+    } finally {
+      this.checkingDuplicate.set(false);
+    }
+  }
+
   async submit(): Promise<void> {
     this.submitError.set(null);
     this.serverErrors.set({});
@@ -115,6 +168,13 @@ export class PurchaseRequestCreate {
 
     this.submitting.set(true);
     try {
+      const duplicateResult = await this.checkForDuplicates();
+      if (duplicateResult?.potentialDuplicate && !this.duplicateAcknowledged()) {
+        this.submitError.set(
+          'Có phiếu tương tự trong phòng ban. Hãy mở phiếu được gợi ý để kiểm tra hoặc xác nhận vẫn tiếp tục.',
+        );
+        return;
+      }
       const value = this.form.getRawValue();
       const input: CreatePurchaseRequest = {
         title: value.title.trim(),

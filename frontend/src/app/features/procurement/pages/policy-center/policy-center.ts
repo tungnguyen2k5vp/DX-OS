@@ -61,10 +61,10 @@ export class PolicyCenterPage {
   async saveSLA(): Promise<void> {
     const policy = this.selectedSLA();
     if (!policy || this.targetHours() < 1 || this.targetHours() > 720) {
-      this.error.set('SLA phải nằm trong khoảng 1 đến 720 giờ.');
+      this.error.set('Thời hạn xử lý phải nằm trong khoảng 1 đến 720 giờ.');
       return;
     }
-    await this.execute('Đã cập nhật SLA phê duyệt.', () =>
+    await this.execute('Đã cập nhật thời hạn xử lý phê duyệt.', () =>
       firstValueFrom(
         this.procurement.updateSLAPolicy(policy.processName, {
           targetHours: this.targetHours(),

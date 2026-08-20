@@ -1,0 +1,81 @@
+<section aria-labelledby="governance-heading">
+  <header class="border-b border-border pb-7">
+    <p class="mb-2 text-sm font-medium text-primary">Kiểm soát phê duyệt</p>
+    <h1 id="governance-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+      Ủy quyền và quy tắc phê duyệt
+    </h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+      Bảo đảm phiếu vẫn được xử lý khi trưởng bộ phận vắng mặt và tự động chọn đúng số vòng phê duyệt theo giá trị.
+    </p>
+  </header>
+
+  @if (error()) { <p role="alert" class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{{ error() }}</p> }
+  @if (success()) { <p role="status" class="mt-5 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-primary">{{ success() }}</p> }
+
+  @if (model(); as current) {
+    <div class="mt-7 grid gap-6 xl:grid-cols-2">
+      <section hlmCard>
+        <div hlmCardHeader class="border-b">
+          <h2 hlmCardTitle>Ủy quyền phê duyệt</h2>
+          <p hlmCardDescription>Người được ủy quyền chỉ thấy phiếu trong phòng ban và thời gian đã chọn.</p>
+        </div>
+        <div hlmCardContent class="grid gap-4">
+          @if (current.canDelegate) {
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="grid gap-1.5 text-sm font-medium sm:col-span-2">Người nhận ủy quyền
+                <select class="h-11 rounded-lg border border-border bg-background px-3" [value]="delegateUserId()" (change)="delegateUserId.set($any($event.target).value)">
+                  <option value="">Chọn một trưởng bộ phận</option>
+                  @for (candidate of current.delegateCandidates; track candidate.id) {
+                    @if (candidate.roles.includes('department_manager')) {
+                      <option [value]="candidate.id">{{ candidate.displayName }} · {{ candidate.departmentName }}</option>
+                    }
+                  }
+                </select>
+              </label>
+              <label class="grid gap-1.5 text-sm font-medium">Từ ngày<input type="date" class="h-11 rounded-lg border border-border bg-background px-3" [value]="startsOn()" (input)="startsOn.set($any($event.target).value)" /></label>
+              <label class="grid gap-1.5 text-sm font-medium">Đến ngày<input type="date" class="h-11 rounded-lg border border-border bg-background px-3" [value]="endsOn()" (input)="endsOn.set($any($event.target).value)" /></label>
+              <label class="grid gap-1.5 text-sm font-medium sm:col-span-2">Lý do<textarea class="min-h-24 rounded-lg border border-border bg-background p-3" [value]="delegationReason()" (input)="delegationReason.set($any($event.target).value)"></textarea></label>
+            </div>
+            <button hlmBtn type="button" [disabled]="busy()" (click)="createDelegation()">Tạo ủy quyền</button>
+          }
+          <div class="grid gap-3">
+            @for (item of current.delegations; track item.id) {
+              <article class="rounded-xl border border-border p-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div><strong>{{ item.delegatorName }} → {{ item.delegateName }}</strong><p class="mt-1 text-sm text-muted-foreground">{{ item.departmentName }} · {{ item.startsOn }} đến {{ item.endsOn }}</p></div>
+                  <span hlmBadge [variant]="item.currentlyEffective ? 'secondary' : 'outline'">{{ item.currentlyEffective ? 'Đang hiệu lực' : item.active ? 'Chưa đến hạn' : 'Đã dừng' }}</span>
+                </div>
+                <p class="mt-3 text-sm">{{ item.reason }}</p>
+                @if (current.canDelegate && item.active) { <button class="mt-3" hlmBtn size="sm" variant="outline" type="button" [disabled]="busy()" (click)="setDelegationActive(item.id, false, item.version)">Dừng ủy quyền</button> }
+              </article>
+            } @empty { <p class="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">Chưa có ủy quyền nào.</p> }
+          </div>
+        </div>
+      </section>
+
+      <section hlmCard>
+        <div hlmCardHeader class="border-b"><h2 hlmCardTitle>Quy tắc theo giá trị phiếu</h2><p hlmCardDescription>Ưu tiên số nhỏ hơn; quy tắc phòng ban được ưu tiên hơn quy tắc chung.</p></div>
+        <div hlmCardContent class="grid gap-4">
+          @if (current.canManageRules) {
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="grid gap-1.5 text-sm font-medium sm:col-span-2">Tên quy tắc<input class="h-11 rounded-lg border border-border bg-background px-3" [value]="ruleName()" (input)="ruleName.set($any($event.target).value)" /></label>
+              <label class="grid gap-1.5 text-sm font-medium">Từ số tiền<input class="h-11 rounded-lg border border-border bg-background px-3" inputmode="decimal" [value]="minimumAmount()" (input)="minimumAmount.set($any($event.target).value)" /></label>
+              <label class="grid gap-1.5 text-sm font-medium">Đến số tiền (để trống nếu không giới hạn)<input class="h-11 rounded-lg border border-border bg-background px-3" inputmode="decimal" [value]="maximumAmount()" (input)="maximumAmount.set($any($event.target).value)" /></label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" [checked]="requiresManager()" (change)="requiresManager.set($any($event.target).checked)" /> Trưởng bộ phận duyệt</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" [checked]="requiresFinance()" (change)="requiresFinance.set($any($event.target).checked)" /> Tài chính duyệt</label>
+            </div>
+            <button hlmBtn type="button" [disabled]="busy()" (click)="createRule()">Thêm quy tắc</button>
+          }
+          <div class="grid gap-3">
+            @for (rule of current.rules; track rule.id) {
+              <article class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
+                <div><strong>{{ rule.name }}</strong><p class="mt-1 text-sm text-muted-foreground">{{ rule.minimumAmount }} – {{ rule.maximumAmount || 'không giới hạn' }} {{ rule.currency }} · {{ rule.requiresManager ? 'Trưởng bộ phận' : '' }}{{ rule.requiresManager && rule.requiresFinance ? ' → ' : '' }}{{ rule.requiresFinance ? 'Tài chính' : '' }}</p></div>
+                <div class="flex items-center gap-2"><span hlmBadge [variant]="rule.active ? 'secondary' : 'outline'">{{ rule.active ? 'Đang dùng' : 'Tạm dừng' }}</span>@if (current.canManageRules) { <button hlmBtn size="sm" variant="outline" type="button" [disabled]="busy()" (click)="toggleRule(rule.id, !rule.active)">{{ rule.active ? 'Tạm dừng' : 'Kích hoạt' }}</button> }</div>
+              </article>
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+  } @else if (loading()) { <div class="mt-7 h-56 animate-pulse rounded-xl bg-muted"></div> }
+</section>

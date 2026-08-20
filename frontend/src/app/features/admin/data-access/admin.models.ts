@@ -6,6 +6,7 @@ export interface AdminOverview {
   openRequests: number;
   pendingNotifications: number;
   deadNotifications: number;
+  roleConflictUsers: number;
 }
 
 export interface AdminUser {
@@ -18,6 +19,8 @@ export interface AdminUser {
   active: boolean;
   version: number;
   updatedAt: string;
+  roles: string[];
+  roleConflicts: string[];
 }
 
 export interface AdminDepartment {

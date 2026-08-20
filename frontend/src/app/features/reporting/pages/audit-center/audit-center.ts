@@ -219,8 +219,15 @@ export class AuditCenter {
         SUPPLIER_CREATED: 'Tạo nhà cung cấp',
         SUPPLIER_UPDATED: 'Cập nhật nhà cung cấp',
         BUDGET_ALLOCATION_ADJUSTED: 'Điều chỉnh hạn mức ngân sách',
-        SLA_POLICY_UPDATED: 'Cập nhật quy tắc SLA',
+        SLA_POLICY_UPDATED: 'Cập nhật quy tắc thời hạn xử lý',
         ATTACHMENT_POLICY_UPDATED: 'Cập nhật quy tắc tài liệu',
+        APPROVAL_RULE_CREATED: 'Tạo quy tắc phê duyệt',
+        APPROVAL_RULE_UPDATED: 'Cập nhật quy tắc phê duyệt',
+        APPROVAL_DELEGATION_CREATED: 'Tạo ủy quyền phê duyệt',
+        APPROVAL_DELEGATION_STATUS_UPDATED: 'Cập nhật trạng thái ủy quyền',
+        SUPPLIER_QUOTE_RECORDED: 'Ghi nhận báo giá nhà cung cấp',
+        SUPPLIER_QUOTE_UPDATED: 'Cập nhật báo giá nhà cung cấp',
+        SUPPLIER_QUOTE_SELECTED: 'Chọn báo giá nhà cung cấp',
         INVOICE_RECORDED: 'Ghi nhận hóa đơn',
         INVOICE_UPDATED: 'Cập nhật hóa đơn',
         INVOICE_VERIFIED: 'Xác minh hóa đơn',
@@ -265,9 +272,38 @@ export class AuditCenter {
         purchase_request: 'Phiếu mua sắm',
         supplier: 'Nhà cung cấp',
         purchase_order: 'Đơn hàng',
+        purchase_invoice: 'Hóa đơn',
         budget_allocation: 'Ngân sách',
+        supplier_quote: 'Báo giá nhà cung cấp',
+        sourcing_case: 'Hồ sơ so sánh báo giá',
+        approval_rule: 'Quy tắc phê duyệt',
+        approval_delegation: 'Ủy quyền phê duyệt',
+        operating_policy: 'Chính sách vận hành',
+        attachment_policy: 'Quy tắc chứng từ',
+        ai_recommendation: 'Khuyến nghị kiểm soát',
+        audit_case: 'Hồ sơ kiểm toán',
+        user: 'Người dùng',
+        department: 'Phòng ban',
       }[type] ?? type
     );
+  }
+
+  actorRolesLabel(roles: string[]): string {
+    const labels: Record<string, string> = {
+      employee: 'Nhân viên',
+      department_manager: 'Trưởng bộ phận',
+      finance: 'Tài chính',
+      auditor: 'Kiểm toán',
+      dx_admin: 'Quản trị DX-OS',
+      ai_operator: 'Vận hành khuyến nghị',
+    };
+    const visible = roles.filter((role) => labels[role]).map((role) => labels[role]);
+    return visible.length ? visible.join(', ') : 'Quyền hệ thống mặc định';
+  }
+
+  statusChangeLabel(fromStatus: string | null, toStatus: string | null): string {
+    if (!fromStatus && !toStatus) return 'Không có thay đổi trạng thái';
+    return `${this.statusLabel(fromStatus) || 'Chưa có trạng thái'} → ${this.statusLabel(toStatus) || 'Chưa có trạng thái'}`;
   }
 
   private load(): void {

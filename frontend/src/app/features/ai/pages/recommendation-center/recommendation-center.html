@@ -8,7 +8,7 @@
         Trung tâm khuyến nghị
       </h1>
       <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-        Phát hiện rủi ro SLA, phiếu giá trị lớn và nhà cung cấp cần kiểm soát. Mọi kết quả đều cần
+        Phát hiện rủi ro quá hạn xử lý, phiếu giá trị lớn và nhà cung cấp cần kiểm soát. Mọi kết quả đều cần
         con người quyết định.
       </p>
     </div>
@@ -56,7 +56,7 @@
           <div hlmCardHeader class="border-b">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p class="text-xs font-medium text-primary">{{ item.recommendationType }}</p>
+                <p class="text-xs font-medium text-primary">{{ typeLabel(item.recommendationType) }}</p>
                 <h2 hlmCardTitle class="mt-1">{{ item.title }}</h2>
               </div>
               <div class="flex gap-2">
@@ -78,9 +78,11 @@
               <summary class="cursor-pointer text-sm font-medium">
                 Bằng chứng có thể giải thích
               </summary>
-              <pre class="mt-3 overflow-x-auto whitespace-pre-wrap text-xs">{{
-                item.evidence | json
-              }}</pre>
+              <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                @for (entry of item.evidence | keyvalue; track entry.key) {
+                  <div class="rounded-lg bg-muted/60 p-3"><dt class="text-xs text-muted-foreground">{{ evidenceLabel(entry.key) }}</dt><dd class="mt-1 break-words font-medium">{{ evidenceValue(item.evidence, entry.key, entry.value) }}</dd></div>
+                }
+              </dl>
             </details>
             <p class="mt-3 text-xs text-muted-foreground">
               Tạo bởi {{ item.generatedBy }} lúc {{ item.generatedAt | date: 'dd/MM/yyyy HH:mm' }}

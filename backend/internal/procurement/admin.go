@@ -19,6 +19,7 @@ type AdminOverview struct {
 	OpenRequests         int    `json:"openRequests"`
 	PendingNotifications int    `json:"pendingNotifications"`
 	DeadNotifications    int    `json:"deadNotifications"`
+	RoleConflictUsers    int    `json:"roleConflictUsers"`
 }
 
 type AdminUser struct {
@@ -31,6 +32,8 @@ type AdminUser struct {
 	Active         bool      `json:"active"`
 	Version        int64     `json:"version"`
 	UpdatedAt      time.Time `json:"updatedAt"`
+	Roles          []string  `json:"roles"`
+	RoleConflicts  []string  `json:"roleConflicts"`
 }
 
 type AdminDepartment struct {
@@ -85,22 +88,27 @@ func (s *Store) AdminCenter(ctx context.Context, principal auth.Principal) (Admi
 			(SELECT count(*) FROM departments d WHERE d.organization_id=o.id AND d.active),
 			(SELECT count(*) FROM purchase_requests pr JOIN departments d ON d.id=pr.department_id WHERE d.organization_id=o.id AND pr.status NOT IN ('APPROVED','REJECTED','CANCELLED')),
 			(SELECT count(*) FROM outbox_events oe WHERE oe.organization_id=o.id AND oe.status='PENDING'),
-			(SELECT count(*) FROM outbox_events oe WHERE oe.organization_id=o.id AND oe.status='DEAD')
+			(SELECT count(*) FROM outbox_events oe WHERE oe.organization_id=o.id AND oe.status='DEAD'),
+			(SELECT count(*) FROM user_role_snapshots urs WHERE urs.organization_id=o.id AND (
+				urs.roles@>ARRAY['finance','auditor']::text[] OR
+				urs.roles@>ARRAY['dx_admin','auditor']::text[] OR
+				urs.roles@>ARRAY['ai_operator','auditor']::text[]))
 		FROM organizations o WHERE o.id=$1
-	`, user.OrganizationID).Scan(&result.Overview.OrganizationName, &result.Overview.ActiveUsers, &result.Overview.InactiveUsers, &result.Overview.ActiveDepartments, &result.Overview.OpenRequests, &result.Overview.PendingNotifications, &result.Overview.DeadNotifications)
+	`, user.OrganizationID).Scan(&result.Overview.OrganizationName, &result.Overview.ActiveUsers, &result.Overview.InactiveUsers, &result.Overview.ActiveDepartments, &result.Overview.OpenRequests, &result.Overview.PendingNotifications, &result.Overview.DeadNotifications, &result.Overview.RoleConflictUsers)
 	if err != nil {
 		return AdminCenter{}, fmt.Errorf("load admin overview: %w", err)
 	}
-	rows, err := s.database.Query(ctx, `SELECT u.id,u.username,COALESCE(u.email,''),u.display_name,d.id,d.name,u.active,u.version,u.updated_at FROM users u JOIN departments d ON d.id=u.department_id WHERE d.organization_id=$1 ORDER BY u.active DESC,u.display_name,u.username`, user.OrganizationID)
+	rows, err := s.database.Query(ctx, `SELECT u.id,u.username,COALESCE(u.email,''),u.display_name,d.id,d.name,u.active,u.version,u.updated_at,COALESCE(urs.roles,'{}') FROM users u JOIN departments d ON d.id=u.department_id LEFT JOIN user_role_snapshots urs ON urs.user_id=u.id WHERE d.organization_id=$1 ORDER BY u.active DESC,u.display_name,u.username`, user.OrganizationID)
 	if err != nil {
 		return AdminCenter{}, fmt.Errorf("list admin users: %w", err)
 	}
 	for rows.Next() {
 		var item AdminUser
-		if err = rows.Scan(&item.ID, &item.Username, &item.Email, &item.DisplayName, &item.DepartmentID, &item.DepartmentName, &item.Active, &item.Version, &item.UpdatedAt); err != nil {
+		if err = rows.Scan(&item.ID, &item.Username, &item.Email, &item.DisplayName, &item.DepartmentID, &item.DepartmentName, &item.Active, &item.Version, &item.UpdatedAt, &item.Roles); err != nil {
 			rows.Close()
 			return AdminCenter{}, err
 		}
+		item.RoleConflicts = roleConflictLabels(item.Roles)
 		result.Users = append(result.Users, item)
 	}
 	rows.Close()
@@ -193,11 +201,26 @@ func (s *Store) UpdateAdminUser(ctx context.Context, principal auth.Principal, t
 
 func (s *Store) getAdminUser(ctx context.Context, organizationID, targetID string) (AdminUser, error) {
 	var item AdminUser
-	err := s.database.QueryRow(ctx, `SELECT u.id,u.username,COALESCE(u.email,''),u.display_name,d.id,d.name,u.active,u.version,u.updated_at FROM users u JOIN departments d ON d.id=u.department_id WHERE u.id=$1 AND d.organization_id=$2`, targetID, organizationID).Scan(&item.ID, &item.Username, &item.Email, &item.DisplayName, &item.DepartmentID, &item.DepartmentName, &item.Active, &item.Version, &item.UpdatedAt)
+	err := s.database.QueryRow(ctx, `SELECT u.id,u.username,COALESCE(u.email,''),u.display_name,d.id,d.name,u.active,u.version,u.updated_at,COALESCE(urs.roles,'{}') FROM users u JOIN departments d ON d.id=u.department_id LEFT JOIN user_role_snapshots urs ON urs.user_id=u.id WHERE u.id=$1 AND d.organization_id=$2`, targetID, organizationID).Scan(&item.ID, &item.Username, &item.Email, &item.DisplayName, &item.DepartmentID, &item.DepartmentName, &item.Active, &item.Version, &item.UpdatedAt, &item.Roles)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AdminUser{}, ErrAdminUserNotFound
 	}
+	item.RoleConflicts = roleConflictLabels(item.Roles)
 	return item, err
+}
+
+func roleConflictLabels(roles []string) []string {
+	result := make([]string, 0)
+	if hasRole(roles, "finance") && hasRole(roles, "auditor") {
+		result = append(result, "Tài chính đồng thời kiểm toán")
+	}
+	if hasRole(roles, "dx_admin") && hasRole(roles, "auditor") {
+		result = append(result, "Quản trị đồng thời kiểm toán")
+	}
+	if hasRole(roles, "ai_operator") && hasRole(roles, "auditor") {
+		result = append(result, "Điều phối AI đồng thời kiểm toán")
+	}
+	return result
 }
 
 func validateDepartment(input *SaveDepartmentInput, updating bool) error {

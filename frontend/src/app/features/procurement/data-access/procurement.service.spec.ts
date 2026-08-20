@@ -436,4 +436,63 @@ describe('ProcurementService', () => {
     expect(update.request.body).toEqual(input);
     update.flush({ processName: 'PURCHASE_REQUEST_APPROVAL', version: 3 });
   });
+
+  it('loads the catalog and checks duplicate requests', () => {
+    service.catalog().subscribe();
+    const catalog = http.expectOne('http://api.test/api/v1/procurement-catalog');
+    expect(catalog.request.method).toBe('GET');
+    catalog.flush({ items: [], total: 0 });
+
+    const input = { title: 'Mua laptop', costCenter: 'CC-GENERAL', totalAmount: '25000000' };
+    service.checkDuplicate(input).subscribe();
+    const duplicate = http.expectOne(
+      'http://api.test/api/v1/purchase-requests/duplicate-check',
+    );
+    expect(duplicate.request.method).toBe('POST');
+    expect(duplicate.request.body).toEqual(input);
+    duplicate.flush({ potentialDuplicate: false, items: [] });
+  });
+
+  it('manages approval delegations with optimistic locking', () => {
+    service.approvalGovernance().subscribe();
+    const list = http.expectOne('http://api.test/api/v1/approval-governance');
+    expect(list.request.method).toBe('GET');
+    list.flush({ rules: [], delegations: [], delegateCandidates: [] });
+
+    service.setApprovalDelegationActive('delegation-id', false, 2).subscribe();
+    const update = http.expectOne(
+      'http://api.test/api/v1/approval-governance/delegations/delegation-id',
+    );
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual({ active: false, expectedVersion: 2 });
+    update.flush({ id: 'delegation-id', active: false, version: 3 });
+  });
+
+  it('records and selects supplier quotes idempotently', () => {
+    const input = {
+      purchaseRequestId: 'request-id',
+      supplierId: 'supplier-id',
+      quoteReference: 'BG-001',
+      amount: '24000000',
+      currency: 'VND',
+      deliveryOn: '2026-09-20',
+      warrantyMonths: 12,
+      paymentTerms: 'Thanh toán sau nghiệm thu',
+      note: '',
+    };
+    service.createSupplierQuote(input, 'quote-create-0001').subscribe();
+    const create = http.expectOne('http://api.test/api/v1/sourcing/quotes');
+    expect(create.request.headers.get('Idempotency-Key')).toBe('quote-create-0001');
+    create.flush({ id: 'quote-id', version: 1 });
+
+    service.selectSupplierQuote('quote-id', 1, 1, 'Báo giá phù hợp nhất', 'quote-award-0001').subscribe();
+    const select = http.expectOne('http://api.test/api/v1/sourcing/quotes/quote-id/selection');
+    expect(select.request.body).toEqual({
+      expectedCaseVersion: 1,
+      expectedQuoteVersion: 1,
+      comment: 'Báo giá phù hợp nhất',
+    });
+    expect(select.request.headers.get('Idempotency-Key')).toBe('quote-award-0001');
+    select.flush({ purchaseRequestId: 'request-id', status: 'AWARDED' });
+  });
 });

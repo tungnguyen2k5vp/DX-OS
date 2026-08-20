@@ -5,8 +5,8 @@
       Trung tâm kiểm toán
     </h1>
     <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-      Tra cứu ai đã thay đổi tài nguyên nào, trạng thái trước/sau và correlation ID để đối chiếu sự
-      cố.
+      Tra cứu ai đã thay đổi đối tượng nào, trạng thái trước/sau và mã theo dõi thao tác để đối
+      chiếu sự cố.
     </p>
   </header>
 
@@ -82,7 +82,7 @@
             </label>
           </div>
           <label class="grid gap-1.5 text-sm font-medium">
-            UUID phiếu mua sắm liên quan (không bắt buộc)
+            Mã định danh phiếu mua sắm liên quan (không bắt buộc)
             <input
               class="h-10 rounded-md border border-input bg-background px-3 font-mono text-xs"
               [value]="caseResourceId()"
@@ -161,13 +161,13 @@
       <div hlmCardHeader class="border-b">
         <h2 hlmCardTitle>Xuất gói bằng chứng</h2>
         <p hlmCardDescription>
-          JSON bao gồm phiếu, lịch sử xử lý, tệp đính kèm, giao nhận, hóa đơn và nhật ký kiểm toán.
+          Tệp dữ liệu bao gồm phiếu, lịch sử xử lý, tệp đính kèm, giao nhận, hóa đơn và nhật ký kiểm toán.
         </p>
       </div>
       <div hlmCardContent class="flex flex-col gap-3 sm:flex-row">
         <input
           class="h-10 flex-1 rounded-md border border-input bg-background px-3 font-mono text-sm"
-          placeholder="UUID phiếu mua sắm"
+          placeholder="Dán mã định danh phiếu mua sắm"
           [value]="evidenceRequestId()"
           (input)="evidenceRequestId.set($any($event.target).value)"
         />
@@ -202,7 +202,7 @@
       <label class="grid gap-1.5 text-sm font-medium"
         >Hành động<input
           class="h-10 rounded-md border border-input bg-background px-3"
-          placeholder="VD: DELIVERY_RECEIVED"
+          placeholder="Nhập mã hành động khi cần tra cứu nâng cao"
           [value]="action()"
           (input)="action.set($any($event.target).value)"
       /></label>
@@ -261,11 +261,11 @@
             <thead class="border-b border-border text-xs uppercase text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">Thời gian</th>
-                <th class="px-3 py-3">Tài nguyên</th>
+                <th class="px-3 py-3">Đối tượng</th>
                 <th class="px-3 py-3">Hành động</th>
                 <th class="px-3 py-3">Người thực hiện</th>
                 <th class="px-3 py-3">Thay đổi trạng thái</th>
-                <th class="px-3 py-3">Correlation</th>
+                <th class="px-3 py-3" title="Mã dùng để nối các bản ghi của cùng một thao tác khi cần hỗ trợ kỹ thuật.">Mã theo dõi thao tác</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-border">
@@ -280,26 +280,23 @@
                       class="mt-1 max-w-40 truncate font-mono text-xs text-muted-foreground"
                       [title]="event.resourceId"
                     >
-                      {{ event.resourceId }}
+                      Mã nội bộ: {{ event.resourceId }}
                     </p>
                   </td>
                   <td class="px-3 py-4 font-medium">{{ auditActionLabel(event.action) }}</td>
                   <td class="px-3 py-4">
                     <p>{{ event.actorName }}</p>
                     <p class="mt-1 text-xs text-muted-foreground">
-                      {{ event.actorRoles.join(', ') }}
+                      {{ actorRolesLabel(event.actorRoles) }}
                     </p>
                   </td>
                   <td class="px-3 py-4">
-                    <span class="font-mono text-xs"
-                      >{{ statusLabel(event.fromStatus) || '—' }} →
-                      {{ statusLabel(event.toStatus) || '—' }}</span
-                    >
+                    <span class="text-xs">{{ statusChangeLabel(event.fromStatus, event.toStatus) }}</span>
                   </td>
                   <td class="px-3 py-4">
                     <code
                       class="block max-w-48 truncate text-xs"
-                      [title]="event.correlationId || ''"
+                      [title]="event.correlationId || 'Không có mã theo dõi thao tác'"
                       >{{ event.correlationId || '—' }}</code
                     >
                   </td>

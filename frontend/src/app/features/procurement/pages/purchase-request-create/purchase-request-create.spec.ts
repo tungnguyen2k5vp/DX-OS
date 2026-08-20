@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { ProcurementService } from '../../data-access/procurement.service';
 import { PurchaseRequestCreate } from './purchase-request-create';
 
@@ -11,7 +12,7 @@ describe('PurchaseRequestCreate', () => {
         provideRouter([]),
         {
           provide: ProcurementService,
-          useValue: { create: vi.fn() },
+          useValue: { create: vi.fn(), catalog: vi.fn(() => of({ items: [], total: 0 })) },
         },
       ],
     }).compileComponents();

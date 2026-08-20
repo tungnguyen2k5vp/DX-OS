@@ -97,3 +97,17 @@ export const canAccessAIGuard: CanActivateFn = () => {
   }
   return inject(Router).createUrlTree(['/dashboard']);
 };
+
+export const canAccessApprovalGovernanceGuard: CanActivateFn = () => {
+  const roles = inject(AuthService).roles();
+  if (['department_manager', 'finance', 'auditor', 'dx_admin'].some((role) => roles.includes(role))) {
+    return true;
+  }
+  return inject(Router).createUrlTree(['/dashboard']);
+};
+
+export const canAccessSourcingGuard: CanActivateFn = () => {
+  const roles = inject(AuthService).roles();
+  if (['finance', 'auditor', 'dx_admin'].some((role) => roles.includes(role))) return true;
+  return inject(Router).createUrlTree(['/dashboard']);
+};

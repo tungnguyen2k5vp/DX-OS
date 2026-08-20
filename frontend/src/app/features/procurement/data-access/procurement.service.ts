@@ -42,6 +42,18 @@ import {
   UpdatePurchaseOrder,
   RecordInvoicePayment,
   InvoicePaymentList,
+  ProcurementCatalog,
+  DuplicateRequestCheck,
+  DuplicateRequestInput,
+  ApprovalGovernance,
+  ApprovalDelegation,
+  CreateApprovalDelegation,
+  ApprovalRule,
+  ApprovalRuleInput,
+  SourcingBoard,
+  SourcingCase,
+  SupplierQuote,
+  SupplierQuoteInput,
 } from './procurement.models';
 
 export interface ListPurchaseRequestsQuery {
@@ -352,6 +364,87 @@ export class ProcurementService {
   deleteAttachment(requestId: string, attachmentId: string): Observable<void> {
     return this.http.delete<void>(
       `${this.collectionUrl}/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    );
+  }
+
+  catalog(): Observable<ProcurementCatalog> {
+    return this.http.get<ProcurementCatalog>(
+      `${this.config.apiBaseUrl}/api/v1/procurement-catalog`,
+    );
+  }
+
+  checkDuplicate(input: DuplicateRequestInput): Observable<DuplicateRequestCheck> {
+    return this.http.post<DuplicateRequestCheck>(`${this.collectionUrl}/duplicate-check`, input);
+  }
+
+  approvalGovernance(): Observable<ApprovalGovernance> {
+    return this.http.get<ApprovalGovernance>(
+      `${this.config.apiBaseUrl}/api/v1/approval-governance`,
+    );
+  }
+
+  createApprovalDelegation(input: CreateApprovalDelegation): Observable<ApprovalDelegation> {
+    return this.http.post<ApprovalDelegation>(
+      `${this.config.apiBaseUrl}/api/v1/approval-governance/delegations`,
+      input,
+    );
+  }
+
+  setApprovalDelegationActive(
+    delegationId: string,
+    active: boolean,
+    expectedVersion: number,
+  ): Observable<ApprovalDelegation> {
+    return this.http.patch<ApprovalDelegation>(
+      `${this.config.apiBaseUrl}/api/v1/approval-governance/delegations/${encodeURIComponent(delegationId)}`,
+      { active, expectedVersion },
+    );
+  }
+
+  createApprovalRule(input: ApprovalRuleInput): Observable<ApprovalRule> {
+    return this.http.post<ApprovalRule>(
+      `${this.config.apiBaseUrl}/api/v1/approval-governance/rules`,
+      input,
+    );
+  }
+
+  updateApprovalRule(ruleId: string, input: ApprovalRuleInput): Observable<ApprovalRule> {
+    return this.http.patch<ApprovalRule>(
+      `${this.config.apiBaseUrl}/api/v1/approval-governance/rules/${encodeURIComponent(ruleId)}`,
+      input,
+    );
+  }
+
+  sourcingBoard(): Observable<SourcingBoard> {
+    return this.http.get<SourcingBoard>(`${this.config.apiBaseUrl}/api/v1/sourcing`);
+  }
+
+  createSupplierQuote(input: SupplierQuoteInput, idempotencyKey: string): Observable<SupplierQuote> {
+    return this.http.post<SupplierQuote>(
+      `${this.config.apiBaseUrl}/api/v1/sourcing/quotes`,
+      input,
+      { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
+    );
+  }
+
+  updateSupplierQuote(quoteId: string, input: SupplierQuoteInput): Observable<SupplierQuote> {
+    return this.http.patch<SupplierQuote>(
+      `${this.config.apiBaseUrl}/api/v1/sourcing/quotes/${encodeURIComponent(quoteId)}`,
+      input,
+    );
+  }
+
+  selectSupplierQuote(
+    quoteId: string,
+    expectedCaseVersion: number,
+    expectedQuoteVersion: number,
+    comment: string,
+    idempotencyKey: string,
+  ): Observable<SourcingCase> {
+    return this.http.post<SourcingCase>(
+      `${this.config.apiBaseUrl}/api/v1/sourcing/quotes/${encodeURIComponent(quoteId)}/selection`,
+      { expectedCaseVersion, expectedQuoteVersion, comment },
+      { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
     );
   }
 }

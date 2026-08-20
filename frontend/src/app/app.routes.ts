@@ -13,6 +13,8 @@ import {
   canAccessReportsGuard,
   canAccessSupplierDirectoryGuard,
   canReviewPurchaseRequestsGuard,
+  canAccessApprovalGovernanceGuard,
+  canAccessSourcingGuard,
 } from './features/procurement/procurement.guard';
 
 export const routes: Routes = [
@@ -63,6 +65,15 @@ export const routes: Routes = [
     title: 'Việc của tôi | DX-OS',
   },
   {
+    path: 'approval-governance',
+    canActivate: [authGuard, canAccessApprovalGovernanceGuard],
+    loadComponent: () =>
+      import('./features/procurement/pages/approval-governance/approval-governance').then(
+        (module) => module.ApprovalGovernancePage,
+      ),
+    title: 'Ủy quyền và quy tắc phê duyệt | DX-OS',
+  },
+  {
     path: 'budgets',
     canActivate: [authGuard, canAccessBudgetManagementGuard],
     loadComponent: () =>
@@ -106,6 +117,15 @@ export const routes: Routes = [
         (module) => module.OperationsBoard,
       ),
     title: 'Đặt hàng và giao nhận | DX-OS',
+  },
+  {
+    path: 'sourcing',
+    canActivate: [authGuard, canAccessSourcingGuard],
+    loadComponent: () =>
+      import('./features/procurement/pages/sourcing-board/sourcing-board').then(
+        (module) => module.SourcingBoardPage,
+      ),
+    title: 'So sánh báo giá | DX-OS',
   },
   {
     path: 'audit',

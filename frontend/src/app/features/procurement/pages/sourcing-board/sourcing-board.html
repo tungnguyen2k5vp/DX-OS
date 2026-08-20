@@ -1,0 +1,56 @@
+<section aria-labelledby="sourcing-heading">
+  <header class="border-b border-border pb-7">
+    <p class="mb-2 text-sm font-medium text-primary">Sau phê duyệt</p>
+    <h1 id="sourcing-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">So sánh báo giá</h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Chấm điểm minh bạch theo giá, ngày giao, năng lực nhà cung cấp và tuân thủ trước khi phát hành đơn hàng.</p>
+  </header>
+
+  @if (error()) { <p role="alert" class="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{{ error() }}</p> }
+  @if (success()) { <p role="status" class="mt-5 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-primary">{{ success() }}</p> }
+
+  @if (board(); as current) {
+    <div class="mt-7 grid gap-4 sm:grid-cols-3">
+      <section hlmCard><div hlmCardHeader><p hlmCardDescription>Chờ báo giá</p><p class="text-3xl font-semibold">{{ current.awaitingQuotes }}</p></div></section>
+      <section hlmCard><div hlmCardHeader><p hlmCardDescription>Đang so sánh</p><p class="text-3xl font-semibold text-amber-600">{{ current.inComparison }}</p></div></section>
+      <section hlmCard><div hlmCardHeader><p hlmCardDescription>Đã chọn nhà cung cấp</p><p class="text-3xl font-semibold text-primary">{{ current.awarded }}</p></div></section>
+    </div>
+
+    <div class="mt-6 grid gap-4 xl:grid-cols-2">
+      @for (item of current.items; track item.purchaseRequestId) {
+        <article hlmCard>
+          <div hlmCardHeader class="border-b">
+            <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="font-mono text-xs font-semibold text-primary">{{ item.requestCode }}</p><h2 hlmCardTitle class="mt-1">{{ item.requestTitle }}</h2></div><span hlmBadge [variant]="item.status === 'AWARDED' ? 'secondary' : 'outline'">{{ item.status === 'NOT_STARTED' ? 'Chưa có báo giá' : item.status === 'OPEN' ? 'Đang so sánh' : 'Đã chọn' }}</span></div>
+            <p hlmCardDescription>{{ item.departmentName }} · {{ item.requestAmount | dxMoney: item.currency }}</p>
+          </div>
+          <div hlmCardContent class="grid gap-3">
+            @for (quote of item.quotes; track quote.id) {
+              <section class="rounded-xl border p-4" [class.border-primary]="quote.id === item.recommendedQuoteId">
+                <div class="flex flex-wrap items-start justify-between gap-3"><div><strong>{{ quote.supplierName }}</strong><p class="mt-1 text-xs text-muted-foreground">Mã báo giá: {{ quote.quoteReference }} · Dự kiến giao: {{ quote.deliveryOn | date: 'dd/MM/yyyy' }}</p></div><div class="text-right"><p class="font-semibold">{{ quote.amount | dxMoney: quote.currency }}</p><p class="text-xs text-muted-foreground">Điểm tổng hợp: {{ score(quote.totalScore) }}</p></div></div>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4"><span>Điểm giá: {{ score(quote.priceScore) }}</span><span>Điểm tiến độ: {{ score(quote.deliveryScore) }}</span><span>Điểm chất lượng: {{ score(quote.qualityScore) }}</span><span>Điểm tuân thủ: {{ score(quote.complianceScore) }}</span></div>
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2"><span hlmBadge [variant]="quote.status === 'SELECTED' ? 'secondary' : 'outline'">{{ quote.status === 'SELECTED' ? 'Đã chọn' : quote.status === 'REJECTED' ? 'Không chọn' : quote.id === item.recommendedQuoteId ? 'Được đề xuất' : 'Đang xem xét' }}</span>@if (current.canManage && item.status !== 'AWARDED' && quote.status === 'SUBMITTED') { <button hlmBtn size="sm" type="button" [disabled]="busy()" (click)="selectQuote(item, quote.id, quote.version)">Chọn báo giá</button> }</div>
+              </section>
+            } @empty { <p class="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">Chưa có báo giá. Tài chính mở phiếu để nhập báo giá đầu tiên.</p> }
+            @if (item.potentialSavings !== '0') { <p class="text-sm text-primary">Mức tiết kiệm tiềm năng: <strong>{{ item.potentialSavings | dxMoney: item.currency }}</strong></p> }
+            @if (current.canManage && item.status !== 'AWARDED') { <button hlmBtn variant="outline" type="button" (click)="open(item)">Nhập báo giá</button> }
+          </div>
+        </article>
+      } @empty { <p class="xl:col-span-2 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Chưa có phiếu đã duyệt để lấy báo giá.</p> }
+    </div>
+
+    @if (selectedCase(); as item) {
+      <section id="quote-workspace" hlmCard class="mt-6">
+        <div hlmCardHeader class="border-b"><h2 hlmCardTitle>Nhập báo giá cho {{ item.requestCode }}</h2><p hlmCardDescription>Mỗi nhà cung cấp chỉ có một báo giá đang hoạt động trong lần so sánh.</p></div>
+        <div hlmCardContent class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <label class="grid gap-1.5 text-sm font-medium">Nhà cung cấp<select class="h-11 rounded-lg border border-border bg-background px-3" [value]="supplierId()" (change)="supplierId.set($any($event.target).value)"><option value="">Chọn nhà cung cấp</option>@for (supplier of suppliers(); track supplier.id) { <option [value]="supplier.id">{{ supplier.code }} · {{ supplier.name }}</option> }</select></label>
+          <label class="grid gap-1.5 text-sm font-medium">Số báo giá<input class="h-11 rounded-lg border border-border bg-background px-3" [value]="quoteReference()" (input)="quoteReference.set($any($event.target).value)" /></label>
+          <label class="grid gap-1.5 text-sm font-medium">Tổng giá {{ item.currency }}<input class="h-11 rounded-lg border border-border bg-background px-3" inputmode="decimal" [value]="amount()" (input)="amount.set($any($event.target).value)" /></label>
+          <label class="grid gap-1.5 text-sm font-medium">Ngày giao dự kiến<input type="date" class="h-11 rounded-lg border border-border bg-background px-3" [value]="deliveryOn()" (input)="deliveryOn.set($any($event.target).value)" /></label>
+          <label class="grid gap-1.5 text-sm font-medium">Bảo hành (tháng)<input type="number" min="0" max="240" class="h-11 rounded-lg border border-border bg-background px-3" [value]="warrantyMonths()" (input)="warrantyMonths.set(+$any($event.target).value)" /></label>
+          <label class="grid gap-1.5 text-sm font-medium">Điều khoản thanh toán<input class="h-11 rounded-lg border border-border bg-background px-3" [value]="paymentTerms()" (input)="paymentTerms.set($any($event.target).value)" /></label>
+          <label class="grid gap-1.5 text-sm font-medium md:col-span-2 xl:col-span-3">Ghi chú<textarea class="min-h-24 rounded-lg border border-border bg-background p-3" [value]="note()" (input)="note.set($any($event.target).value)"></textarea></label>
+          <div class="flex gap-2"><button hlmBtn type="button" [disabled]="busy() || !supplierId()" (click)="addQuote()">Lưu báo giá</button><button hlmBtn variant="outline" type="button" (click)="selectedCase.set(null)">Đóng</button></div>
+        </div>
+      </section>
+    }
+  } @else if (loading()) { <div class="mt-7 h-64 animate-pulse rounded-xl bg-muted"></div> }
+</section>

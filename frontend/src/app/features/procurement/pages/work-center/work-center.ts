@@ -16,7 +16,7 @@ const taskLabels: Record<WorkTaskType, string> = {
   COMPLETE_REQUEST: 'Hoàn thiện và gửi phiếu',
   MANAGER_REVIEW: 'Trưởng bộ phận xem xét',
   FINANCE_REVIEW: 'Tài chính thẩm định',
-  SLA_MONITOR: 'Theo dõi SLA',
+  SLA_MONITOR: 'Theo dõi hạn xử lý',
 };
 
 const urgencyLabels: Record<WorkTaskUrgency, string> = {
