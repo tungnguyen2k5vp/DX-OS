@@ -118,8 +118,15 @@ services:
       NEXTCLOUD_USERNAME: ${NEXTCLOUD_ADMIN_USER}
       NEXTCLOUD_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
       NEXTCLOUD_ROOT: ${NEXTCLOUD_ROOT}
+      AI_ENABLED: ${AI_ENABLED:-false}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:4b-instruct}
+      AI_KNOWLEDGE_PATH: /app/knowledge
+      AI_REQUEST_TIMEOUT: ${AI_REQUEST_TIMEOUT:-90s}
     ports:
       - "127.0.0.1:${API_HOST_PORT}:8081"
+    volumes:
+      - ../docs:/app/knowledge:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -127,6 +134,8 @@ services:
         condition: service_started
       nextcloud:
         condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health/ready >/dev/null || exit 1"]
       interval: 10s

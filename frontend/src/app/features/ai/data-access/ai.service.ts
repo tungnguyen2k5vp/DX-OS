@@ -2,12 +2,27 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { APP_CONFIG } from '../../../core/config/app-config';
-import { AIDecision, AIRecommendation, AIRecommendationList } from './ai.models';
+import {
+  AIAssistantAnswer,
+  AIAssistantStatus,
+  AIDecision,
+  AIRecommendation,
+  AIRecommendationList,
+} from './ai.models';
 
 @Injectable({ providedIn: 'root' })
 export class AIService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${inject(APP_CONFIG).apiBaseUrl}/api/v1/ai/recommendations`;
+  private readonly aiBaseUrl = `${inject(APP_CONFIG).apiBaseUrl}/api/v1/ai`;
+  private readonly baseUrl = `${this.aiBaseUrl}/recommendations`;
+
+  assistantStatus(): Observable<AIAssistantStatus> {
+    return this.http.get<AIAssistantStatus>(`${this.aiBaseUrl}/assistant/status`);
+  }
+
+  ask(question: string): Observable<AIAssistantAnswer> {
+    return this.http.post<AIAssistantAnswer>(`${this.aiBaseUrl}/assistant/questions`, { question });
+  }
 
   list(): Observable<AIRecommendationList> {
     return this.http.get<AIRecommendationList>(this.baseUrl);

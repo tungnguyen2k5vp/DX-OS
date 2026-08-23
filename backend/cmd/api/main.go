@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dx-os-lab/dx-os/backend/internal/aiassistant"
 	"github.com/dx-os-lab/dx-os/backend/internal/notifications"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/config"
@@ -64,7 +65,15 @@ func main() {
 	)
 
 	procurementStore := procurement.NewStore(database, documents)
+	assistantService := aiassistant.New(aiassistant.Config{
+		Enabled:       cfg.AIEnabled,
+		BaseURL:       cfg.OllamaURL,
+		ChatModel:     cfg.OllamaChatModel,
+		KnowledgePath: cfg.AIKnowledgePath,
+		Timeout:       cfg.AIRequestTimeout,
+	})
 	handler := httpapi.New(httpapi.Dependencies{
+		Assistant:     assistantService,
 		AllowedOrigin: cfg.AllowedOrigin,
 		Database:      database,
 		Logger:        logger,
@@ -80,7 +89,7 @@ func main() {
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      45 * time.Second,
+		WriteTimeout:      2 * time.Minute,
 		IdleTimeout:       60 * time.Second,
 	}
 

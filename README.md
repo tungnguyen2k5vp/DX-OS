@@ -7,13 +7,14 @@ có xác thực, phân quyền, kiểm soát ngân sách, tài liệu đính kè
 v4**, mang cách tổ chức component theo triết lý shadcn nhưng phù hợp với Angular. Các nền tảng
 Keycloak, PostgreSQL, Nextcloud và Metabase chạy độc lập, được ghép lại bằng Docker Compose.
 
-> Đây là dự án lab/MVP. RAG và Agent đã có trong lộ trình kiến trúc nhưng **chưa được triển khai**
-> trong phiên bản hiện tại.
+> Đây là dự án lab/MVP. Trợ lý hỏi đáp grounded đã chạy local bằng Ollama và truy xuất tài liệu Markdown.
+> RAGFlow, semantic vector retrieval và Agent thực thi công cụ vẫn nằm trong lộ trình tiếp theo.
 
 ## Tính năng đã có
 
 - Đăng nhập một lần qua Keycloak bằng Authorization Code + PKCE S256.
 - Sáu role nghiệp vụ: employee, department_manager, finance, auditor, ai_operator và dx_admin.
+- Trợ lý AI nội bộ dùng Ollama local, chỉ trả lời từ tài liệu được truy xuất và hiển thị nguồn kiểm chứng.
 - Tạo, sửa, lọc, xem chi tiết và theo dõi lịch sử phiếu mua sắm.
 - Quy trình duyệt hai cấp: trưởng bộ phận rồi tài chính.
 - Chống tự duyệt, kiểm tra data scope, optimistic locking và idempotent transition.
@@ -131,8 +132,15 @@ docker compose --profile foundation --profile application --profile reporting up
 docker compose --profile foundation --profile application --profile reporting ps
 ```
 
-Lần đầu Docker cần tải nhiều image và Nextcloud/Metabase cần thời gian bootstrap. Chờ các service
-postgres, nextcloud, api, web và metabase chuyển sang running/healthy trước bước tiếp theo.
+Lệnh trên chạy Ollama bằng CPU và tự tải model vào Docker volume ở lần đầu. Trên máy NVIDIA có Docker Desktop
+WSL2 GPU passthrough, thêm overlay GPU:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml `
+  --profile foundation --profile application --profile reporting up -d --build
+```
+Lần đầu Docker cần tải nhiều image, model Qwen 2,5 GB và Nextcloud/Metabase cần thời gian bootstrap. Chờ các
+service postgres, nextcloud, ollama, api, web và metabase chuyển sang running/healthy trước bước tiếp theo.
 
 Xem log nếu service chưa sẵn sàng:
 
@@ -194,6 +202,7 @@ read-only và các card của Metabase.
 | Nextcloud     | http://localhost:8082 | Dịch vụ nội bộ, không cần user đăng nhập          |
 | Metabase      | http://localhost:3000 | Credential trong data/runtime/metabase-admin.txt  |
 | DX-OS Docs    | http://localhost:4300 | Website tài liệu Docusaurus                       |
+| Ollama        | Docker internal        | Không publish port; model qwen3:4b-instruct      |
 
 Luôn mở ứng dụng bằng **http://localhost:4200**. Không đổi thành 127.0.0.1 nếu chưa cập nhật
 Keycloak, vì client dx-web chỉ cho phép redirect URI http://localhost:4200/*.
@@ -203,6 +212,9 @@ Website tài liệu chạy bằng profile độc lập:
 ```powershell
 docker compose --profile documentation up -d --build docs
 ```
+
+Thiết lập trợ lý AI không dùng API bên ngoài được mô tả tại
+[Hướng dẫn AI local](docs/implementation/LOCAL_AI.md).
 
 ## Chạy source ngoài Docker
 

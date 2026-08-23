@@ -34,3 +34,28 @@ export interface AIDecision {
   comment: string;
   expectedVersion: number;
 }
+
+export interface AIAssistantStatus {
+  enabled: boolean;
+  available: boolean;
+  provider: string;
+  model: string;
+  knowledgeDocuments: number;
+  message: string;
+}
+
+export interface AIAssistantSource {
+  index: number;
+  title: string;
+  path: string;
+  excerpt: string;
+}
+
+export interface AIAssistantAnswer {
+  answer: string;
+  sources: AIAssistantSource[];
+  model: string;
+  durationMs: number;
+  generatedAt: string;
+  groundedOnly: boolean;
+}

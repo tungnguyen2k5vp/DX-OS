@@ -146,6 +146,13 @@ export const routes: Routes = [
     title: 'Quản trị hệ thống | DX-OS',
   },
   {
+    path: 'ai-assistant',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/ai/pages/assistant/assistant').then((module) => module.AIAssistantPage),
+    title: 'Trợ lý AI nội bộ | DX-OS',
+  },
+  {
     path: 'ai-center',
     canActivate: [authGuard, canAccessAIGuard],
     loadComponent: () =>

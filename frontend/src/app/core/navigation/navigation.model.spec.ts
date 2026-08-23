@@ -12,6 +12,7 @@ describe('navigationForRoles', () => {
       '/notifications',
       '/purchase-requests',
       '/operations',
+      '/ai-assistant',
       '/employee-guide',
     ]);
   });
@@ -25,6 +26,7 @@ describe('navigationForRoles', () => {
       '/notifications',
       '/purchase-requests',
       '/operations',
+      '/ai-assistant',
     ]);
   });
 
@@ -47,13 +49,14 @@ describe('navigationForRoles', () => {
       '/reports',
       '/audit',
       '/policies',
+      '/ai-assistant',
       '/ai-center',
       '/admin',
     ]);
   });
 
   it('preserves auth-only routes for accounts without a recognized business role', () => {
-    expect(routesFor(['unknown'])).toEqual(['/dashboard', '/notifications']);
+    expect(routesFor(['unknown'])).toEqual(['/dashboard', '/notifications', '/ai-assistant']);
   });
 
   it('removes unauthorized groups instead of returning empty shells', () => {
@@ -72,7 +75,7 @@ describe('navigationForRoles', () => {
       ['Công việc', ['/work-center', '/approvals', '/approval-governance', '/notifications']],
       ['Mua sắm', ['/purchase-requests', '/operations', '/suppliers', '/sourcing']],
       ['Tài chính', ['/budgets', '/invoices', '/reports']],
-      ['Trí tuệ hỗ trợ', ['/ai-center']],
+      ['Trí tuệ hỗ trợ', ['/ai-assistant', '/ai-center']],
       ['Trợ giúp', ['/employee-guide']],
     ]);
   });

@@ -1,0 +1,160 @@
+<section aria-labelledby="assistant-heading">
+  <header
+    class="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"
+  >
+    <div>
+      <p class="mb-2 text-sm font-medium text-primary">Ollama chạy hoàn toàn trên máy local</p>
+      <h1 id="assistant-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">
+        Trợ lý AI nội bộ
+      </h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+        Hỏi về quy trình và chính sách DX-OS. Câu trả lời chỉ dựa trên tài liệu nội bộ được truy
+        xuất và luôn hiển thị nguồn để kiểm tra.
+      </p>
+    </div>
+    @if (status(); as currentStatus) {
+      <span hlmBadge [variant]="currentStatus.available ? 'default' : 'outline'">
+        {{ currentStatus.available ? 'AI local sẵn sàng' : 'AI local chưa sẵn sàng' }}
+      </span>
+    }
+  </header>
+
+  <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
+    <section hlmCard>
+      <div hlmCardHeader class="border-b">
+        <h2 hlmCardTitle>Đặt câu hỏi</h2>
+        <p hlmCardDescription>
+          Không nhập mật khẩu, token hoặc thông tin ngân hàng đầy đủ vào câu hỏi.
+        </p>
+      </div>
+      <div hlmCardContent class="grid gap-4">
+        <label class="grid gap-2 text-sm font-medium">
+          Nội dung câu hỏi
+          <textarea
+            class="min-h-32 resize-y rounded-md border border-input bg-background px-3 py-3 font-normal leading-6"
+            maxlength="1000"
+            placeholder="Ví dụ: Phiếu mua sắm trên 20 triệu cần điều kiện gì?"
+            [value]="question()"
+            [disabled]="asking()"
+            (input)="updateQuestion($any($event.target).value)"
+          ></textarea>
+        </label>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <span class="text-xs text-muted-foreground">{{ question().length }}/1.000 ký tự</span>
+          <button
+            hlmBtn
+            type="button"
+            [disabled]="asking() || !status()?.available"
+            (click)="ask()"
+          >
+            {{ asking() ? 'Đang phân tích…' : 'Hỏi AI local' }}
+          </button>
+        </div>
+        @if (error()) {
+          <p
+            role="alert"
+            class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+          >
+            {{ error() }}
+          </p>
+        }
+        @if (asking()) {
+          <div class="grid gap-3" aria-live="polite">
+            <div class="h-4 w-2/3 animate-pulse rounded bg-muted"></div>
+            <div class="h-4 animate-pulse rounded bg-muted"></div>
+            <div class="h-4 w-5/6 animate-pulse rounded bg-muted"></div>
+            <p class="text-xs text-muted-foreground">
+              Model 4B local có thể cần khoảng 20–90 giây cho lần trả lời đầu tiên.
+            </p>
+          </div>
+        }
+        @if (answer(); as currentAnswer) {
+          <article class="rounded-xl border bg-muted/30 p-5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h2 class="font-semibold">Câu trả lời</h2>
+              <span class="text-xs text-muted-foreground"
+                >{{ currentAnswer.model }} · {{ currentAnswer.durationMs / 1000 }} giây</span
+              >
+            </div>
+            <div
+              data-testid="assistant-answer"
+              class="mt-4 text-sm leading-7 [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_li]:my-1.5 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-3 [&_strong]:font-semibold [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-6"
+              [innerHTML]="currentAnswer.answer | assistantMarkdown"
+            ></div>
+            <p class="mt-4 text-xs text-muted-foreground">
+              Sinh lúc {{ currentAnswer.generatedAt | date: 'dd/MM/yyyy HH:mm:ss' }} · Cần kiểm tra
+              lại nguồn trước khi ra quyết định.
+            </p>
+          </article>
+          <div class="grid gap-3">
+            <h2 class="font-semibold">Nguồn nội bộ</h2>
+            @for (source of currentAnswer.sources; track source.index) {
+              <details class="rounded-lg border p-4">
+                <summary class="cursor-pointer text-sm font-medium">
+                  [{{ source.index }}] {{ source.title }}
+                </summary>
+                <p class="mt-1 text-xs text-muted-foreground">{{ source.path }}</p>
+                <p class="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                  {{ source.excerpt }}
+                </p>
+              </details>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    <aside class="grid content-start gap-4">
+      <section hlmCard>
+        <div hlmCardHeader><h2 hlmCardTitle>Trạng thái local</h2></div>
+        <div hlmCardContent>
+          @if (loadingStatus()) {
+            <div class="h-20 animate-pulse rounded bg-muted"></div>
+          } @else if (status(); as currentStatus) {
+            <dl class="grid gap-3 text-sm">
+              <div>
+                <dt class="text-xs text-muted-foreground">Mô hình</dt>
+                <dd class="mt-1 font-medium">{{ currentStatus.model || 'Chưa cấu hình' }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">Kho tri thức</dt>
+                <dd class="mt-1 font-medium">{{ currentStatus.knowledgeDocuments }} tài liệu</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">Kết nối</dt>
+                <dd class="mt-1">{{ currentStatus.message }}</dd>
+              </div>
+            </dl>
+            <button
+              class="mt-4"
+              hlmBtn
+              size="sm"
+              variant="outline"
+              type="button"
+              (click)="refreshStatus()"
+            >
+              Kiểm tra lại
+            </button>
+          }
+        </div>
+      </section>
+      <section hlmCard>
+        <div hlmCardHeader><h2 hlmCardTitle>Câu hỏi mẫu</h2></div>
+        <div hlmCardContent class="grid gap-2">
+          @for (example of examples; track example) {
+            <button
+              hlmBtn
+              variant="ghost"
+              type="button"
+              class="h-auto justify-start whitespace-normal text-left"
+              [disabled]="asking() || !status()?.available"
+              (click)="useExample(example)"
+            >
+              {{ example }}
+            </button>
+          }
+        </div>
+      </section>
+    </aside>
+  </div>
+</section>

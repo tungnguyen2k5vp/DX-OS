@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dx-os-lab/dx-os/backend/internal/aiassistant"
 	"github.com/dx-os-lab/dx-os/backend/internal/notifications"
 	"github.com/dx-os-lab/dx-os/backend/internal/platform/auth"
 	"github.com/dx-os-lab/dx-os/backend/internal/procurement"
@@ -67,6 +68,11 @@ type notificationService interface {
 	MarkAllRead(context.Context, auth.Principal) (int64, error)
 }
 
+type aiAssistantService interface {
+	Status(context.Context) aiassistant.Status
+	Ask(context.Context, auth.Principal, string) (aiassistant.Answer, error)
+}
+
 type enterpriseService interface {
 	ListCatalog(context.Context, auth.Principal) (procurement.Catalog, error)
 	CheckDuplicateRequests(context.Context, auth.Principal, procurement.DuplicateCheckInput) (procurement.DuplicateCheckResult, error)
@@ -98,6 +104,7 @@ type enterpriseService interface {
 }
 
 type Dependencies struct {
+	Assistant     aiAssistantService
 	AllowedOrigin string
 	Database      *pgxpool.Pool
 	Logger        *slog.Logger
@@ -111,6 +118,7 @@ type Dependencies struct {
 }
 
 type api struct {
+	assistant     aiAssistantService
 	allowedOrigin string
 	database      *pgxpool.Pool
 	logger        *slog.Logger
@@ -132,6 +140,7 @@ func New(deps Dependencies) http.Handler {
 		rateWindow = time.Minute
 	}
 	server := &api{
+		assistant:     deps.Assistant,
 		allowedOrigin: deps.AllowedOrigin,
 		database:      deps.Database,
 		logger:        deps.Logger,
@@ -156,6 +165,8 @@ func New(deps Dependencies) http.Handler {
 		r.Use(server.authenticate)
 		r.Use(server.principalRateLimit)
 		r.Get("/me", server.me)
+		r.Get("/ai/assistant/status", server.getAIAssistantStatus)
+		r.Post("/ai/assistant/questions", server.askAIAssistant)
 		r.Get("/me/tasks-summary", server.getTaskSummary)
 		r.Get("/me/notifications", server.listNotifications)
 		r.Post("/me/notifications/read-all", server.markAllNotificationsRead)

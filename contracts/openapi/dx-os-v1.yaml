@@ -931,6 +931,25 @@ paths:
       responses:
         "200": { description: Department updated. }
         "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/ai/assistant/status:
+    get:
+      operationId: getLocalAIAssistantStatus
+      tags: [AI]
+      description: Reports whether the host-local Ollama model and mounted internal knowledge are ready.
+      responses:
+        "200": { description: Local assistant status., content: { application/json: { schema: { $ref: "#/components/schemas/AIAssistantStatus" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+  /api/v1/ai/assistant/questions:
+    post:
+      operationId: askLocalAIAssistant
+      tags: [AI]
+      description: Answers from mounted internal Markdown evidence through a local Ollama model; no external LLM API is used.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AIAssistantQuestion" } } } }
+      responses:
+        "200": { description: Grounded local answer and inspectable sources., content: { application/json: { schema: { $ref: "#/components/schemas/AIAssistantAnswer" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/ai/recommendations:
     get:
       operationId: listAIRecommendations
@@ -2295,6 +2314,43 @@ components:
         parentId: { type: string }
         active: { type: boolean }
         expectedVersion: { type: integer, minimum: 0 }
+    AIAssistantStatus:
+      type: object
+      additionalProperties: false
+      required: [enabled, available, provider, model, knowledgeDocuments, message]
+      properties:
+        enabled: { type: boolean }
+        available: { type: boolean }
+        provider: { type: string, enum: [ollama-local] }
+        model: { type: string }
+        knowledgeDocuments: { type: integer, minimum: 0 }
+        message: { type: string }
+    AIAssistantQuestion:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question: { type: string, minLength: 3, maxLength: 1000 }
+    AIAssistantSource:
+      type: object
+      additionalProperties: false
+      required: [index, title, path, excerpt]
+      properties:
+        index: { type: integer, minimum: 1 }
+        title: { type: string }
+        path: { type: string }
+        excerpt: { type: string }
+    AIAssistantAnswer:
+      type: object
+      additionalProperties: false
+      required: [answer, sources, model, durationMs, generatedAt, groundedOnly]
+      properties:
+        answer: { type: string }
+        sources: { type: array, minItems: 1, maxItems: 5, items: { $ref: "#/components/schemas/AIAssistantSource" } }
+        model: { type: string }
+        durationMs: { type: integer, format: int64, minimum: 0 }
+        generatedAt: { type: string, format: date-time }
+        groundedOnly: { type: boolean, const: true }
     AIRecommendationList:
       type: object
       additionalProperties: true

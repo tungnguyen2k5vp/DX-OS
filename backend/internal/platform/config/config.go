@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -19,9 +21,22 @@ type Config struct {
 	NextcloudUsername string
 	NextcloudPassword string
 	NextcloudRoot     string
+	AIEnabled         bool
+	OllamaURL         string
+	OllamaChatModel   string
+	AIKnowledgePath   string
+	AIRequestTimeout  time.Duration
 }
 
 func Load() (Config, error) {
+	aiEnabled, err := strconv.ParseBool(valueOrDefault("AI_ENABLED", "false"))
+	if err != nil {
+		return Config{}, errors.New("AI_ENABLED must be true or false")
+	}
+	aiRequestTimeout, err := time.ParseDuration(valueOrDefault("AI_REQUEST_TIMEOUT", "90s"))
+	if err != nil || aiRequestTimeout < time.Second || aiRequestTimeout > 5*time.Minute {
+		return Config{}, errors.New("AI_REQUEST_TIMEOUT must be between 1s and 5m")
+	}
 	cfg := Config{
 		Environment:   valueOrDefault("APP_ENV", "development"),
 		HTTPAddress:   valueOrDefault("HTTP_ADDRESS", ":8081"),
@@ -37,6 +52,14 @@ func Load() (Config, error) {
 		NextcloudUsername: strings.TrimSpace(os.Getenv("NEXTCLOUD_USERNAME")),
 		NextcloudPassword: strings.TrimSpace(os.Getenv("NEXTCLOUD_PASSWORD")),
 		NextcloudRoot:     valueOrDefault("NEXTCLOUD_ROOT", "DX-OS"),
+		AIEnabled:         aiEnabled,
+		OllamaURL: strings.TrimRight(
+			valueOrDefault("OLLAMA_URL", "http://ollama:11434"),
+			"/",
+		),
+		OllamaChatModel:  valueOrDefault("OLLAMA_CHAT_MODEL", "qwen3:4b-instruct"),
+		AIKnowledgePath:  valueOrDefault("AI_KNOWLEDGE_PATH", "/app/knowledge"),
+		AIRequestTimeout: aiRequestTimeout,
 	}
 
 	var missing []string
@@ -68,6 +91,17 @@ func Load() (Config, error) {
 	}
 	if strings.ContainsAny(cfg.NextcloudRoot, `/\`) || cfg.NextcloudRoot == "." || cfg.NextcloudRoot == ".." {
 		return Config{}, errors.New("NEXTCLOUD_ROOT must be a single safe path segment")
+	}
+	if cfg.AIEnabled {
+		if !strings.HasPrefix(cfg.OllamaURL, "http://") && !strings.HasPrefix(cfg.OllamaURL, "https://") {
+			return Config{}, errors.New("OLLAMA_URL must be an absolute HTTP(S) URL")
+		}
+		if cfg.OllamaChatModel == "" {
+			return Config{}, errors.New("OLLAMA_CHAT_MODEL must not be empty when AI is enabled")
+		}
+		if cfg.AIKnowledgePath == "" {
+			return Config{}, errors.New("AI_KNOWLEDGE_PATH must not be empty when AI is enabled")
+		}
 	}
 
 	return cfg, nil

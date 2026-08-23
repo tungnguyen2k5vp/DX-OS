@@ -134,8 +134,8 @@ sidebar_position: 90
 - [ ] Chuẩn bị máy/profile đủ tài nguyên cho RAGFlow.
 - [ ] Chốt knowledge owner/classification/retention.
 - [ ] Ingest tài liệu quy định mua sắm.
-- [ ] API proxy/query qua Go.
-- [ ] Angular AI assistant.
+- [x] API proxy/query qua Go cho baseline Ollama local có grounded Markdown retrieval.
+- [x] Angular AI assistant hiển thị trạng thái local, câu trả lời và nguồn kiểm chứng.
 - [ ] Evaluation set và expected citations.
 - [ ] Groundedness/correctness/refusal tests.
 - [ ] Prompt injection test.

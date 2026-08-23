@@ -1,10 +1,5 @@
 export type AppRole =
-  | 'employee'
-  | 'department_manager'
-  | 'finance'
-  | 'auditor'
-  | 'dx_admin'
-  | 'ai_operator';
+  'employee' | 'department_manager' | 'finance' | 'auditor' | 'dx_admin' | 'ai_operator';
 
 export interface NavigationItem {
   readonly label: string;
@@ -62,20 +57,13 @@ const navigationGroups: readonly NavigationGroup[] = [
     label: 'Công việc',
     items: [
       item('Việc của tôi', 'Công việc', '/work-center', 'tasks', procurementRoles),
-      item(
-        'Phê duyệt',
-        'Phê duyệt',
-        '/approvals',
-        'approval',
-        ['department_manager', 'finance'],
-      ),
-      item(
-        'Ủy quyền và quy tắc',
-        'Quy tắc',
-        '/approval-governance',
-        'approval',
-        ['department_manager', 'finance', 'auditor', 'dx_admin'],
-      ),
+      item('Phê duyệt', 'Phê duyệt', '/approvals', 'approval', ['department_manager', 'finance']),
+      item('Ủy quyền và quy tắc', 'Quy tắc', '/approval-governance', 'approval', [
+        'department_manager',
+        'finance',
+        'auditor',
+        'dx_admin',
+      ]),
       item('Thông báo', 'Thông báo', '/notifications', 'notifications', [], true),
     ],
   },
@@ -85,7 +73,11 @@ const navigationGroups: readonly NavigationGroup[] = [
       item('Phiếu mua sắm', 'Mua sắm', '/purchase-requests', 'requests', procurementRoles),
       item('Đặt hàng & giao nhận', 'Giao nhận', '/operations', 'operations', procurementRoles),
       item('Nhà cung cấp', 'Nhà cung cấp', '/suppliers', 'suppliers', ['finance', 'auditor']),
-      item('So sánh báo giá', 'Báo giá', '/sourcing', 'suppliers', ['finance', 'auditor', 'dx_admin']),
+      item('So sánh báo giá', 'Báo giá', '/sourcing', 'suppliers', [
+        'finance',
+        'auditor',
+        'dx_admin',
+      ]),
     ],
   },
   {
@@ -106,13 +98,13 @@ const navigationGroups: readonly NavigationGroup[] = [
   {
     label: 'Trí tuệ hỗ trợ',
     items: [
-      item(
-        'Khuyến nghị',
-        'Khuyến nghị',
-        '/ai-center',
-        'ai',
-        ['ai_operator', 'dx_admin', 'finance', 'auditor'],
-      ),
+      item('Trợ lý AI nội bộ', 'Trợ lý AI', '/ai-assistant', 'ai', [], true),
+      item('Khuyến nghị', 'Khuyến nghị', '/ai-center', 'ai', [
+        'ai_operator',
+        'dx_admin',
+        'finance',
+        'auditor',
+      ]),
     ],
   },
   {
@@ -150,8 +142,8 @@ export function navigationForRoles(roles: readonly string[]): NavigationGroup[] 
 }
 
 export function primaryRoleLabel(roles: readonly string[]): string {
-  const role = roles.find(
-    (candidate): candidate is AppRole => Object.prototype.hasOwnProperty.call(roleLabels, candidate),
+  const role = roles.find((candidate): candidate is AppRole =>
+    Object.prototype.hasOwnProperty.call(roleLabels, candidate),
   );
   return role ? roleLabels[role] : 'Đã xác thực';
 }
