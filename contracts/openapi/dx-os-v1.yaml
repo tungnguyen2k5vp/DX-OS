@@ -1442,6 +1442,7 @@ components:
         - id
         - requestCode
         - requesterId
+        - requesterUsername
         - requesterName
         - departmentId
         - departmentName
@@ -1464,6 +1465,9 @@ components:
         requesterId:
           type: string
           format: uuid
+        requesterUsername:
+          type: string
+          description: Tên tài khoản ổn định dùng để đối chiếu chủ phiếu; không phải tên hiển thị.
         requesterName:
           type: string
         departmentId:

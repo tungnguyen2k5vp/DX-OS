@@ -183,22 +183,23 @@ type Item struct {
 }
 
 type PurchaseRequest struct {
-	ID             string    `json:"id"`
-	RequestCode    string    `json:"requestCode"`
-	RequesterID    string    `json:"requesterId"`
-	RequesterName  string    `json:"requesterName"`
-	DepartmentID   string    `json:"departmentId"`
-	DepartmentName string    `json:"departmentName"`
-	Title          string    `json:"title"`
-	Reason         string    `json:"reason"`
-	Currency       string    `json:"currency"`
-	TotalAmount    string    `json:"totalAmount"`
-	CostCenter     string    `json:"costCenter"`
-	Status         Status    `json:"status"`
-	Version        int64     `json:"version"`
-	CreatedAt      time.Time `json:"createdAt"`
-	UpdatedAt      time.Time `json:"updatedAt"`
-	Items          []Item    `json:"items,omitempty"`
+	ID                string    `json:"id"`
+	RequestCode       string    `json:"requestCode"`
+	RequesterID       string    `json:"requesterId"`
+	RequesterUsername string    `json:"requesterUsername"`
+	RequesterName     string    `json:"requesterName"`
+	DepartmentID      string    `json:"departmentId"`
+	DepartmentName    string    `json:"departmentName"`
+	Title             string    `json:"title"`
+	Reason            string    `json:"reason"`
+	Currency          string    `json:"currency"`
+	TotalAmount       string    `json:"totalAmount"`
+	CostCenter        string    `json:"costCenter"`
+	Status            Status    `json:"status"`
+	Version           int64     `json:"version"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+	Items             []Item    `json:"items,omitempty"`
 }
 
 type ListInput struct {

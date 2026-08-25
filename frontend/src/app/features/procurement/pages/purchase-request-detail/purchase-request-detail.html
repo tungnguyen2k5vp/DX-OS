@@ -102,37 +102,45 @@
           </div>
           <div hlmCardContent>
             <div class="overflow-x-auto">
-              <table class="w-full min-w-[680px] text-left text-sm">
+              <table class="w-full min-w-[720px] table-fixed text-left text-sm">
+                <caption class="sr-only">Danh sách hàng hóa trong phiếu mua sắm</caption>
+                <colgroup>
+                  <col class="w-12" />
+                  <col />
+                  <col class="w-28" />
+                  <col class="w-36" />
+                  <col class="w-44" />
+                </colgroup>
                 <thead
-                  class="border-b border-border text-xs uppercase tracking-wide text-muted-foreground"
+                  class="border-b border-border bg-muted/35 text-xs uppercase tracking-wide text-muted-foreground"
                 >
                   <tr>
-                    <th class="px-3 py-3 font-medium">#</th>
-                    <th class="px-3 py-3 font-medium">Mô tả</th>
-                    <th class="px-3 py-3 text-right font-medium">Số lượng</th>
-                    <th class="px-3 py-3 text-right font-medium">Đơn giá</th>
-                    <th class="px-3 py-3 text-right font-medium">Thành tiền</th>
+                    <th scope="col" class="px-3 py-3 font-medium">#</th>
+                    <th scope="col" class="px-3 py-3 font-medium">Mô tả</th>
+                    <th scope="col" class="px-3 py-3 text-right font-medium">Số lượng</th>
+                    <th scope="col" class="px-3 py-3 text-right font-medium">Đơn giá</th>
+                    <th scope="col" class="px-3 py-3 text-right font-medium">Thành tiền</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-border">
                   @for (item of current.items ?? []; track item.id) {
                     <tr>
-                      <td class="px-3 py-4 text-muted-foreground">
+                      <td class="px-3 py-4 align-middle text-muted-foreground">
                         {{ item.lineNumber }}
                       </td>
-                      <td class="px-3 py-4">
-                        <p class="font-medium">{{ item.description }}</p>
+                      <td class="px-3 py-4 align-middle">
+                        <p class="break-words font-medium">{{ item.description }}</p>
                         <p class="mt-1 text-xs text-muted-foreground">
                           {{ item.unit }}
                         </p>
                       </td>
-                      <td class="px-3 py-4 text-right font-mono">
+                      <td class="px-3 py-4 text-right font-mono tabular-nums whitespace-nowrap">
                         {{ item.quantity | dxMoney }}
                       </td>
-                      <td class="px-3 py-4 text-right font-mono">
+                      <td class="px-3 py-4 text-right font-mono tabular-nums whitespace-nowrap">
                         {{ item.unitPrice | dxMoney: current.currency }}
                       </td>
-                      <td class="px-3 py-4 text-right font-medium tabular-nums">
+                      <td class="px-3 py-4 text-right font-semibold tabular-nums whitespace-nowrap">
                         {{ item.lineTotal | dxMoney: current.currency }}
                       </td>
                     </tr>
@@ -146,8 +154,8 @@
                 </tbody>
                 <tfoot class="border-t border-border">
                   <tr>
-                    <th class="px-3 py-4 text-right text-sm" colspan="4">Tổng cộng</th>
-                    <td class="px-3 py-4 text-right text-lg font-semibold tabular-nums">
+                    <th class="px-3 py-4 text-right text-sm font-semibold" colspan="4">Tổng cộng</th>
+                    <td class="px-3 py-4 text-right text-lg font-semibold tabular-nums whitespace-nowrap">
                       {{ current.totalAmount | dxMoney: current.currency }}
                     </td>
                   </tr>

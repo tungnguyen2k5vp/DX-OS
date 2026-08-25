@@ -25,6 +25,7 @@ import {
   PurchaseRequestTimelineEvent,
 } from '../../data-access/procurement.models';
 import { ProcurementService } from '../../data-access/procurement.service';
+import { isPurchaseRequestOwner } from '../../utils/purchase-request-ownership';
 import { MoneyPipe } from '../../ui/money.pipe';
 import { PurchaseRequestStatusBadge } from '../../ui/purchase-request-status-badge';
 
@@ -149,7 +150,7 @@ export class PurchaseRequestDetail {
           .find((label) => label !== undefined) ?? 'Người dùng',
     })),
   );
-  readonly isOwner = computed(() => this.request()?.requesterName === this.auth.username());
+  readonly isOwner = computed(() => isPurchaseRequestOwner(this.request(), this.auth.username()));
   readonly availableActions = computed<PurchaseRequestAction[]>(() => {
     const request = this.request();
     if (!request) {

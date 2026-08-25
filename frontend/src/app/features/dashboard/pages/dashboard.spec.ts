@@ -17,6 +17,7 @@ const request: PurchaseRequest = {
   id: 'request-id',
   requestCode: 'PR-2026-0001',
   requesterId: 'employee-id',
+  requesterUsername: 'employee.demo',
   requesterName: 'Nguyễn Văn A',
   departmentId: 'department-id',
   departmentName: 'Kinh doanh',

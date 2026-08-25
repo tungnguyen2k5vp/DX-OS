@@ -24,6 +24,7 @@ export interface PurchaseRequest {
   id: string;
   requestCode: string;
   requesterId: string;
+  requesterUsername: string;
   requesterName: string;
   departmentId: string;
   departmentName: string;

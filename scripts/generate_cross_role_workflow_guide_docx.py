@@ -96,7 +96,10 @@ def cover(doc: Document) -> None:
     )
     paragraph = doc.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    paragraph.add_run(f"Phiên bản 1.0 • Ngày tạo {date.today().strftime('%d/%m/%Y')}")
+    paragraph.add_run(
+        f"Phiên bản 2.0 • Đối chiếu mã nguồn nhánh feat/enterprise-operations-review "
+        f"• Cập nhật {date.today().strftime('%d/%m/%Y')}"
+    )
     doc.add_page_break()
 
 
@@ -137,7 +140,7 @@ def add_flow_map(doc: Document) -> None:
         "                       ↓\n"
         "TRƯỞNG BỘ PHẬN duyệt → TÀI CHÍNH duyệt cuối\n"
         "                       ↓\n"
-        "TÀI CHÍNH so sánh báo giá → phát hành đơn hàng\n"
+        "TÀI CHÍNH nhập/so sánh báo giá → chọn phương án → tạo đơn từ báo giá\n"
         "                       ↓\n"
         "NHÂN VIÊN xác nhận nhận hàng\n"
         "                       ↓\n"
@@ -145,7 +148,8 @@ def add_flow_map(doc: Document) -> None:
         "                       ↓\n"
         "KIỂM TOÁN truy vết và xuất gói bằng chứng\n"
         "\n"
-        "ĐIỀU PHỐI AI theo dõi cùng mã PR và đưa khuyến nghị; không tự thay đổi phiếu."
+        "ĐIỀU PHỐI AI quét khuyến nghị có quy tắc và ghi quyết định; không tự thay đổi phiếu.\n"
+        "MỌI TÀI KHOẢN có thể hỏi Trợ lý AI nội bộ về quy trình; câu trả lời phải kèm nguồn."
     )
     table(
         doc,
@@ -156,7 +160,8 @@ def add_flow_map(doc: Document) -> None:
             ["Trưởng bộ phận", "Nhân viên", "Yêu cầu sửa rồi phê duyệt nhu cầu phòng ban", "Nhân viên/Tài chính"],
             ["Tài chính", "Trưởng bộ phận", "Duyệt cuối, báo giá, đơn hàng, hóa đơn và thanh toán", "Nhân viên/Kiểm toán"],
             ["Kiểm toán", "Toàn bộ chuỗi", "Đối chiếu dấu vết, mở hồ sơ và xuất bằng chứng", "Người xử lý khắc phục"],
-            ["Điều phối AI", "Dữ liệu đã phát sinh", "Đọc khuyến nghị liên quan mã PR và ghi quyết định", "Tài chính/Kiểm toán/Quản trị"],
+            ["Điều phối AI", "Dữ liệu đã phát sinh", "Quét khuyến nghị theo quy tắc, đọc bằng chứng và ghi quyết định", "Tài chính/Kiểm toán/Quản trị"],
+            ["Trợ lý AI nội bộ", "Tài liệu Markdown trong kho tri thức", "Trả lời câu hỏi quy trình có dẫn nguồn; không ghi dữ liệu nghiệp vụ", "Mọi người dùng đã xác thực"],
         ],
         [3.2, 3.0, 7.6, 3.5],
     )
@@ -165,6 +170,26 @@ def add_flow_map(doc: Document) -> None:
 def add_preparation(doc: Document) -> None:
     doc.add_page_break()
     heading(doc, "3. Chuẩn bị một lần trước khi bắt đầu", 1)
+    heading(doc, "3.0 Kiểm tra các dịch vụ cần cho kịch bản", 2)
+    table(
+        doc,
+        ["Thành phần", "Địa chỉ kiểm tra", "Kết quả cần thấy"],
+        [
+            ["DX-OS Web", "http://localhost:4200", "Trang chuyển sang đăng nhập hoặc Tổng quan."],
+            ["Go API", "http://localhost:8081/health/ready", "Phản hồi status = ready."],
+            ["Keycloak", "http://localhost:8080", "Máy chủ xác thực phản hồi; đăng nhập DX-OS chuyển về realm dx-os."],
+            ["Metabase", "http://localhost:3000", "Trang đăng nhập hoặc dashboard Metabase mở được."],
+            ["Nextcloud", "http://localhost:8082", "Trang Nextcloud phản hồi; tệp DX-OS vẫn tải qua Go API."],
+            ["Ollama local", "Kiểm tra trong menu Trợ lý AI nội bộ", "Nhãn AI local sẵn sàng và có tên mô hình."],
+        ],
+        [3.0, 7.0, 7.5],
+    )
+    callout(
+        doc,
+        "Không bắt đầu khi API hoặc Keycloak chưa sẵn sàng",
+        "Nếu chỉ một thành phần phụ như Metabase hoặc Ollama lỗi, ghi nhận riêng và vẫn có thể kiểm thử nghiệp vụ mua sắm. Nếu API/Keycloak lỗi, các bước liên vai trò sẽ cho kết quả sai hoặc không đăng nhập được.",
+        LIGHT_YELLOW,
+    )
     heading(doc, "3.1 Mở phiên đăng nhập riêng", 2)
     doc.add_paragraph(
         "Nên dùng sáu cửa sổ ẩn danh hoặc sáu hồ sơ trình duyệt. Nếu chỉ dùng một cửa sổ, phải Đăng xuất hoàn toàn trước khi đổi tài khoản."
@@ -215,6 +240,7 @@ def add_preparation(doc: Document) -> None:
             ["Mã phiếu PR", "PR-________________________"],
             ["Mã định danh trong URL", "____________________________________________"],
             ["Mã báo giá đã chọn", "____________________________________________"],
+            ["Nhà cung cấp đã chọn", "____________________________________________"],
             ["Mã đơn hàng PO", "PO-________________________"],
             ["Số hóa đơn", "INV-DEMO-__________________"],
             ["Mã hồ sơ kiểm toán", "____________________________________________"],
@@ -275,6 +301,25 @@ def add_preflight_admin(doc: Document) -> None:
         "Ảnh hai hồ sơ hiển thị cùng phòng ban và đúng vai trò.",
         "Nếu khác phòng ban, Manager sẽ không nhìn thấy phiếu dù Employee đã gửi. Sửa phòng ban, lưu, rồi đăng xuất/đăng nhập lại hai tài khoản để nhận token mới.",
     )
+    stage(
+        doc,
+        "4.2",
+        "Xác nhận quy tắc buộc phiếu đi qua hai cấp duyệt",
+        "admin.demo",
+        "Ủy quyền và quy tắc → Quy tắc theo giá trị phiếu",
+        "Employee và Manager đã đúng phòng ban.",
+        [
+            "Tìm một quy tắc đang dùng, tiền tệ VND, có khoảng tiền bao phủ 62.000.000 VND.",
+            "Kiểm tra dòng quy trình hiển thị Trưởng bộ phận → Tài chính, nghĩa là cả hai ô duyệt đều được bật.",
+            "Ưu tiên quy tắc mặc định đang có. Không tạo thêm quy tắc chồng lấn nếu quy tắc hiện tại đã bao phủ số tiền test.",
+            "Nếu không có quy tắc phù hợp, tạo quy tắc tạm tên “Kiểm thử liên vai trò 50–100 triệu”, từ 50.000.000 đến 100.000.000 VND, bật cả Trưởng bộ phận duyệt và Tài chính duyệt.",
+            "Chụp lại tên quy tắc được dùng. Nếu đã tạo quy tắc tạm, ghi chú để tạm dừng sau khi test xong.",
+        ],
+        "Có đúng một quy tắc ưu tiên áp dụng cho 62.000.000 VND và yêu cầu đủ hai cấp duyệt.",
+        "Báo cho employee.demo bắt đầu tạo phiếu; giữ ảnh quy tắc để giải thích nếu trạng thái chuyển khác dự kiến.",
+        "Ảnh tên quy tắc, khoảng tiền, trạng thái Đang dùng và chuỗi Trưởng bộ phận → Tài chính.",
+        "Nếu quy tắc chỉ có một cấp, hệ thống có thể bỏ qua Manager hoặc kết thúc ngay sau Manager; khi đó tài liệu không thể tiếp tục đúng luồng hai cấp.",
+    )
 
 
 def add_employee_create(doc: Document) -> None:
@@ -308,7 +353,8 @@ def add_employee_create(doc: Document) -> None:
         "Phiếu đang ở Bản nháp.",
         [
             "Tại Tài liệu đính kèm, chọn loại Báo giá và tải file PDF dưới 10 MB.",
-            "Kiểm tra tên file xuất hiện và có nút Tải xuống.",
+            "Kiểm tra tên file, dung lượng, loại Báo giá và nút Tải xuống đã xuất hiện.",
+            "Bấm Tải xuống một lần để xác nhận tệp lấy về mở được và đúng nội dung; đây là kiểm tra xuyên suốt cho chức năng quản lý tệp.",
             "Tại Hành động, chọn Gửi duyệt; nhập ghi chú “Đã đủ nhu cầu và chứng từ, đề nghị xem xét”.",
             "Xác nhận trạng thái không còn là Bản nháp.",
             "Mở Thông báo hoặc Timeline để thấy sự kiện gửi duyệt.",
@@ -333,6 +379,7 @@ def add_manager_roundtrip(doc: Document) -> None:
         [
             "Tìm đúng mã PR đã ghi ở mục 3.3; không chọn một phiếu demo khác.",
             "Mở chi tiết và đối chiếu người yêu cầu là employee.demo, tổng tiền 62.000.000 VND.",
+            "Trong Tài liệu đính kèm, bấm Tải xuống file Báo giá để chứng minh Manager đọc được tệp nhưng không có nút Xóa.",
             "Bấm Yêu cầu chỉnh sửa.",
             "Nhập lý do “Bổ sung thời gian cần hàng vào lý do mua sắm” rồi xác nhận.",
             "Kiểm tra Timeline có tên manager.demo và lý do vừa nhập.",
@@ -406,7 +453,7 @@ def add_approvals(doc: Document) -> None:
 
 def add_sourcing_order(doc: Document) -> None:
     doc.add_page_break()
-    heading(doc, "8. Chặng mua hàng — Tài chính chọn báo giá và phát hành đơn", 1)
+    heading(doc, "8. Chặng mua hàng — Tài chính chọn báo giá và tạo đơn được điền sẵn", 1)
     stage(
         doc,
         "8.1",
@@ -416,35 +463,36 @@ def add_sourcing_order(doc: Document) -> None:
         "Phiếu 62.000.000 VND đã được phê duyệt.",
         [
             "Tìm đúng mã PR trong danh sách Chờ báo giá.",
-            "Bấm Nhập báo giá, chọn nhà cung cấp thứ nhất; nhập số báo giá BG-A-[mã PR], số tiền 61.500.000 VND, ngày giao dự kiến và các điểm đánh giá từ 0 đến 100; bấm Lưu báo giá.",
-            "Lặp lại với nhà cung cấp thứ hai, số báo giá BG-B-[mã PR], số tiền 60.800.000 VND và bộ điểm khác.",
-            "So sánh Điểm giá, Điểm tiến độ, Điểm chất lượng, Điểm tuân thủ và Điểm tổng hợp.",
-            "Bấm Chọn báo giá trên phương án phù hợp, nhập lý do lựa chọn và xác nhận.",
-            "Ghi mã báo giá đã chọn vào Phiếu theo dõi mục 3.3.",
+            "Bấm Nhập báo giá. Trang tự cuộn đến khu vực nhập và đặt con trỏ ở trường Nhà cung cấp; không cần tự kéo xuống.",
+            "Chọn mã NCC-CNTT-ML (Công ty TNHH Công nghệ Minh Long), nhập số báo giá BG-A-[sáu số cuối mã PR], tổng giá 62.000.000 VND, ngày giao sau hôm nay 14 ngày, bảo hành 24 tháng và điều khoản thanh toán; bấm Lưu báo giá.",
+            "Mở lại cùng PR, chọn NCC-CNTT-TC (Công ty Cổ phần Thiết bị Thành Công), nhập số báo giá BG-B-[sáu số cuối mã PR], tổng giá 63.200.000 VND, ngày giao sau hôm nay 16 ngày, bảo hành 12 tháng và điều khoản thanh toán; bấm Lưu báo giá.",
+            "Đối chiếu Điểm giá, Điểm tiến độ, Điểm chất lượng, Điểm tuân thủ và Điểm tổng hợp. Các điểm có đơn vị /100 và do hệ thống tự tính từ giá, ngày giao cùng hồ sơ nhà cung cấp; người dùng không nhập điểm bằng tay.",
+            "Bấm Chọn báo giá trên phương án Công ty TNHH Công nghệ Minh Long và xác nhận hộp thoại. Giao diện hiện tại tự ghi lý do chuẩn, không mở ô nhập lý do riêng.",
+            "Kiểm tra chỉ báo giá vừa chọn có nhãn Đã chọn; báo giá còn lại có nhãn Không chọn. Ghi mã báo giá và nhà cung cấp vào Phiếu theo dõi mục 3.3.",
         ],
-        "Hồ sơ báo giá ở trạng thái Đã chọn; chỉ một báo giá được chọn.",
-        "Finance chuyển sang Đặt hàng & giao nhận và tiếp tục dùng đúng nhà cung cấp đã chọn.",
-        "Ảnh hai báo giá, điểm có đơn vị /100, nhãn Đã chọn và lý do lựa chọn.",
-        "Nếu không thấy phiếu, kiểm tra phiếu đã Được phê duyệt. Nếu không chọn được báo giá, tải lại vì dữ liệu có thể vừa đổi phiên bản.",
+        "Hồ sơ báo giá ở trạng thái Đã chọn; chỉ một báo giá được chọn và xuất hiện nút Tạo đơn hàng ngay trên phương án thắng.",
+        "Finance không mở form đặt hàng thủ công. Tiếp tục bấm Tạo đơn hàng tại chính báo giá đã chọn ở Chặng 8.2.",
+        "Ảnh hai báo giá, điểm có đơn vị /100, nhãn Đã chọn và mã báo giá thắng.",
+        "Nếu không thấy phiếu, kiểm tra phiếu đã Được phê duyệt. Nếu nút chọn bị lỗi, tải lại vì phiên bản báo giá có thể vừa thay đổi. Không sửa điểm trực tiếp trong cơ sở dữ liệu.",
     )
     stage(
         doc,
         "8.2",
-        "Phát hành đơn hàng",
+        "Tạo đơn từ báo giá đã chọn và phát hành",
         "finance.demo",
-        "Đặt hàng & giao nhận",
-        "Phiếu đã có báo giá được chọn.",
+        "So sánh báo giá → nút Tạo đơn hàng trên báo giá Đã chọn",
+        "Phiếu đã có đúng một báo giá được chọn.",
         [
-            "Tìm đúng mã PR ở nhóm Chờ đặt hàng và bấm thao tác tạo đơn.",
-            "Chọn đúng nhà cung cấp trúng báo giá.",
-            "Nhập Mã tham chiếu ngoài EXT-[mã PR], Ngày giao dự kiến trong tương lai và ghi chú “Đơn hàng theo báo giá đã chọn”.",
+            "Bấm Tạo đơn hàng ngay cạnh nhãn Đã chọn. Hệ thống chuyển sang Đặt hàng & giao nhận và tự cuộn đến form Tạo đơn hàng.",
+            "Đối chiếu các trường đã điền sẵn: đúng mã PR, nhà cung cấp Minh Long, mã tham chiếu bằng số báo giá BG-A-..., ngày giao dự kiến và ghi chú gồm nguồn báo giá, bảo hành, điều khoản thanh toán.",
+            "Không đổi nhà cung cấp. Nếu muốn bổ sung, chỉ thêm ghi chú “Đã đối chiếu với phương án được chọn tại So sánh báo giá”.",
             "Bấm Phát hành đơn hàng.",
-            "Ghi mã PO xuất hiện vào Phiếu theo dõi mục 3.3.",
+            "Tìm lại đúng mã PR trong Dòng giao nhận, kiểm tra mã PO mới, nhà cung cấp và ngày giao; ghi mã PO vào Phiếu theo dõi mục 3.3.",
         ],
-        "Có mã PO; trạng thái đơn hàng Đã đặt/Đang giao tùy thời điểm.",
+        "Có mã PO; trạng thái Đang giao. Dữ liệu đơn hàng khớp báo giá được chọn mà không nhập lại thủ công.",
         "Bàn giao employee.demo: mã PR, mã PO, ngày giao dự kiến và yêu cầu xác nhận đúng số lượng thực nhận.",
         "Ảnh mã PR, mã PO, nhà cung cấp và ngày giao dự kiến trên cùng một dòng.",
-        "Nếu hệ thống không cho phát hành, kiểm tra báo giá đã được chọn và nhà cung cấp trên đơn trùng phương án đã chọn.",
+        "Nếu form không tự mở hoặc không điền sẵn, quay lại So sánh báo giá và bấm đúng nút Tạo đơn hàng của phương án Đã chọn. Với phiếu từ 50.000.000 VND, backend bắt buộc phải có báo giá thắng trước khi tạo PO.",
     )
 
 
@@ -519,7 +567,7 @@ def add_invoice(doc: Document) -> None:
 
 def add_audit_ai(doc: Document) -> None:
     doc.add_page_break()
-    heading(doc, "11. Chặng kiểm soát — Kiểm toán và Điều phối AI cùng truy vết một phiếu", 1)
+    heading(doc, "11. Chặng kiểm soát — Kiểm toán, khuyến nghị và Trợ lý AI", 1)
     stage(
         doc,
         "11.1",
@@ -559,6 +607,26 @@ def add_audit_ai(doc: Document) -> None:
         "Ảnh thẻ khuyến nghị, bằng chứng tiếng Việt có đơn vị và lý do quyết định.",
         "Nếu chưa có khuyến nghị, chờ tiến trình nền chạy hoặc tải lại sau; không tạo dữ liệu giả trực tiếp trong database. Điều phối AI không được duyệt phiếu hay thanh toán.",
     )
+    stage(
+        doc,
+        "11.3",
+        "Hỏi Trợ lý AI nội bộ và kiểm tra nguồn",
+        "auditor.demo (hoặc bất kỳ tài khoản đã đăng nhập)",
+        "Trợ lý AI nội bộ",
+        "Ollama local và mô hình đã cấu hình đang sẵn sàng.",
+        [
+            "Kiểm tra nhãn trạng thái hiển thị AI local sẵn sàng; phần Trạng thái local có tên mô hình, số tài liệu trong kho tri thức và thông báo kết nối thành công.",
+            "Chọn câu hỏi mẫu “Phiếu mua sắm từ 20 triệu cần những tài liệu gì?” hoặc tự nhập câu hỏi có ít nhất 3 ký tự.",
+            "Bấm Hỏi AI local và chờ trả lời. Lần đầu với mô hình 4B có thể cần khoảng 20–90 giây.",
+            "Kiểm tra câu trả lời có chỉ dẫn nguồn dạng [1], [2] và phần Nguồn nội bộ liệt kê tên, đường dẫn cùng đoạn trích tài liệu.",
+            "Đối chiếu nội dung với quy tắc thực tế: phiếu từ ngưỡng cấu hình cần loại tệp bắt buộc trước khi gửi. Nếu nguồn không đủ, câu trả lời phải nói rõ thay vì tự suy đoán.",
+            "Xác nhận việc hỏi AI không tạo, duyệt, sửa, hủy phiếu, phát hành đơn hàng hoặc thanh toán.",
+        ],
+        "Có câu trả lời tiếng Việt dựa trên tài liệu nội bộ, kèm nguồn để người dùng kiểm tra; dữ liệu nghiệp vụ không đổi.",
+        "Kết quả chỉ là trợ giúp tra cứu. Người có đúng vai trò vẫn phải tự thực hiện và chịu trách nhiệm cho thao tác nghiệp vụ.",
+        "Ảnh trạng thái AI local, câu hỏi, câu trả lời và ít nhất một nguồn nội bộ được mở rộng.",
+        "Nếu báo AI local chưa sẵn sàng, bấm Kiểm tra lại. Kiểm tra dịch vụ Ollama, biến AI_ENABLED và mô hình đã được tải; không nhầm lỗi này với Trung tâm khuyến nghị theo quy tắc.",
+    )
 
 
 def add_final_verification(doc: Document) -> None:
@@ -575,6 +643,7 @@ def add_final_verification(doc: Document) -> None:
             ["Employee → Finance", "Biên nhận của Employee làm hóa đơn đủ điều kiện đối soát/xác minh.", "☐ Đạt  ☐ Không đạt"],
             ["Finance → Auditor", "Auditor truy được PR, PO, receipt, invoice và payment bằng cùng chuỗi mã.", "☐ Đạt  ☐ Không đạt"],
             ["Dữ liệu → AI", "Khuyến nghị tham chiếu đúng PR và số tiền, nhưng không tự đổi nghiệp vụ.", "☐ Đạt  ☐ Không đạt"],
+            ["Tài liệu → Trợ lý AI", "Câu trả lời có nguồn nội bộ và không tạo thao tác nghiệp vụ.", "☐ Đạt  ☐ Không đạt"],
             ["Admin → Toàn luồng", "Phòng ban/quyền đúng; Admin không trực tiếp duyệt hay thanh toán.", "☐ Đạt  ☐ Không đạt"],
         ],
         [4.1, 10.3, 2.9],
@@ -582,11 +651,11 @@ def add_final_verification(doc: Document) -> None:
     callout(
         doc,
         "Luồng đạt hoàn toàn khi",
-        "Chỉ có một mã PR từ đầu đến cuối; phiếu từng quay lại Employee để sửa; mọi lần bàn giao đều hiện đúng ở tài khoản tiếp theo; hóa đơn PAID với còn lại 0 VND; Auditor truy được bằng chứng; AI chỉ hỗ trợ quyết định.",
+        "Chỉ có một mã PR từ đầu đến cuối; phiếu từng quay lại Employee để sửa; mọi lần bàn giao đều hiện đúng ở tài khoản tiếp theo; đơn hàng lấy dữ liệu từ báo giá thắng; hóa đơn PAID với còn lại 0 VND; Auditor truy được bằng chứng; cả khuyến nghị và Trợ lý AI chỉ hỗ trợ con người.",
         LIGHT_GREEN,
     )
 
-    heading(doc, "12.1 Kịch bản demo 8–10 phút", 2)
+    heading(doc, "12.1 Kịch bản demo 9–11 phút", 2)
     table(
         doc,
         ["Thời lượng", "Người trình bày", "Nội dung nên mở"],
@@ -598,6 +667,7 @@ def add_final_verification(doc: Document) -> None:
             ["2 phút", "Tài chính", "Mở đối soát ba bên, trạng thái Đã xác minh và Đã thanh toán."],
             ["1 phút", "Kiểm toán", "Mở Timeline/gói bằng chứng và hồ sơ kiểm toán."],
             ["1 phút", "Điều phối AI", "Mở khuyến nghị cùng mã PR và giải thích AI không tự quyết định."],
+            ["1 phút", "Bất kỳ tài khoản", "Hỏi Trợ lý AI nội bộ, mở nguồn và phân biệt với khuyến nghị theo quy tắc."],
         ],
         [2.1, 3.5, 11.7],
     )
@@ -620,6 +690,7 @@ def add_troubleshooting(doc: Document) -> None:
             ["Không có nút Thanh toán", "Hóa đơn chưa được xác minh hoặc đang tranh chấp.", "10.2"],
             ["Auditor thiếu sự kiện", "Lọc sai thời gian/đối tượng hoặc dùng mã PR thay cho mã định danh.", "11.1"],
             ["AI chưa có khuyến nghị", "Tiến trình nền chưa chạy hoặc cảnh báo đã được tạo ở lần trước.", "11.2"],
+            ["Trợ lý AI chưa trả lời", "Ollama/mô hình chưa sẵn sàng, kho tri thức lỗi hoặc câu hỏi không tìm được nguồn phù hợp.", "11.3"],
         ],
         [5.0, 8.8, 3.5],
     )
@@ -641,7 +712,7 @@ def add_signoff(doc: Document) -> None:
             ["Người chạy luồng", "____________________________________________"],
             ["Thời gian bắt đầu/kết thúc", "____________________________________________"],
             ["Trạng thái cuối", "☐ PAID  ☐ Dừng ở ____________________________"],
-            ["Số điểm nối đạt", "____ / 8 điểm nối tại mục 12"],
+            ["Số điểm nối đạt", "____ / 9 điểm nối tại mục 12"],
             ["Lỗi còn mở", "____________________________________________"],
             ["Kết luận", "☐ Sẵn sàng demo  ☐ Cần sửa và chạy lại từ Chặng ____"],
         ],
@@ -672,10 +743,10 @@ def build() -> Path:
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     doc.core_properties.title = "Hướng dẫn kiểm thử luồng liên vai trò DX-OS"
-    doc.core_properties.subject = "Một phiếu mua sắm xuyên suốt sáu vai trò"
+    doc.core_properties.subject = "Một phiếu mua sắm xuyên suốt sáu vai trò, khuyến nghị và Trợ lý AI local"
     doc.core_properties.author = "DX-OS Lab"
     doc.core_properties.keywords = (
-        "DX-OS, luồng liên vai trò, mua sắm, phê duyệt, báo giá, giao nhận, hóa đơn, kiểm toán"
+        "DX-OS, luồng liên vai trò, mua sắm, phê duyệt, báo giá, đơn hàng tự điền, giao nhận, hóa đơn, kiểm toán, Ollama"
     )
     doc.save(OUTPUT)
     return OUTPUT
