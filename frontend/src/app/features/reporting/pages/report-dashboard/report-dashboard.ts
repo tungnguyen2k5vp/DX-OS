@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
@@ -18,6 +19,8 @@ import { problemMessage } from '../../../procurement/data-access/problem-details
 import { MoneyPipe } from '../../../procurement/ui/money.pipe';
 import {
   ProcurementReportDashboard,
+  ReportDailyRequest,
+  ReportDailyTrend,
   ReportStatusBreakdown,
 } from '../../data-access/reporting.models';
 import { ReportingService } from '../../data-access/reporting.service';
@@ -44,6 +47,7 @@ interface StatusView extends ReportStatusBreakdown {
     DecimalPipe,
     PercentPipe,
     ReactiveFormsModule,
+    RouterLink,
     HlmBadge,
     HlmButton,
     ...HlmCardImports,
@@ -63,6 +67,10 @@ export class ReportDashboardPage {
   readonly dashboard = signal<ProcurementReportDashboard | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly selectedTrendKey = signal<string | null>(null);
+  readonly dailyRequests = signal<ReportDailyRequest[]>([]);
+  readonly dailyRequestsLoading = signal(false);
+  readonly dailyRequestsError = signal<string | null>(null);
   readonly filters = this.formBuilder.nonNullable.group({
     from: [dateInput(-29), Validators.required],
     to: [dateInput(0), Validators.required],
@@ -112,6 +120,59 @@ export class ReportDashboardPage {
 
   retry(): void {
     this.load();
+  }
+
+  trendKey(trend: ReportDailyTrend): string {
+    return `${trend.date}|${trend.currency}`;
+  }
+
+  toggleDailyRequests(trend: ReportDailyTrend): void {
+    const key = this.trendKey(trend);
+    if (this.selectedTrendKey() === key) {
+      this.loadGeneration++;
+      this.selectedTrendKey.set(null);
+      this.dailyRequests.set([]);
+      this.dailyRequestsError.set(null);
+      this.dailyRequestsLoading.set(false);
+      return;
+    }
+
+    const generation = ++this.loadGeneration;
+    const currentFilters = this.dashboard()?.filters;
+    this.selectedTrendKey.set(key);
+    this.dailyRequests.set([]);
+    this.dailyRequestsError.set(null);
+    this.dailyRequestsLoading.set(true);
+    this.reporting
+      .dailyRequests({
+        date: trend.date,
+        departmentId: currentFilters?.departmentId,
+        costCenter: currentFilters?.costCenter,
+        currency: trend.currency,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
+          this.dailyRequests.set(result.items);
+          this.dailyRequestsLoading.set(false);
+        },
+        error: (error: unknown) => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
+          this.dailyRequestsError.set(
+            problemMessage(error, 'Không tải được chi tiết phiếu trong ngày.'),
+          );
+          this.dailyRequestsLoading.set(false);
+        },
+      });
+  }
+
+  dailyRequestStatusLabel(status: string): string {
+    return statusLabels[status] ?? status;
   }
 
   exportCsv(): void {
@@ -174,6 +235,10 @@ export class ReportDashboardPage {
     const values = this.filters.getRawValue();
     this.loading.set(true);
     this.error.set(null);
+    this.selectedTrendKey.set(null);
+    this.dailyRequests.set([]);
+    this.dailyRequestsError.set(null);
+    this.dailyRequestsLoading.set(false);
     this.reporting
       .procurementDashboard({
         from: values.from,

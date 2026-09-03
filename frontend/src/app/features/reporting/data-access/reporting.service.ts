@@ -9,6 +9,8 @@ import {
   AuditQuery,
   ProcurementReportDashboard,
   ProcurementReportQuery,
+  ReportDailyRequestList,
+  ReportDailyRequestQuery,
   SaveAuditCase,
 } from './reporting.models';
 
@@ -30,6 +32,23 @@ export class ReportingService {
     }
     return this.http.get<ProcurementReportDashboard>(
       `${this.config.apiBaseUrl}/api/v1/reports/procurement`,
+      { params },
+    );
+  }
+
+  dailyRequests(query: ReportDailyRequestQuery): Observable<ReportDailyRequestList> {
+    let params = new HttpParams().set('date', query.date);
+    if (query.departmentId) {
+      params = params.set('departmentId', query.departmentId);
+    }
+    if (query.costCenter) {
+      params = params.set('costCenter', query.costCenter);
+    }
+    if (query.currency) {
+      params = params.set('currency', query.currency);
+    }
+    return this.http.get<ReportDailyRequestList>(
+      `${this.config.apiBaseUrl}/api/v1/reports/procurement/daily-requests`,
       { params },
     );
   }

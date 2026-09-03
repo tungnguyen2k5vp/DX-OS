@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { APP_CONFIG } from '../../../../core/config/app-config';
 import { ProcurementReportDashboard } from '../../data-access/reporting.models';
@@ -22,7 +23,15 @@ const report: ProcurementReportDashboard = {
   statuses: [
     { status: 'APPROVED', currency: 'VND', requestCount: 2, totalAmount: '50000000.0000' },
   ],
-  trends: [],
+  trends: [
+    {
+      date: '2026-07-20',
+      currency: 'VND',
+      requestCount: 1,
+      approvedCount: 0,
+      totalAmount: '25000000.0000',
+    },
+  ],
   departments: [],
   budgets: [],
   generatedAt: '2026-07-31T00:00:00Z',
@@ -33,9 +42,30 @@ describe('ReportDashboardPage', () => {
     await TestBed.configureTestingModule({
       imports: [ReportDashboardPage],
       providers: [
+        provideRouter([]),
         {
           provide: ReportingService,
-          useValue: { procurementDashboard: () => of(report) },
+          useValue: {
+            procurementDashboard: () => of(report),
+            dailyRequests: () =>
+              of({
+                items: [
+                  {
+                    id: 'request-id',
+                    requestCode: 'PR-2026-000001',
+                    title: 'Mua máy tính văn phòng',
+                    requesterUsername: 'employee.demo',
+                    requesterName: 'Nguyễn Minh Anh',
+                    departmentName: 'Phòng ban chung',
+                    status: 'SUBMITTED',
+                    currency: 'VND',
+                    totalAmount: '25000000.0000',
+                    createdAt: '2026-07-20T08:30:00Z',
+                  },
+                ],
+                total: 1,
+              }),
+          },
         },
         {
           provide: APP_CONFIG,
@@ -56,5 +86,15 @@ describe('ReportDashboardPage', () => {
     expect(element.textContent).toContain('100.000.000 VND');
     expect(element.querySelector<HTMLAnchorElement>('a[href="http://metabase.test"]')).toBeTruthy();
     expect(element.textContent).toContain('Xuất CSV');
+
+    const dayButton = element.querySelector<HTMLButtonElement>(
+      'button[aria-controls="daily-detail-2026-07-20-VND"]',
+    );
+    expect(dayButton).toBeTruthy();
+    dayButton?.click();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('PR-2026-000001');
+    expect(element.textContent).toContain('Mua máy tính văn phòng');
+    expect(element.querySelector('a[href="/purchase-requests/request-id"]')).toBeTruthy();
   });
 });

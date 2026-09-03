@@ -39,6 +39,24 @@ export interface ReportDailyTrend {
   totalAmount: string;
 }
 
+export interface ReportDailyRequest {
+  id: string;
+  requestCode: string;
+  title: string;
+  requesterUsername: string;
+  requesterName: string;
+  departmentName: string;
+  status: string;
+  currency: string;
+  totalAmount: string;
+  createdAt: string;
+}
+
+export interface ReportDailyRequestList {
+  items: ReportDailyRequest[];
+  total: number;
+}
+
 export interface ReportDepartmentBreakdown {
   departmentId: string;
   departmentName: string;
@@ -75,6 +93,13 @@ export interface ProcurementReportDashboard {
 export interface ProcurementReportQuery {
   from: string;
   to: string;
+  departmentId?: string;
+  costCenter?: string;
+  currency?: string;
+}
+
+export interface ReportDailyRequestQuery {
+  date: string;
   departmentId?: string;
   costCenter?: string;
   currency?: string;

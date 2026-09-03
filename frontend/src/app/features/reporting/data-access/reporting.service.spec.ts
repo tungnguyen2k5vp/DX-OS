@@ -54,6 +54,40 @@ describe('ReportingService', () => {
     http.verify();
   });
 
+  it('loads purchase request details for the selected report day', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: APP_CONFIG,
+          useValue: { apiBaseUrl: 'http://api.test' },
+        },
+      ],
+    });
+    const service = TestBed.inject(ReportingService);
+    const http = TestBed.inject(HttpTestingController);
+
+    service
+      .dailyRequests({
+        date: '2026-08-20',
+        costCenter: 'CC-GENERAL',
+        currency: 'VND',
+      })
+      .subscribe();
+
+    const request = http.expectOne(
+      (candidate) =>
+        candidate.url === 'http://api.test/api/v1/reports/procurement/daily-requests' &&
+        candidate.params.get('date') === '2026-08-20' &&
+        candidate.params.get('costCenter') === 'CC-GENERAL' &&
+        candidate.params.get('currency') === 'VND',
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush({ items: [], total: 0 });
+    http.verify();
+  });
+
   it('sends audit pagination and evidence filters', () => {
     TestBed.configureTestingModule({
       providers: [

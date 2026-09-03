@@ -8,8 +8,8 @@
         Báo cáo vận hành
       </h1>
       <p class="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-        Theo dõi khối lượng mua sắm, thời gian xử lý, hạn xử lý (SLA), ngân sách và mức tuân thủ tài liệu từ
-        curated views.
+        Theo dõi khối lượng mua sắm, thời gian xử lý, hạn xử lý (SLA), ngân sách và mức tuân thủ tài
+        liệu từ curated views.
       </p>
     </div>
     <div class="flex flex-wrap gap-2">
@@ -255,8 +255,21 @@
             </thead>
             <tbody class="divide-y divide-border">
               @for (trend of current.trends; track trend.date + trend.currency) {
-                <tr>
-                  <td class="px-3 py-4">{{ trend.date | date: 'dd/MM/yyyy' }}</td>
+                <tr class="transition-colors hover:bg-muted/40">
+                  <td class="px-3 py-4">
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-2 rounded-md font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      [attr.aria-expanded]="selectedTrendKey() === trendKey(trend)"
+                      [attr.aria-controls]="'daily-detail-' + trend.date + '-' + trend.currency"
+                      (click)="toggleDailyRequests(trend)"
+                    >
+                      {{ trend.date | date: 'dd/MM/yyyy' }}
+                      <span aria-hidden="true">{{
+                        selectedTrendKey() === trendKey(trend) ? '−' : '+'
+                      }}</span>
+                    </button>
+                  </td>
                   <td class="px-3 py-4">
                     <span hlmBadge variant="outline">{{ trend.currency }}</span>
                   </td>
@@ -266,6 +279,106 @@
                     {{ trend.totalAmount | dxMoney: trend.currency }}
                   </td>
                 </tr>
+                @if (selectedTrendKey() === trendKey(trend)) {
+                  <tr>
+                    <td colspan="5" class="bg-muted/25 px-3 py-4">
+                      <section
+                        class="rounded-xl border bg-background p-4 shadow-sm"
+                        [id]="'daily-detail-' + trend.date + '-' + trend.currency"
+                        [attr.aria-label]="
+                          'Chi tiết phiếu ngày ' + (trend.date | date: 'dd/MM/yyyy')
+                        "
+                      >
+                        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <h3 class="font-semibold">
+                              Phiếu mua hàng ngày {{ trend.date | date: 'dd/MM/yyyy' }}
+                            </h3>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                              {{ trend.requestCount }} phiếu · {{ trend.currency }}
+                            </p>
+                          </div>
+                          <button
+                            hlmBtn
+                            size="sm"
+                            variant="ghost"
+                            type="button"
+                            (click)="toggleDailyRequests(trend)"
+                          >
+                            Đóng
+                          </button>
+                        </div>
+
+                        @if (dailyRequestsLoading()) {
+                          <div
+                            class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
+                          >
+                            Đang tải chi tiết phiếu...
+                          </div>
+                        } @else if (dailyRequestsError(); as detailError) {
+                          <div
+                            class="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+                          >
+                            {{ detailError }}
+                          </div>
+                        } @else if (dailyRequests().length > 0) {
+                          <div class="divide-y rounded-lg border">
+                            @for (request of dailyRequests(); track request.id) {
+                              <article
+                                class="grid gap-3 p-4 transition-colors hover:bg-muted/30 md:grid-cols-[minmax(0,2fr)_minmax(180px,1fr)_auto_auto] md:items-center"
+                              >
+                                <div class="min-w-0">
+                                  <p class="text-xs font-medium text-primary">
+                                    {{ request.requestCode }}
+                                  </p>
+                                  <p class="mt-1 truncate font-medium" [title]="request.title">
+                                    {{ request.title }}
+                                  </p>
+                                  <p class="mt-1 text-xs text-muted-foreground">
+                                    Tạo lúc {{ request.createdAt | date: 'HH:mm' }}
+                                  </p>
+                                </div>
+                                <div class="min-w-0 text-sm">
+                                  <p class="truncate font-medium" [title]="request.requesterName">
+                                    {{ request.requesterName }}
+                                  </p>
+                                  <p
+                                    class="mt-1 truncate text-xs text-muted-foreground"
+                                    [title]="request.departmentName"
+                                  >
+                                    {{ request.departmentName }}
+                                  </p>
+                                </div>
+                                <div class="md:text-right">
+                                  <span hlmBadge variant="outline">
+                                    {{ dailyRequestStatusLabel(request.status) }}
+                                  </span>
+                                  <p class="mt-2 whitespace-nowrap font-semibold tabular-nums">
+                                    {{ request.totalAmount | dxMoney: request.currency }}
+                                  </p>
+                                </div>
+                                <a
+                                  hlmBtn
+                                  size="sm"
+                                  variant="outline"
+                                  [routerLink]="['/purchase-requests', request.id]"
+                                >
+                                  Mở phiếu
+                                </a>
+                              </article>
+                            }
+                          </div>
+                        } @else {
+                          <div
+                            class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
+                          >
+                            Không tìm thấy phiếu phù hợp với ngày và bộ lọc này.
+                          </div>
+                        }
+                      </section>
+                    </td>
+                  </tr>
+                }
               } @empty {
                 <tr>
                   <td colspan="5" class="px-3 py-10 text-center text-muted-foreground">

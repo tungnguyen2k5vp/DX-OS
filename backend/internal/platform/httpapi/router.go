@@ -59,6 +59,7 @@ type purchaseRequestService interface {
 
 type reportingService interface {
 	Dashboard(context.Context, auth.Principal, reporting.DashboardInput) (reporting.Dashboard, error)
+	DailyRequests(context.Context, auth.Principal, reporting.DashboardInput) (reporting.DailyRequestList, error)
 	AuditCenter(context.Context, auth.Principal, reporting.AuditInput) (reporting.AuditCenter, error)
 }
 
@@ -190,6 +191,7 @@ func New(deps Dependencies) http.Handler {
 		r.Get("/budgets/dashboard", server.getBudgetDashboard)
 		r.Patch("/budgets/allocations/{allocationID}", server.adjustBudgetAllocation)
 		r.Get("/reports/procurement", server.getProcurementReport)
+		r.Get("/reports/procurement/daily-requests", server.getProcurementDailyRequests)
 		r.Get("/suppliers", server.listSuppliers)
 		r.Post("/suppliers", server.createSupplier)
 		r.Patch("/suppliers/{supplierID}", server.updateSupplier)

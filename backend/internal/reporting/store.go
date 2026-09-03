@@ -106,6 +106,71 @@ func (s *Store) Dashboard(
 	return result, nil
 }
 
+func (s *Store) DailyRequests(
+	ctx context.Context,
+	principal auth.Principal,
+	input DashboardInput,
+) (DailyRequestList, error) {
+	if !CanAccess(principal) {
+		return DailyRequestList{}, ErrForbidden
+	}
+	if err := ValidateDashboardInput(&input); err != nil {
+		return DailyRequestList{}, err
+	}
+
+	organizationID, err := s.ensureOrganizationScope(ctx, principal)
+	if err != nil {
+		return DailyRequestList{}, err
+	}
+	where, args := factFilters(input, organizationID)
+	rows, err := s.database.Query(ctx, `
+		SELECT
+			purchase_request_id,
+			request_code,
+			title,
+			requester_username,
+			COALESCE((SELECT display_name FROM users WHERE id = requester_id), requester_username),
+			department_name,
+			status,
+			currency,
+			total_amount::text,
+			created_at,
+			count(*) OVER()
+		FROM reporting.purchase_request_facts
+	`+where+`
+		ORDER BY created_at DESC, request_code DESC
+	`, args...)
+	if err != nil {
+		return DailyRequestList{}, fmt.Errorf("query daily report requests: %w", err)
+	}
+	defer rows.Close()
+
+	result := DailyRequestList{Items: make([]DailyRequest, 0)}
+	for rows.Next() {
+		var item DailyRequest
+		if err = rows.Scan(
+			&item.ID,
+			&item.RequestCode,
+			&item.Title,
+			&item.RequesterUsername,
+			&item.RequesterName,
+			&item.DepartmentName,
+			&item.Status,
+			&item.Currency,
+			&item.TotalAmount,
+			&item.CreatedAt,
+			&result.Total,
+		); err != nil {
+			return DailyRequestList{}, fmt.Errorf("scan daily report request: %w", err)
+		}
+		result.Items = append(result.Items, item)
+	}
+	if err = rows.Err(); err != nil {
+		return DailyRequestList{}, fmt.Errorf("iterate daily report requests: %w", err)
+	}
+	return result, nil
+}
+
 func (s *Store) AuditCenter(
 	ctx context.Context,
 	principal auth.Principal,

@@ -105,3 +105,92 @@ func (a *api) getProcurementReport(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, result)
 }
+
+func (a *api) getProcurementDailyRequests(w http.ResponseWriter, r *http.Request) {
+	if a.reporting == nil {
+		writeProblem(
+			w, r, http.StatusServiceUnavailable, "service-unavailable",
+			"Dịch vụ chưa sẵn sàng", "Dịch vụ báo cáo hiện không sẵn sàng.",
+		)
+		return
+	}
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeProblem(
+			w, r, http.StatusUnauthorized, "unauthenticated",
+			"Cần đăng nhập", "Cần access token hợp lệ để tiếp tục.",
+		)
+		return
+	}
+
+	query := r.URL.Query()
+	var violations []reporting.FieldViolation
+	supported := map[string]bool{
+		"date": true, "departmentId": true, "costCenter": true, "currency": true,
+	}
+	for key, values := range query {
+		if !supported[key] {
+			violations = append(violations, reporting.FieldViolation{
+				Field: key, Message: "Tham số không được hỗ trợ.",
+			})
+		}
+		if len(values) != 1 {
+			violations = append(violations, reporting.FieldViolation{
+				Field: key, Message: "Tham số chỉ được xuất hiện một lần.",
+			})
+		}
+	}
+
+	dateValue := strings.TrimSpace(query.Get("date"))
+	date, err := time.Parse(time.DateOnly, dateValue)
+	if err != nil {
+		violations = append(violations, reporting.FieldViolation{
+			Field: "date", Message: "Ngày là bắt buộc và phải có định dạng YYYY-MM-DD.",
+		})
+	}
+	input := reporting.DashboardInput{
+		From:         date,
+		To:           date,
+		DepartmentID: query.Get("departmentId"),
+		CostCenter:   query.Get("costCenter"),
+		Currency:     query.Get("currency"),
+	}
+	if err == nil {
+		if validationErr := reporting.ValidateDashboardInput(&input); validationErr != nil {
+			var typed *reporting.ValidationError
+			if errors.As(validationErr, &typed) {
+				violations = append(violations, typed.Violations...)
+			}
+		}
+	}
+	if len(violations) > 0 {
+		writeValidationProblem(
+			w, r, "invalid-daily-report-filters",
+			"Thông tin ngày xem chi tiết không hợp lệ.", violations,
+		)
+		return
+	}
+
+	result, err := a.reporting.DailyRequests(r.Context(), principal, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, reporting.ErrForbidden):
+			writeProblem(
+				w, r, http.StatusForbidden, "reporting-forbidden",
+				"Không có quyền truy cập", "Tài khoản không có quyền xem báo cáo vận hành.",
+			)
+		default:
+			a.logger.Error(
+				"daily reporting request failed",
+				"error", err,
+				"correlation_id", correlationIDFromContext(r.Context()),
+			)
+			writeProblem(
+				w, r, http.StatusInternalServerError, "internal",
+				"Lỗi máy chủ", "Không thể tải chi tiết phiếu theo ngày.",
+			)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}

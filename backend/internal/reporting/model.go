@@ -81,6 +81,24 @@ type DailyTrend struct {
 	TotalAmount   string `json:"totalAmount"`
 }
 
+type DailyRequest struct {
+	ID                string    `json:"id"`
+	RequestCode       string    `json:"requestCode"`
+	Title             string    `json:"title"`
+	RequesterUsername string    `json:"requesterUsername"`
+	RequesterName     string    `json:"requesterName"`
+	DepartmentName    string    `json:"departmentName"`
+	Status            string    `json:"status"`
+	Currency          string    `json:"currency"`
+	TotalAmount       string    `json:"totalAmount"`
+	CreatedAt         time.Time `json:"createdAt"`
+}
+
+type DailyRequestList struct {
+	Items []DailyRequest `json:"items"`
+	Total int64          `json:"total"`
+}
+
 type DepartmentBreakdown struct {
 	DepartmentID   string `json:"departmentId"`
 	DepartmentName string `json:"departmentName"`
